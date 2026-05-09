@@ -1,4 +1,8 @@
 require('dotenv').config();
+
+process.on('uncaughtException',  err  => console.error('CRASH uncaughtException:',  err.stack || err.message));
+process.on('unhandledRejection', (r)  => console.error('CRASH unhandledRejection:', r?.stack || r));
+
 const express   = require('express');
 const cors      = require('cors');
 const helmet    = require('helmet');
@@ -214,8 +218,8 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Remisions ADD COLUMN numero_orden VARCHAR(50) NULL").catch(() => {});
             await sequelize.sync();
             await seed();
-            app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT} — red local: http://192.168.1.52:${PORT}`));
-            startBot();
+            app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
+            try { startBot(); } catch(e) { console.error('Bot init error:', e.message); }
             return;
         } catch (err) {
             console.error(`Intento ${i}/${intentos}: ${err.message}`);
