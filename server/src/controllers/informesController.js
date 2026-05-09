@@ -1,4 +1,4 @@
-const { Compra, CompraItem, Venta, VentaItem, Material, Reciclador, Bodega } = require('../models');
+const { Compra, CompraItem, Venta, VentaItem, Material, Reciclador, Cliente, Bodega } = require('../models');
 const { Op } = require('sequelize');
 
 exports.dashboard = async (req, res) => {
@@ -12,20 +12,26 @@ exports.dashboard = async (req, res) => {
         const compras = await Compra.findAll({ where: whereCompra, include: [{ model: CompraItem, as: 'items' }, { model: Reciclador, as: 'reciclador' }] });
         const ventas  = await Venta.findAll({ where: whereVenta,  include: [{ model: VentaItem,  as: 'items' }] });
 
-        const totalComprasKg  = compras.reduce((s, c) => s + c.items.reduce((a, i) => a + parseFloat(i.kilos), 0), 0);
-        const totalComprasPesos= compras.reduce((s, c) => s + parseFloat(c.neto), 0);
-        const totalVentasKg   = ventas.reduce((s, v) => s + v.items.reduce((a, i) => a + parseFloat(i.kilos), 0), 0);
-        const totalVentasPesos = ventas.reduce((s, v) => s + parseFloat(v.total), 0);
+        const totalComprasKg   = compras.reduce((s, c) => s + c.items.reduce((a, i) => a + parseFloat(i.kilos), 0), 0);
+        const totalComprasPesos = compras.reduce((s, c) => s + parseFloat(c.neto), 0);
+        const totalVentasKg    = ventas.reduce((s, v) => s + v.items.reduce((a, i) => a + parseFloat(i.kilos), 0), 0);
+        const totalVentasPesos  = ventas.reduce((s, v) => s + parseFloat(v.total), 0);
 
-        res.json({ ok: true, hoy, compras: { cantidad: compras.length, kilos: totalComprasKg, pesos: totalComprasPesos }, ventas: { cantidad: ventas.length, kilos: totalVentasKg, pesos: totalVentasPesos } });
+        res.json({ ok: true, hoy,
+            compras: { cantidad: compras.length, kilos: totalComprasKg, pesos: totalComprasPesos },
+            ventas:  { cantidad: ventas.length,  kilos: totalVentasKg,  pesos: totalVentasPesos  }
+        });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
 exports.comprasPorPeriodo = async (req, res) => {
     try {
         const { desde, hasta, bodega_id } = req.query;
+        if (!desde || !hasta) return res.status(400).json({ ok: false, msg: 'desde y hasta son requeridos' });
+
         const where = { estado: 'finalizada', fecha: { [Op.between]: [desde, hasta] } };
         if (bodega_id) where.bodega_id = bodega_id;
+
         const compras = await Compra.findAll({
             where,
             include: [
@@ -35,42 +41,88 @@ exports.comprasPorPeriodo = async (req, res) => {
             ],
             order: [['fecha', 'ASC']]
         });
-        const totalKilos = compras.reduce((s, c) => s + c.items.reduce((a, i) => a + parseFloat(i.kilos), 0), 0);
-        const totalPesos = compras.reduce((s, c) => s + parseFloat(c.total), 0);
-        const porMaterial = {};
+
+        // Resumen general
+        const total_pagado     = compras.reduce((s, c) => s + parseFloat(c.total || 0), 0);
+        const total_kilos      = compras.reduce((s, c) => s + c.items.reduce((a, i) => a + parseFloat(i.kilos || 0), 0), 0);
+        const recicladores_ids = new Set(compras.map(c => c.reciclador_id));
+        const resumen = { total_pagado, total_compras: compras.length, total_kilos, total_recicladores: recicladores_ids.size };
+
+        // Por material (array)
+        const matMap = {};
         for (const c of compras) {
             for (const item of c.items) {
-                const n = item.material.nombre;
-                if (!porMaterial[n]) porMaterial[n] = { kilos: 0, total: 0 };
-                porMaterial[n].kilos += parseFloat(item.kilos);
-                porMaterial[n].total += parseFloat(item.total);
+                const n = item.material?.nombre || 'Desconocido';
+                if (!matMap[n]) matMap[n] = { material: n, total_kilos: 0, total_pagado: 0 };
+                matMap[n].total_kilos  += parseFloat(item.kilos || 0);
+                matMap[n].total_pagado += parseFloat(item.total || 0);
             }
         }
-        res.json({ ok: true, compras, totalKilos, totalPesos, porMaterial });
+        const por_material = Object.values(matMap).map(m => ({
+            ...m,
+            precio_promedio: m.total_kilos > 0 ? Math.round(m.total_pagado / m.total_kilos) : 0
+        })).sort((a, b) => b.total_pagado - a.total_pagado);
+
+        // Por reciclador (array)
+        const recMap = {};
+        for (const c of compras) {
+            const n = c.reciclador?.nombre || 'Sin nombre';
+            if (!recMap[n]) recMap[n] = { reciclador: n, total_compras: 0, total_kilos: 0, total_pagado: 0 };
+            recMap[n].total_compras++;
+            recMap[n].total_kilos  += c.items.reduce((a, i) => a + parseFloat(i.kilos || 0), 0);
+            recMap[n].total_pagado += parseFloat(c.total || 0);
+        }
+        const por_reciclador = Object.values(recMap).sort((a, b) => b.total_pagado - a.total_pagado);
+
+        // Detalle línea a línea para Excel
+        const detalle = [];
+        for (const c of compras) {
+            for (const item of c.items) {
+                detalle.push({
+                    fecha: c.fecha,
+                    reciclador: c.reciclador?.nombre || 'Sin nombre',
+                    material: item.material?.nombre || 'Desconocido',
+                    kilos: parseFloat(item.kilos || 0),
+                    precio_unitario: parseFloat(item.precio_unitario || 0),
+                    total: parseFloat(item.total || 0)
+                });
+            }
+        }
+
+        res.json({ ok: true, resumen, por_material, por_reciclador, detalle });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
 exports.certificadoCliente = async (req, res) => {
     try {
-        const { cliente_id, mes, anio } = req.query;
-        const desde = `${anio}-${String(mes).padStart(2, '0')}-01`;
-        const hasta = new Date(anio, mes, 0).toISOString().slice(0, 10);
+        const { cliente_id, desde, hasta } = req.query;
+        if (!cliente_id || !desde || !hasta) return res.status(400).json({ ok: false, msg: 'cliente_id, desde y hasta son requeridos' });
+
+        const cliente = await Cliente.findByPk(cliente_id);
+        if (!cliente) return res.status(404).json({ ok: false, msg: 'Cliente no encontrado' });
+
         const ventas = await Venta.findAll({
             where: { cliente_id, fecha: { [Op.between]: [desde, hasta] } },
             include: [{ model: VentaItem, as: 'items', include: [{ model: Material, as: 'material' }] }]
         });
-        const porMaterial = {};
-        let totalKilos = 0, totalValor = 0;
+
+        const matMap = {};
+        let total = 0;
         for (const v of ventas) {
             for (const item of v.items) {
-                const n = item.material.nombre;
-                if (!porMaterial[n]) porMaterial[n] = { kilos: 0, valor: 0 };
-                porMaterial[n].kilos += parseFloat(item.kilos);
-                porMaterial[n].valor += parseFloat(item.total);
-                totalKilos += parseFloat(item.kilos);
-                totalValor += parseFloat(item.total);
+                const n = item.material?.nombre || 'Desconocido';
+                if (!matMap[n]) matMap[n] = { material: n, kilos: 0, total: 0 };
+                matMap[n].kilos += parseFloat(item.kilos || 0);
+                matMap[n].total += parseFloat(item.total || 0);
+                total += parseFloat(item.total || 0);
             }
         }
-        res.json({ ok: true, desde, hasta, porMaterial, totalKilos, totalValor });
+
+        const detalle = Object.values(matMap).map(m => ({
+            ...m,
+            precio_promedio: m.kilos > 0 ? Math.round(m.total / m.kilos) : 0
+        })).sort((a, b) => b.total - a.total);
+
+        res.json({ ok: true, cliente: { nombre: cliente.nombre, nit: cliente.nit || null }, detalle, total, desde, hasta });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

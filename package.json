@@ -1,0 +1,9 @@
+{
+  "name": "asoerc",
+  "version": "1.0.0",
+  "description": "Sistema de gestión ASOERC ESP",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server/src/app.js"
+  }
+}

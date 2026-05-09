@@ -1,5 +1,7 @@
 const router = require('express').Router();
 const auth   = require('../middlewares/auth');
+const { soloRoles } = require('../middlewares/bodegaFilter');
+const bodegaFilter = require('../middlewares/bodegaFilter');
 const multer = require('multer');
 const path   = require('path');
 const storage = multer.diskStorage({
@@ -18,21 +20,35 @@ const cajaCtrl       = require('../controllers/cajaController');
 const remisionesCtrl = require('../controllers/remisionesController');
 const empaquesCtrl   = require('../controllers/empaquesController');
 const informesCtrl   = require('../controllers/informesController');
+const usuariosCtrl   = require('../controllers/usuariosController');
+const vehiculosCtrl  = require('../controllers/vehiculosController');
 const { Bodega, Material, Reciclador } = require('../models');
 
 // Auth
 router.post('/auth/login', authCtrl.login);
 
 router.use(auth);
+router.use(bodegaFilter);
 
 // Bodegas
 router.get('/bodegas', async (req, res) => {
     const bodegas = await Bodega.findAll({ where: { activa: true } });
     res.json({ ok: true, bodegas });
 });
-router.post('/bodegas', async (req, res) => {
-    const b = await Bodega.create(req.body);
-    res.json({ ok: true, bodega: b });
+router.get('/bodegas/:id', async (req, res) => {
+    try {
+        const b = await Bodega.findByPk(req.params.id);
+        if (!b) return res.status(404).json({ ok: false, msg: 'Bodega no encontrada' });
+        res.json({ ok: true, bodega: b });
+    } catch (e) { res.status(500).json({ ok: false, msg: e.message }); }
+});
+router.put('/bodegas/:id', soloRoles('superadmin'), async (req, res) => {
+    try {
+        const b = await Bodega.findByPk(req.params.id);
+        if (!b) return res.status(404).json({ ok: false, msg: 'Bodega no encontrada' });
+        await b.update(req.body);
+        res.json({ ok: true, bodega: b });
+    } catch (e) { res.status(500).json({ ok: false, msg: e.message }); }
 });
 
 // Materiales
@@ -61,9 +77,10 @@ router.post('/compras/:id/finalizar',           comprasCtrl.finalizar);
 router.delete('/compras/:id',                   comprasCtrl.eliminar);
 
 // Ventas y clientes
-router.get('/clientes',         ventasCtrl.listarClientes);
-router.post('/clientes',        ventasCtrl.crearCliente);
-router.put('/clientes/:id',     ventasCtrl.actualizarCliente);
+router.get('/clientes',              ventasCtrl.listarClientes);
+router.post('/clientes',             ventasCtrl.crearCliente);
+router.put('/clientes/:id',          ventasCtrl.actualizarCliente);
+router.post('/clientes/:id/sedes',   ventasCtrl.crearSede);
 router.get('/ventas',           ventasCtrl.listar);
 router.post('/ventas',          ventasCtrl.crear);
 router.get('/ventas/:id',       ventasCtrl.obtener);
@@ -86,6 +103,7 @@ router.get('/caja',           cajaCtrl.obtenerOAbrir);
 router.get('/caja/historial', cajaCtrl.historial);
 router.post('/caja/:id/movimientos', cajaCtrl.agregarMovimiento);
 router.post('/caja/:id/cerrar',      cajaCtrl.cerrar);
+router.post('/caja/:id/reabrir',     cajaCtrl.reabrir);
 
 // Remisiones
 router.get('/remisiones',      remisionesCtrl.listar);
@@ -100,9 +118,30 @@ router.get('/empaques/resumen',  empaquesCtrl.resumen);
 router.post('/empaques',         empaquesCtrl.registrar);
 router.put('/empaques/:id',      empaquesCtrl.actualizar);
 
+// Vehículos
+router.get('/vehiculos',                    vehiculosCtrl.listar);
+router.post('/vehiculos',                   vehiculosCtrl.crear);
+router.get('/vehiculos/gastos',             vehiculosCtrl.listarGastos);
+router.put('/vehiculos/:id',                vehiculosCtrl.actualizar);
+router.delete('/vehiculos/:id',             vehiculosCtrl.eliminar);
+router.post('/vehiculos/:id/gastos',        vehiculosCtrl.registrarGasto);
+router.delete('/vehiculos/:id/gastos/:gasto_id', vehiculosCtrl.eliminarGasto);
+
 // Informes
 router.get('/informes/dashboard',          informesCtrl.dashboard);
 router.get('/informes/compras-periodo',    informesCtrl.comprasPorPeriodo);
 router.get('/informes/certificado-cliente',informesCtrl.certificadoCliente);
+
+// Usuarios (superadmin y admin)
+router.get('/usuarios',      soloRoles('superadmin','admin'), usuariosCtrl.listar);
+router.post('/usuarios',     soloRoles('superadmin','admin'), usuariosCtrl.crear);
+router.put('/usuarios/:id',  soloRoles('superadmin','admin'), usuariosCtrl.actualizar);
+router.delete('/usuarios/:id', soloRoles('superadmin','admin'), usuariosCtrl.eliminar);
+
+// Bodegas (solo superadmin puede crear)
+router.post('/bodegas', soloRoles('superadmin'), async (req, res) => {
+    const b = await Bodega.create(req.body);
+    res.json({ ok: true, bodega: b });
+});
 
 module.exports = router;

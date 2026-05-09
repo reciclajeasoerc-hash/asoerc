@@ -1,172 +1,680 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
+import { useAuth } from '../App';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 const hoy = () => new Date().toISOString().slice(0, 10);
 
-export default function Ventas() {
-    const [ventas, setVentas] = useState([]);
-    const [clientes, setClientes] = useState([]);
+const CAT_COLORS = {
+    'Metales':       { bg: '#fef3c7', border: '#d97706', text: '#92400e', active: '#d97706' },
+    'Electrónicos':  { bg: '#eff6ff', border: '#2563eb', text: '#1e40af', active: '#2563eb' },
+    'Plásticos':     { bg: '#ecfdf5', border: '#059669', text: '#065f46', active: '#059669' },
+    'Papel y Cartón':{ bg: '#fff7ed', border: '#ea580c', text: '#9a3412', active: '#ea580c' },
+    'Vidrio':        { bg: '#f5f3ff', border: '#7c3aed', text: '#4c1d95', active: '#7c3aed' },
+    'Varios':        { bg: '#f0f9ff', border: '#0284c7', text: '#0c4a6e', active: '#0284c7' },
+};
+const CAT_ICONS = { 'Metales':'🔩','Electrónicos':'📱','Plásticos':'♻️','Papel y Cartón':'📦','Vidrio':'🍶','Varios':'🔧' };
+const ESTADO_COLOR = {
+    orden:     { bg: '#fef3c7', color: '#d97706' },
+    facturada: { bg: '#eff6ff', color: '#2563eb' },
+    pagada:    { bg: '#d1fae5', color: '#059669' },
+};
+
+function useMobile() {
+    const [m, setM] = useState(window.innerWidth < 900);
+    useEffect(() => {
+        const fn = () => setM(window.innerWidth < 900);
+        window.addEventListener('resize', fn);
+        return () => window.removeEventListener('resize', fn);
+    }, []);
+    return m;
+}
+
+export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
+    const isMobile = useMobile();
+    const { user } = useAuth();
+    const esAdmin = ['superadmin', 'admin'].includes(user?.rol);
+    const [clientes,   setClientes]   = useState([]);
     const [materiales, setMateriales] = useState([]);
-    const [bodegas, setBodegas] = useState([]);
-    const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ cliente_id: '', sede_id: '', bodega_id: '', fecha: hoy(), tipo_pago: 'pendiente', observaciones: '' });
-    const [items, setItems] = useState([]);
-    const [itemForm, setItemForm] = useState({ material_id: '', kilos: '', precio_unitario: '' });
-    const [sedes, setSedes] = useState([]);
-    const [msg, setMsg] = useState('');
+    const [bodegas,    setBodegas]    = useState([]);
+    const [categorias, setCategorias] = useState([]);
+    const [catActiva,  setCatActiva]  = useState('');
+    const [ventasHoy,  setVentasHoy]  = useState([]);
+
+    const [cliente_id, setClienteId] = useState('');
+    const [sede_id,    setSedeId]    = useState('');
+    const [bodega_id,  setBodegaId]  = useState(() =>
+        propBodegaId ? String(propBodegaId) : (user?.bodega_id ? String(user.bodega_id) : '')
+    );
+    const [fecha,      setFecha]     = useState(hoy());
+    const [tipo_pago,  setTipoPago]  = useState('efectivo');
+    const [sedes,      setSedes]     = useState([]);
+    const [ordenAbierta, setOrdenAbierta] = useState(false);
+
+    const [items,          setItems]          = useState([]);
+    const [materialActivo, setMaterialActivo] = useState(null);
+    const [cantidades,     setCantidades]     = useState({});
+    const [precios,        setPrecios]        = useState({});
+
+    const [showNuevoCliente, setShowNuevoCliente] = useState(false);
+    const [cForm, setCForm] = useState({ nombre:'', nit:'', telefono:'', email:'' });
+    const [msg,     setMsg]     = useState('');
+    const [loading, setLoading] = useState(false);
+    const [reciboVenta, setReciboVenta] = useState(null);
+    const [tabMobile, setTabMobile] = useState('orden'); // 'orden' | 'historial'
+
+    const inputRef = useRef(null);
 
     useEffect(() => {
         Promise.all([
-            api.get('/clientes').then(d => setClientes(d.clientes)),
-            api.get('/materiales').then(d => setMateriales(d.materiales)),
-            api.get('/bodegas').then(d => { setBodegas(d.bodegas); if (d.bodegas[0]) setForm(f => ({ ...f, bodega_id: d.bodegas[0].id })); })
-        ]).catch(() => {});
-        cargar();
+            api.get('/clientes').then(d => setClientes(d.clientes || [])),
+            api.get('/bodegas').then(d => {
+                const bs = d.bodegas || [];
+                setBodegas(bs);
+                setBodegaId(prev => prev || (bs[0] ? String(bs[0].id) : ''));
+            }),
+            api.get('/materiales').then(d => {
+                const mats = d.materiales || [];
+                setMateriales(mats);
+                const cats = [...new Set(mats.map(m => m.categoria).filter(Boolean))];
+                setCategorias(cats);
+                if (cats[0]) setCatActiva(cats[0]);
+            }),
+        ]);
+        cargarHoy();
     }, []);
 
-    const cargar = () => api.get('/ventas').then(d => setVentas(d.items || [])).catch(() => {});
+    useEffect(() => { if (propBodegaId) setBodegaId(String(propBodegaId)); }, [propBodegaId]);
+    useEffect(() => { if (materialActivo && inputRef.current) inputRef.current.focus(); }, [materialActivo]);
 
-    const clienteChange = (id) => {
-        const c = clientes.find(c => c.id === parseInt(id));
-        setForm(f => ({ ...f, cliente_id: id, sede_id: '' }));
+    const cargarHoy = () =>
+        api.get(`/ventas?fecha=${hoy()}`).then(d => setVentasHoy(d.items || [])).catch(() => {});
+
+    const clienteSeleccionado = clientes.find(c => String(c.id) === String(cliente_id));
+
+    const abrirOrden = () => {
+        if (!cliente_id) return setMsg('Selecciona un cliente');
+        if (esAdmin && !bodega_id) return setMsg('Selecciona una bodega');
+        setOrdenAbierta(true); setMsg('');
+    };
+    const cancelarOrden = () => {
+        setOrdenAbierta(false);
+        setItems([]); setCantidades({}); setPrecios({});
+        setMaterialActivo(null); setMsg('');
+    };
+    const clienteChange = id => {
+        setClienteId(id); setSedeId('');
+        const c = clientes.find(c => String(c.id) === id);
         setSedes(c?.sedes || []);
     };
-
-    const agregarItem = () => {
-        if (!itemForm.material_id || !itemForm.kilos) return;
-        const mat = materiales.find(m => m.id === parseInt(itemForm.material_id));
-        const cliente = clientes.find(c => c.id === parseInt(form.cliente_id));
-        const precioEsp = cliente?.precios?.find(p => p.material_id === parseInt(itemForm.material_id));
-        const precio = itemForm.precio_unitario || (precioEsp ? precioEsp.precio : mat?.precio_compra) || 0;
-        setItems([...items, { material_id: itemForm.material_id, material_nombre: mat?.nombre, kilos: parseFloat(itemForm.kilos), precio_unitario: parseFloat(precio), total: parseFloat(itemForm.kilos) * parseFloat(precio) }]);
-        setItemForm({ material_id: '', kilos: '', precio_unitario: '' });
+    const seleccionarMaterial = mat => {
+        if (!ordenAbierta) return setMsg('Primero abre una orden');
+        setMaterialActivo(mat.id === materialActivo?.id ? null : mat);
     };
-
-    const guardar = async () => {
-        if (!form.cliente_id || !form.bodega_id || !items.length) return setMsg('Completa cliente, bodega y al menos un material');
+    const precioDefault = mat => {
+        const esp = clienteSeleccionado?.precios?.find(p => p.material_id === mat.id);
+        return esp ? esp.precio : mat.precio_compra;
+    };
+    const agregarItem = (mat, kg, precio) => {
+        const kilos = parseFloat(kg);
+        const pu    = parseFloat(precio) || parseFloat(precioDefault(mat));
+        if (!kilos || kilos <= 0) { setMaterialActivo(null); return; }
+        const existente = items.findIndex(i => i.material_id === mat.id);
+        if (existente >= 0) {
+            const copia = [...items];
+            copia[existente].kilos += kilos;
+            copia[existente].total  = copia[existente].kilos * copia[existente].precio_unitario;
+            setItems(copia);
+        } else {
+            setItems(prev => [...prev, { material_id: mat.id, material_nombre: mat.nombre, kilos, precio_unitario: pu, total: kilos * pu }]);
+        }
+        setCantidades(p => ({ ...p, [mat.id]: '' }));
+        setPrecios(p => ({ ...p, [mat.id]: '' }));
+        setMaterialActivo(null);
+    };
+    const quitarItem = idx => setItems(items.filter((_, i) => i !== idx));
+    const crearOrden = async () => {
+        if (!items.length) return setMsg('Agrega al menos un material');
+        setLoading(true);
         try {
-            await api.post('/ventas', { ...form, items });
-            setForm({ cliente_id: '', sede_id: '', bodega_id: bodegas[0]?.id || '', fecha: hoy(), tipo_pago: 'pendiente', observaciones: '' });
-            setItems([]); setShowForm(false); setMsg(''); cargar();
-        } catch (err) { setMsg(err.message); }
+            const d = await api.post('/ventas', {
+                cliente_id, sede_id, bodega_id, fecha, tipo_pago,
+                items: items.map(i => ({ material_id: i.material_id, kilos: i.kilos, precio_unitario: i.precio_unitario })),
+            });
+            setReciboVenta(d.venta);
+            cancelarOrden(); cargarHoy();
+            if (tipo_pago !== 'pendiente') onCajaChange?.(bodega_id);
+        } catch (e) { setMsg(e.msg || e.message); }
+        finally { setLoading(false); }
+    };
+    const crearCliente = async () => {
+        if (!cForm.nombre) return setMsg('Nombre requerido');
+        try {
+            const d = await api.post('/clientes', cForm);
+            setClientes(prev => [...prev, d.cliente]);
+            clienteChange(String(d.cliente.id));
+            setCForm({ nombre:'', nit:'', telefono:'', email:'' });
+            setShowNuevoCliente(false); setMsg('');
+        } catch (e) { setMsg(e.msg || e.message); }
+    };
+    const cambiarEstado = async (id, estado, tp) => {
+        const v = ventasHoy.find(x => x.id === id);
+        await api.put(`/ventas/${id}/estado`, { estado, tipo_pago: tp });
+        cargarHoy();
+        if (estado === 'pagada') onCajaChange?.(v?.bodega_id || bodega_id);
     };
 
-    const cambiarEstado = async (id, estado, tipo_pago) => {
-        await api.put(`/ventas/${id}/estado`, { estado, tipo_pago });
-        cargar();
-    };
+    const matsFiltrados = materiales.filter(m => m.categoria === catActiva && m.activo !== false);
+    const total = items.reduce((s, i) => s + i.total, 0);
 
-    const estadoColor = { orden: ['#fef3c7','#d97706'], facturada: ['#eff6ff','#2563eb'], pagada: ['#d1fae5','#059669'] };
+    if (reciboVenta) return (
+        <div style={{ padding: 16 }}>
+            <ReciboVenta venta={reciboVenta} onClose={() => setReciboVenta(null)} />
+        </div>
+    );
 
-    return (
-        <div style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700 }}>📤 Ventas de Material</h1>
-                    <p style={{ color: '#666', fontSize: 13 }}>Órdenes de compra y despacho a clientes</p>
+    // ── Bloque materiales (compartido) ────────────────────────────────────
+    const BloqueCategoriasYMateriales = () => (
+        <>
+            {/* Tabs categorías */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', paddingBottom: 4, flexShrink: 0 }}>
+                {categorias.map(cat => {
+                    const c = CAT_COLORS[cat] || CAT_COLORS['Varios'];
+                    const activa = catActiva === cat;
+                    return (
+                        <button key={cat} onClick={() => { setCatActiva(cat); setMaterialActivo(null); }}
+                            style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${activa ? c.active : '#ddd'}`,
+                                background: activa ? c.bg : '#fff', color: activa ? c.text : '#888',
+                                fontSize: 12, fontWeight: activa ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            {CAT_ICONS[cat] || '📋'} {cat}
+                        </button>
+                    );
+                })}
+            </div>
+            {/* Grid materiales */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(140px,1fr))', gap: 8 }}>
+                    {matsFiltrados.map(mat => {
+                        const c = CAT_COLORS[mat.categoria] || CAT_COLORS['Varios'];
+                        const enCarrito = items.find(i => i.material_id === mat.id);
+                        const esActivo  = materialActivo?.id === mat.id;
+                        return (
+                            <div key={mat.id}>
+                                <button onClick={() => seleccionarMaterial(mat)}
+                                    style={{ width: '100%', padding: '12px 8px', background: esActivo ? c.active : enCarrito ? c.bg : '#fff',
+                                        border: `2px solid ${esActivo ? c.active : enCarrito ? c.border : '#e5e7eb'}`,
+                                        borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s' }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3, marginBottom: 3 }}>{mat.nombre}</div>
+                                    <div style={{ fontSize: 11, color: esActivo ? 'rgba(255,255,255,.85)' : '#888' }}>${fmt(precioDefault(mat))}/kg</div>
+                                    {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : c.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
+                                </button>
+                                {esActivo && (
+                                    <div style={{ marginTop: 4, background: c.bg, border: `2px solid ${c.border}`, borderRadius: 8, padding: 10 }}>
+                                        <div style={{ fontSize: 12, color: c.text, fontWeight: 600, marginBottom: 6 }}>{mat.nombre}</div>
+                                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                                            <input ref={inputRef} type="number" step="0.1" min="0"
+                                                value={cantidades[mat.id] || ''}
+                                                onChange={e => setCantidades(p => ({ ...p, [mat.id]: e.target.value }))}
+                                                onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
+                                                placeholder="Kg"
+                                                style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 16, minWidth: 0 }} />
+                                            {esAdmin && (
+                                                <input type="number" step="100" min="0"
+                                                    value={precios[mat.id] ?? precioDefault(mat)}
+                                                    onChange={e => setPrecios(p => ({ ...p, [mat.id]: e.target.value }))}
+                                                    placeholder="$/kg"
+                                                    style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 14, minWidth: 0 }} />
+                                            )}
+                                            <button onClick={() => agregarItem(mat, cantidades[mat.id], precios[mat.id])}
+                                                style={{ padding: '8px 14px', background: c.active, color: '#fff', border: 'none', borderRadius: 6, fontSize: 18, cursor: 'pointer', fontWeight: 700 }}>✓</button>
+                                        </div>
+                                        {parseFloat(cantidades[mat.id]) > 0 && (
+                                            <div style={{ fontSize: 12, color: c.text, fontWeight: 700 }}>
+                                                = ${fmt(parseFloat(cantidades[mat.id]) * (parseFloat(precios[mat.id]) || parseFloat(precioDefault(mat))))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
-                <button onClick={() => setShowForm(!showForm)} style={{ padding: '9px 18px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>+ Nueva Orden</button>
+            </div>
+        </>
+    );
+
+    // ══════════════════════════════════════════════════════════════════════
+    // MÓVIL
+    // ══════════════════════════════════════════════════════════════════════
+    if (isMobile) return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f0faf0' }}>
+            {/* Tabs */}
+            <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
+                {[['orden','📤','Nueva orden'],['historial','📋','Hoy']].map(([k,ic,lb]) => (
+                    <button key={k} onClick={() => setTabMobile(k)}
+                        style={{ flex: 1, padding: '11px 4px 9px', border: 'none', background: 'none', cursor: 'pointer',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                            borderBottom: tabMobile === k ? '3px solid #059669' : '3px solid transparent',
+                            color: tabMobile === k ? '#059669' : '#9ca3af' }}>
+                        <span style={{ fontSize: 19 }}>{ic}</span>
+                        <span style={{ fontSize: 10, fontWeight: tabMobile === k ? 700 : 400 }}>{lb}</span>
+                    </button>
+                ))}
             </div>
 
-            {showForm && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Nueva Orden de Compra</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cliente*</div>
-                            <select value={form.cliente_id} onChange={e => clienteChange(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                <option value="">-- Selecciona --</option>
-                                {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                            </select>
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Sede</div>
-                            <select value={form.sede_id} onChange={e => setForm({ ...form, sede_id: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                <option value="">-- Sin sede --</option>
-                                {sedes.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                            </select>
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Bodega*</div>
-                            <select value={form.bodega_id} onChange={e => setForm({ ...form, bodega_id: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                            </select>
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Fecha</div>
-                            <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Pago</div>
-                            <select value={form.tipo_pago} onChange={e => setForm({ ...form, tipo_pago: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                <option value="pendiente">Pendiente</option>
-                                <option value="efectivo">Efectivo</option>
-                                <option value="transferencia">Transferencia</option>
-                            </select>
-                        </label>
-                    </div>
-
-                    <div style={{ background: '#f9f9f9', borderRadius: 8, padding: 14, marginBottom: 14 }}>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                            <select value={itemForm.material_id} onChange={e => setItemForm({ ...itemForm, material_id: e.target.value })} style={{ flex: 2, padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                <option value="">-- Material --</option>
-                                {materiales.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                            </select>
-                            <input type="number" placeholder="Kg" value={itemForm.kilos} onChange={e => setItemForm({ ...itemForm, kilos: e.target.value })} style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                            <input type="number" placeholder="Precio/kg" value={itemForm.precio_unitario} onChange={e => setItemForm({ ...itemForm, precio_unitario: e.target.value })} style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                            <button onClick={agregarItem} style={{ padding: '7px 14px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14 }}>+</button>
-                        </div>
-                        {items.map((item, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #eee', fontSize: 13 }}>
-                                <span>{item.material_nombre} — {item.kilos} kg × ${fmt(item.precio_unitario)}</span>
-                                <div style={{ display: 'flex', gap: 10 }}>
-                                    <span style={{ fontWeight: 600 }}>${fmt(item.total)}</span>
-                                    <button onClick={() => setItems(items.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>✕</button>
+            {/* Tab: Nueva orden */}
+            {tabMobile === 'orden' && (
+                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {/* Cabecera */}
+                    <div style={{ padding: '12px 14px', background: '#fff', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+                        {!ordenAbierta ? (
+                            <>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Cliente *</span>
+                                            <button onClick={() => setShowNuevoCliente(!showNuevoCliente)}
+                                                style={{ fontSize: 10, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                                                + Nuevo
+                                            </button>
+                                        </div>
+                                        <select value={cliente_id} onChange={e => clienteChange(e.target.value)}
+                                            style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}>
+                                            <option value="">-- Selecciona cliente --</option>
+                                            {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <select value={tipo_pago} onChange={e => setTipoPago(e.target.value)}
+                                        style={{ flex: 1, padding: '9px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}>
+                                        <option value="efectivo">💵 Efectivo</option>
+                                        <option value="transferencia">📲 Transferencia</option>
+                                        <option value="pendiente">⏳ Pendiente</option>
+                                    </select>
+                                    <button onClick={abrirOrden}
+                                        style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                                        Abrir
+                                    </button>
+                                </div>
+                                {showNuevoCliente && (
+                                    <div style={{ marginTop: 10, background: '#f0faf0', border: '2px solid #1a5c2a', borderRadius: 8, padding: 12 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: '#1a5c2a', marginBottom: 8 }}>Nuevo cliente</div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                            {[['nombre','Nombre *'],['nit','NIT'],['telefono','Teléfono'],['email','Email']].map(([k,l]) => (
+                                                <input key={k} placeholder={l} value={cForm[k]} onChange={e => setCForm({ ...cForm, [k]: e.target.value })}
+                                                    style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }} />
+                                            ))}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <button onClick={crearCliente} style={{ padding: '8px 16px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Guardar</button>
+                                            <button onClick={() => setShowNuevoCliente(false)} style={{ padding: '8px 12px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+                                        </div>
+                                    </div>
+                                )}
+                                {msg && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 8 }}>{msg}</div>}
+                            </>
+                        ) : (
+                            <div style={{ background: '#1a5c2a', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ color: '#fff' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 15 }}>🏢 {clienteSeleccionado?.nombre}</div>
+                                    <div style={{ fontSize: 12, opacity: .8 }}>{tipo_pago} · {items.length} materiales</div>
+                                </div>
+                                <button onClick={cancelarOrden} style={{ padding: '5px 12px', background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+                                    Cancelar
+                                </button>
                             </div>
-                        ))}
-                        {items.length > 0 && <div style={{ textAlign: 'right', fontWeight: 700, marginTop: 8, color: '#1a5c2a' }}>Total: ${fmt(items.reduce((s, i) => s + i.total, 0))}</div>}
+                        )}
                     </div>
 
-                    {msg && <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 8 }}>{msg}</div>}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={guardar} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>Crear Orden</button>
-                        <button onClick={() => { setShowForm(false); setItems([]); }} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>Cancelar</button>
+                    {/* Materiales */}
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '10px 12px 0' }}>
+                        <BloqueCategoriasYMateriales />
                     </div>
+
+                    {/* Carrito + Botón crear */}
+                    {(items.length > 0 || ordenAbierta) && (
+                        <div style={{ background: '#fff', borderTop: '2px solid #e5e7eb', padding: 14, flexShrink: 0 }}>
+                            {items.length > 0 && (
+                                <div style={{ marginBottom: 10, maxHeight: 120, overflowY: 'auto' }}>
+                                    {items.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #f0f0f0' }}>
+                                            <div>
+                                                <div style={{ fontSize: 13, fontWeight: 600 }}>{item.material_nombre}</div>
+                                                <div style={{ fontSize: 11, color: '#888' }}>{item.kilos} kg × ${fmt(item.precio_unitario)}</div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <span style={{ fontWeight: 700, color: '#1a5c2a', fontSize: 13 }}>${fmt(item.total)}</span>
+                                                <button onClick={() => quitarItem(idx)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 16, padding: 0 }}>✕</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                <span style={{ fontSize: 15, fontWeight: 600, color: '#555' }}>TOTAL</span>
+                                <span style={{ fontSize: 24, fontWeight: 800, color: '#1a5c2a' }}>${fmt(total)}</span>
+                            </div>
+                            {msg && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{msg}</div>}
+                            <button onClick={crearOrden} disabled={loading || !items.length || !ordenAbierta}
+                                style={{ width: '100%', padding: '14px', background: items.length && ordenAbierta ? '#1a5c2a' : '#d1d5db',
+                                    color: '#fff', border: 'none', borderRadius: 10, fontSize: 16, fontWeight: 700,
+                                    cursor: items.length && ordenAbierta ? 'pointer' : 'default' }}>
+                                {loading ? 'Procesando...' : '✅ Crear Orden'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
-            <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead><tr style={{ background: '#f0faf0' }}>
-                        {['#','Cliente','Fecha','Total','Pago','Estado','Acciones'].map(h => <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                        {ventas.map(v => {
-                            const [bg, clr] = estadoColor[v.estado] || ['#f5f5f5','#666'];
+            {/* Tab: Historial hoy */}
+            {tabMobile === 'historial' && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+                    <div style={{ background: '#1a5c2a', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ color: '#fff', fontSize: 13 }}>
+                            <strong>{ventasHoy.length}</strong> órdenes hoy
+                        </div>
+                        <div style={{ color: '#6fcf8a', fontSize: 13, fontWeight: 700 }}>
+                            Cobrado: ${fmt(ventasHoy.filter(v => v.estado === 'pagada').reduce((s, v) => s + parseFloat(v.total), 0))}
+                        </div>
+                    </div>
+                    {!ventasHoy.length ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#bbb' }}>
+                            <div style={{ fontSize: 40 }}>📋</div>
+                            <p style={{ fontSize: 13, marginTop: 8 }}>Sin órdenes hoy</p>
+                        </div>
+                    ) : ventasHoy.map(v => {
+                        const ec = ESTADO_COLOR[v.estado] || ESTADO_COLOR.orden;
+                        return (
+                            <div key={v.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: 15 }}>{v.cliente?.nombre}</div>
+                                        <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 10, background: ec.bg, color: ec.color, fontWeight: 600 }}>{v.estado}</span>
+                                    </div>
+                                    <div style={{ fontWeight: 800, color: '#1a5c2a', fontSize: 18 }}>${fmt(v.total)}</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {v.estado === 'orden' && (
+                                        <button onClick={() => cambiarEstado(v.id, 'facturada')}
+                                            style={{ flex: 1, padding: '8px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                                            Facturar
+                                        </button>
+                                    )}
+                                    {v.estado === 'facturada' && (
+                                        <button onClick={() => cambiarEstado(v.id, 'pagada', 'efectivo')}
+                                            style={{ flex: 1, padding: '8px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                                            ✅ Marcar pagada
+                                        </button>
+                                    )}
+                                    {v.estado === 'pagada' && (
+                                        <button onClick={() => setReciboVenta(v)}
+                                            style={{ flex: 1, padding: '8px', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                                            🖨️ Ver recibo
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ESCRITORIO (layout original)
+    // ══════════════════════════════════════════════════════════════════════
+    return (
+        <div style={{ padding: 24, display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, height: 'calc(100vh - 48px)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {!ordenAbierta ? (
+                    <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)', flexShrink: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: '#1a5c2a' }}>📤 Nueva orden de venta</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: esAdmin ? '1fr 1fr 160px 110px 90px' : '1fr 1fr 110px 90px', gap: 10, alignItems: 'flex-end' }}>
+                            <label>
+                                <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Cliente *</span>
+                                    <button onClick={() => setShowNuevoCliente(!showNuevoCliente)}
+                                        style={{ fontSize: 10, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>+ Nuevo</button>
+                                </div>
+                                <select value={cliente_id} onChange={e => clienteChange(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                    <option value="">-- Selecciona --</option>
+                                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                </select>
+                            </label>
+                            <label>
+                                <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Sede</div>
+                                <select value={sede_id} onChange={e => setSedeId(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                    <option value="">Sin sede</option>
+                                    {sedes.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                                </select>
+                            </label>
+                            {esAdmin && (
+                                <label>
+                                    <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Bodega *</div>
+                                    <select value={bodega_id} onChange={e => setBodegaId(e.target.value)}
+                                        style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                        {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                                    </select>
+                                </label>
+                            )}
+                            <label>
+                                <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Pago</div>
+                                <select value={tipo_pago} onChange={e => setTipoPago(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                    <option value="efectivo">Efectivo</option>
+                                    <option value="transferencia">Transferencia</option>
+                                    <option value="pendiente">Pendiente</option>
+                                </select>
+                            </label>
+                            <button onClick={abrirOrden} style={{ padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Abrir</button>
+                        </div>
+                        {showNuevoCliente && (
+                            <div style={{ marginTop: 12, background: '#f0faf0', border: '2px solid #1a5c2a', borderRadius: 8, padding: 12 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#1a5c2a', marginBottom: 8 }}>Nuevo cliente</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 8 }}>
+                                    {[['nombre','Nombre *'],['nit','NIT'],['telefono','Teléfono'],['email','Email']].map(([k,l]) => (
+                                        <input key={k} placeholder={l} value={cForm[k]} onChange={e => setCForm({ ...cForm, [k]: e.target.value })}
+                                            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }} />
+                                    ))}
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button onClick={crearCliente} style={{ padding: '6px 16px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Guardar</button>
+                                    <button onClick={() => setShowNuevoCliente(false)} style={{ padding: '6px 12px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                                </div>
+                            </div>
+                        )}
+                        {msg && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 8 }}>{msg}</div>}
+                    </div>
+                ) : (
+                    <div style={{ background: '#1a5c2a', borderRadius: 10, padding: '10px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                        <div style={{ color: '#fff' }}>
+                            <span style={{ fontWeight: 700, fontSize: 15 }}>🏢 {clienteSeleccionado?.nombre}</span>
+                            <span style={{ fontSize: 12, marginLeft: 12, opacity: .8 }}>{bodegas.find(b => String(b.id) === bodega_id)?.nombre} · {tipo_pago}</span>
+                        </div>
+                        <button onClick={cancelarOrden} style={{ padding: '5px 12px', background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                    </div>
+                )}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', flexShrink: 0 }}>
+                    {categorias.map(cat => {
+                        const c = CAT_COLORS[cat] || CAT_COLORS['Varios'];
+                        const activa = catActiva === cat;
+                        return (
+                            <button key={cat} onClick={() => { setCatActiva(cat); setMaterialActivo(null); }}
+                                style={{ padding: '6px 14px', borderRadius: 20, border: `2px solid ${activa ? c.active : '#ddd'}`,
+                                    background: activa ? c.bg : '#fff', color: activa ? c.text : '#888',
+                                    fontSize: 12, fontWeight: activa ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                {CAT_ICONS[cat] || '📋'} {cat}
+                            </button>
+                        );
+                    })}
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 8 }}>
+                        {matsFiltrados.map(mat => {
+                            const c = CAT_COLORS[mat.categoria] || CAT_COLORS['Varios'];
+                            const enCarrito = items.find(i => i.material_id === mat.id);
+                            const esActivo  = materialActivo?.id === mat.id;
                             return (
-                                <tr key={v.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                    <td style={{ padding: '10px 12px' }}>{v.numero}</td>
-                                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.cliente?.nombre}</td>
-                                    <td style={{ padding: '10px 12px', color: '#666' }}>{v.fecha}</td>
-                                    <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1a5c2a' }}>${fmt(v.total)}</td>
-                                    <td style={{ padding: '10px 12px', color: '#666' }}>{v.tipo_pago}</td>
-                                    <td style={{ padding: '10px 12px' }}>
-                                        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: bg, color: clr }}>{v.estado}</span>
-                                    </td>
-                                    <td style={{ padding: '10px 12px' }}>
-                                        <div style={{ display: 'flex', gap: 4 }}>
-                                            {v.estado === 'orden' && <button onClick={() => cambiarEstado(v.id, 'facturada')} style={{ padding: '3px 8px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 4, fontSize: 11 }}>Facturar</button>}
-                                            {v.estado === 'facturada' && <button onClick={() => cambiarEstado(v.id, 'pagada', 'efectivo')} style={{ padding: '3px 8px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: 4, fontSize: 11 }}>Marcar pagada</button>}
+                                <div key={mat.id}>
+                                    <button onClick={() => seleccionarMaterial(mat)}
+                                        style={{ width: '100%', padding: '12px 8px', background: esActivo ? c.active : enCarrito ? c.bg : '#fff',
+                                            border: `2px solid ${esActivo ? c.active : enCarrito ? c.border : '#e5e7eb'}`,
+                                            borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s' }}>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3, marginBottom: 3 }}>{mat.nombre}</div>
+                                        <div style={{ fontSize: 11, color: esActivo ? 'rgba(255,255,255,.85)' : '#888' }}>${fmt(precioDefault(mat))}/kg</div>
+                                        {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : c.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
+                                    </button>
+                                    {esActivo && (
+                                        <div style={{ marginTop: 4, background: c.bg, border: `2px solid ${c.border}`, borderRadius: 8, padding: 10 }}>
+                                            <div style={{ fontSize: 12, color: c.text, fontWeight: 600, marginBottom: 6 }}>{mat.nombre}</div>
+                                            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                                                <input ref={inputRef} type="number" step="0.1" min="0"
+                                                    value={cantidades[mat.id] || ''}
+                                                    onChange={e => setCantidades(p => ({ ...p, [mat.id]: e.target.value }))}
+                                                    onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
+                                                    placeholder="Kg"
+                                                    style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 14, minWidth: 0 }} />
+                                                {esAdmin && (
+                                                    <input type="number" step="100" min="0"
+                                                        value={precios[mat.id] ?? precioDefault(mat)}
+                                                        onChange={e => setPrecios(p => ({ ...p, [mat.id]: e.target.value }))}
+                                                        placeholder="$/kg"
+                                                        style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 13, minWidth: 0 }} />
+                                                )}
+                                                <button onClick={() => agregarItem(mat, cantidades[mat.id], precios[mat.id])}
+                                                    style={{ padding: '7px 12px', background: c.active, color: '#fff', border: 'none', borderRadius: 6, fontSize: 16, cursor: 'pointer', fontWeight: 700 }}>✓</button>
+                                            </div>
+                                            {parseFloat(cantidades[mat.id]) > 0 && (
+                                                <div style={{ fontSize: 12, color: c.text, fontWeight: 700 }}>
+                                                    = ${fmt(parseFloat(cantidades[mat.id]) * (parseFloat(precios[mat.id]) || parseFloat(precioDefault(mat))))}
+                                                </div>
+                                            )}
                                         </div>
-                                    </td>
-                                </tr>
+                                    )}
+                                </div>
                             );
                         })}
-                    </tbody>
+                    </div>
+                </div>
+                <div style={{ marginTop: 10, background: '#f0faf0', borderRadius: 8, padding: '8px 14px', display: 'flex', gap: 20, alignItems: 'center', flexShrink: 0 }}>
+                    <div style={{ fontSize: 12, color: '#555' }}>Hoy: <strong>{ventasHoy.length}</strong> órdenes · <strong>{ventasHoy.filter(v => v.estado === 'pagada').length}</strong> pagadas</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1a5c2a', marginLeft: 'auto' }}>Cobrado: ${fmt(ventasHoy.filter(v => v.estado === 'pagada').reduce((s, v) => s + parseFloat(v.total), 0))}</div>
+                </div>
+            </div>
+
+            {/* Panel derecho carrito */}
+            <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 700, fontSize: 15, color: '#1a5c2a' }}>
+                    🛒 Carrito {ordenAbierta ? `· ${clienteSeleccionado?.nombre}` : ''}
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+                    {!items.length ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#bbb' }}>
+                            <div style={{ fontSize: 40 }}>🛒</div>
+                            <p style={{ fontSize: 13, marginTop: 8 }}>Sin materiales aún.<br/>Abre una orden y selecciona.</p>
+                        </div>
+                    ) : items.map((item, idx) => (
+                        <div key={idx} style={{ padding: '10px 0', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontWeight: 600, fontSize: 13 }}>{item.material_nombre}</div>
+                                <div style={{ fontSize: 12, color: '#888' }}>{item.kilos} kg × ${fmt(item.precio_unitario)}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontWeight: 700, color: '#1a5c2a' }}>${fmt(item.total)}</span>
+                                <button onClick={() => quitarItem(idx)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 16, padding: 0 }}>✕</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ padding: 16, borderTop: '2px solid #f0f0f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: '#555' }}>TOTAL</span>
+                        <span style={{ fontSize: 24, fontWeight: 800, color: '#1a5c2a' }}>${fmt(total)}</span>
+                    </div>
+                    {msg && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{msg}</div>}
+                    <button onClick={crearOrden} disabled={loading || !items.length || !ordenAbierta}
+                        style={{ width: '100%', padding: '14px', background: items.length && ordenAbierta ? '#1a5c2a' : '#d1d5db',
+                            color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700,
+                            cursor: items.length && ordenAbierta ? 'pointer' : 'default' }}>
+                        {loading ? 'Procesando...' : '✅ Crear Orden'}
+                    </button>
+                </div>
+                {ventasHoy.length > 0 && (
+                    <div style={{ borderTop: '1px solid #f0f0f0', maxHeight: 220, overflowY: 'auto' }}>
+                        <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: .5 }}>ÓRDENES DE HOY</div>
+                        {ventasHoy.map(v => {
+                            const ec = ESTADO_COLOR[v.estado] || ESTADO_COLOR.orden;
+                            return (
+                                <div key={v.id} style={{ padding: '8px 16px', borderTop: '1px solid #f5f5f5' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>{v.cliente?.nombre}</span>
+                                        <span style={{ fontWeight: 700, color: '#1a5c2a', fontSize: 12 }}>${fmt(v.total)}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: ec.bg, color: ec.color, fontWeight: 600 }}>{v.estado}</span>
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                            {v.estado === 'orden' && <button onClick={() => cambiarEstado(v.id, 'facturada')} style={{ padding: '2px 8px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 4, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}>Facturar</button>}
+                                            {v.estado === 'facturada' && <button onClick={() => cambiarEstado(v.id, 'pagada', 'efectivo')} style={{ padding: '2px 8px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: 4, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}>Pagada</button>}
+                                            {v.estado === 'pagada' && <button onClick={() => setReciboVenta(v)} style={{ padding: '2px 8px', background: '#f9fafb', color: '#6b7280', border: 'none', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}>🖨️ Ver</button>}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ReciboVenta({ venta, onClose }) {
+    return (
+        <div>
+            <style>{`@media print { body * { visibility: hidden !important; } .recibo-venta, .recibo-venta * { visibility: visible !important; } .recibo-venta { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; padding: 20px !important; box-shadow: none !important; } }`}</style>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                <button onClick={() => window.print()} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir</button>
+                <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>← Volver</button>
+            </div>
+            <div className="recibo-venta" style={{ background: '#fff', borderRadius: 10, padding: 28, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 460, fontFamily: 'monospace' }}>
+                <div style={{ textAlign: 'center', marginBottom: 20, fontFamily: 'sans-serif' }}>
+                    <div style={{ fontWeight: 800, fontSize: 20, color: '#1a5c2a' }}>ASOERC ESP</div>
+                    <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
+                    <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE VENTA</div>
+                    <div style={{ fontSize: 12, color: '#888' }}>#{venta.numero || venta.id} · {venta.fecha}</div>
+                </div>
+                <div style={{ borderTop: '1px dashed #ccc', borderBottom: '1px dashed #ccc', padding: '10px 0', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}><span style={{ color: '#666' }}>Cliente:</span><strong>{venta.cliente?.nombre}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span style={{ color: '#666' }}>Pago:</span><span>{venta.tipo_pago}</span></div>
+                </div>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
+                    <thead><tr style={{ borderBottom: '1px dashed #ccc' }}>
+                        <th style={{ textAlign: 'left', padding: '4px 0', color: '#666', fontWeight: 600 }}>Material</th>
+                        <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>Kg</th>
+                        <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>$/kg</th>
+                        <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>Total</th>
+                    </tr></thead>
+                    <tbody>{(venta.items || []).map((item, i) => (
+                        <tr key={i} style={{ borderBottom: '1px dotted #eee' }}>
+                            <td style={{ padding: '5px 0' }}>{item.material?.nombre || item.material_nombre}</td>
+                            <td style={{ textAlign: 'right', color: '#555' }}>{item.kilos}</td>
+                            <td style={{ textAlign: 'right', color: '#555' }}>${fmt(item.precio_unitario)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 600 }}>${fmt(item.total)}</td>
+                        </tr>
+                    ))}</tbody>
                 </table>
-                {ventas.length === 0 && <p style={{ color: '#999', textAlign: 'center', padding: 20, fontSize: 13 }}>No hay ventas registradas</p>}
+                <div style={{ borderTop: '1px dashed #ccc', paddingTop: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 800, color: '#1a5c2a' }}>
+                        <span>TOTAL:</span><span>${fmt(venta.total)}</span>
+                    </div>
+                </div>
+                <div style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: '#aaa', borderTop: '1px dashed #ccc', paddingTop: 12 }}>
+                    Gracias por su compra · ASOERC ESP<br/>{new Date().toLocaleString('es-CO')}
+                </div>
             </div>
         </div>
     );

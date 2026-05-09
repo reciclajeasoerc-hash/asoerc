@@ -9,13 +9,18 @@ export default function Dashboard() {
     const [bodegas, setBodegas] = useState([]);
     const [bodega_id, setBodegaId] = useState('');
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    useEffect(() => { api.get('/bodegas').then(d => setBodegas(d.bodegas)).catch(() => {}); }, []);
+    useEffect(() => { api.get('/bodegas').then(d => setBodegas(d.bodegas || [])).catch(() => {}); }, []);
 
     useEffect(() => {
         setLoading(true);
+        setError('');
         const q = bodega_id ? `?bodega_id=${bodega_id}` : '';
-        api.get(`/informes/dashboard${q}`).then(d => setData(d)).catch(() => {}).finally(() => setLoading(false));
+        api.get(`/informes/dashboard${q}`)
+            .then(d => { setData(d); setError(''); })
+            .catch(err => setError(err.message || 'Error al cargar datos'))
+            .finally(() => setLoading(false));
         const iv = setInterval(() => {
             api.get(`/informes/dashboard${q}`).then(d => setData(d)).catch(() => {});
         }, 30000);
@@ -45,6 +50,7 @@ export default function Dashboard() {
                 </select>
             </div>
 
+            {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>❌ {error}</div>}
             {loading ? <p style={{ color: '#666' }}>Cargando...</p> : data && (
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>

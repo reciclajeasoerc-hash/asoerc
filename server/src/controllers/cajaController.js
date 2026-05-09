@@ -43,6 +43,17 @@ exports.cerrar = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+exports.reabrir = async (req, res) => {
+    try {
+        const caja = await Caja.findByPk(req.params.id);
+        if (!caja) return res.status(404).json({ ok: false, msg: 'No encontrada' });
+        if (caja.estado !== 'cerrada') return res.status(400).json({ ok: false, msg: 'La caja no está cerrada' });
+        await caja.update({ estado: 'abierta' });
+        const full = await Caja.findByPk(caja.id, { include: [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }] });
+        res.json({ ok: true, caja: full });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
 exports.historial = async (req, res) => {
     try {
         const { bodega_id, desde, hasta } = req.query;

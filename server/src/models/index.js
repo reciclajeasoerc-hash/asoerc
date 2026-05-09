@@ -7,7 +7,7 @@ const Usuario = sequelize.define('Usuario', {
     nombre:   { type: DataTypes.STRING, allowNull: false },
     email:    { type: DataTypes.STRING, allowNull: false, unique: true },
     password: { type: DataTypes.STRING, allowNull: false },
-    rol:      { type: DataTypes.ENUM('admin', 'operador', 'contador'), defaultValue: 'operador' },
+    rol:      { type: DataTypes.STRING, defaultValue: 'operador' },
     bodega_id:{ type: DataTypes.INTEGER, allowNull: true },
     activo:   { type: DataTypes.BOOLEAN, defaultValue: true }
 });
@@ -24,6 +24,7 @@ const Material = sequelize.define('Material', {
     nombre:        { type: DataTypes.STRING, allowNull: false },
     precio_compra: { type: DataTypes.DECIMAL(10,2), allowNull: false, defaultValue: 0 },
     unidad:        { type: DataTypes.STRING, defaultValue: 'kg' },
+    categoria:     { type: DataTypes.STRING, defaultValue: 'Otros' },
     activo:        { type: DataTypes.BOOLEAN, defaultValue: true }
 });
 
@@ -38,7 +39,7 @@ const Reciclador = sequelize.define('Reciclador', {
 });
 
 const Compra = sequelize.define('Compra', {
-    numero:       { type: DataTypes.INTEGER, autoIncrement: true },
+    numero:       { type: DataTypes.INTEGER },
     reciclador_id:{ type: DataTypes.INTEGER, allowNull: false },
     bodega_id:    { type: DataTypes.INTEGER, allowNull: false },
     fecha:        { type: DataTypes.DATEONLY, allowNull: false },
@@ -82,7 +83,7 @@ const MaterialPrecioCliente = sequelize.define('MaterialPrecioCliente', {
 });
 
 const Venta = sequelize.define('Venta', {
-    numero:     { type: DataTypes.INTEGER, autoIncrement: true },
+    numero:     { type: DataTypes.INTEGER },
     cliente_id: { type: DataTypes.INTEGER, allowNull: false },
     sede_id:    { type: DataTypes.INTEGER },
     bodega_id:  { type: DataTypes.INTEGER, allowNull: false },
@@ -160,11 +161,15 @@ const MovimientoCaja = sequelize.define('MovimientoCaja', {
 });
 
 const Remision = sequelize.define('Remision', {
-    numero:     { type: DataTypes.INTEGER, autoIncrement: true },
-    conductor:  { type: DataTypes.STRING, allowNull: false },
+    numero:       { type: DataTypes.INTEGER },
+    numero_orden: { type: DataTypes.STRING },
+    tipo:         { type: DataTypes.ENUM('compra','venta'), allowNull: true },
+    conductor:    { type: DataTypes.STRING, allowNull: false },
     cliente_id: { type: DataTypes.INTEGER },
     sede_id:    { type: DataTypes.INTEGER },
     bodega_id:  { type: DataTypes.INTEGER, allowNull: false },
+    venta_id:   { type: DataTypes.INTEGER },
+    compra_id:  { type: DataTypes.INTEGER },
     fecha:      { type: DataTypes.DATEONLY, allowNull: false },
     hora_llegada: { type: DataTypes.TIME },
     hora_salida:  { type: DataTypes.TIME },
@@ -192,6 +197,24 @@ const Empaque = sequelize.define('Empaque', {
     observaciones: { type: DataTypes.STRING }
 });
 
+const Vehiculo = sequelize.define('Vehiculo', {
+    placa:       { type: DataTypes.STRING, allowNull: false, unique: true },
+    descripcion: { type: DataTypes.STRING },
+    conductor:   { type: DataTypes.STRING },
+    tipo:        { type: DataTypes.ENUM('camion','furgon','moto','otro'), defaultValue: 'camion' },
+    activo:      { type: DataTypes.BOOLEAN, defaultValue: true }
+});
+
+const GastoVehiculo = sequelize.define('GastoVehiculo', {
+    vehiculo_id: { type: DataTypes.INTEGER, allowNull: false },
+    bodega_id:   { type: DataTypes.INTEGER },
+    fecha:       { type: DataTypes.DATEONLY, allowNull: false },
+    tipo:        { type: DataTypes.ENUM('gasolina','viatico','mantenimiento','otro'), allowNull: false },
+    monto:       { type: DataTypes.DECIMAL(12,2), allowNull: false },
+    descripcion: { type: DataTypes.STRING },
+    km_actual:   { type: DataTypes.INTEGER }
+});
+
 const Certificado = sequelize.define('Certificado', {
     cliente_id:   { type: DataTypes.INTEGER, allowNull: false },
     mes:          { type: DataTypes.INTEGER, allowNull: false },
@@ -201,6 +224,11 @@ const Certificado = sequelize.define('Certificado', {
     archivo_url:  { type: DataTypes.STRING },
     generado_at:  { type: DataTypes.DATE }
 });
+
+// ── Hooks: numero = id ───────────────────────────────────────────────────────
+Compra.addHook('afterCreate',  async (r) => { await r.update({ numero: r.id }); });
+Venta.addHook('afterCreate',   async (r) => { await r.update({ numero: r.id }); });
+Remision.addHook('afterCreate',async (r) => { await r.update({ numero: r.id }); });
 
 // ── Asociaciones ─────────────────────────────────────────────────────────────
 
@@ -222,6 +250,7 @@ Cliente.hasMany(ClienteSede,  { foreignKey: 'cliente_id', as: 'sedes' });
 Cliente.hasMany(MaterialPrecioCliente, { foreignKey: 'cliente_id', as: 'precios' });
 MaterialPrecioCliente.belongsTo(Material, { foreignKey: 'material_id', as: 'material' });
 
+Usuario.belongsTo(Bodega,     { foreignKey: 'bodega_id', as: 'bodega' });
 Reciclador.belongsTo(Bodega,  { foreignKey: 'bodega_id', as: 'bodega' });
 Empleado.belongsTo(Bodega,    { foreignKey: 'bodega_id', as: 'bodega' });
 PrestamoEmpleado.belongsTo(Empleado, { foreignKey: 'empleado_id', as: 'empleado' });
@@ -238,15 +267,22 @@ RemisionItem.belongsTo(Material,  { foreignKey: 'material_id', as: 'material' })
 Remision.belongsTo(Cliente,       { foreignKey: 'cliente_id', as: 'cliente' });
 Remision.belongsTo(ClienteSede,   { foreignKey: 'sede_id', as: 'sede' });
 Remision.belongsTo(Bodega,        { foreignKey: 'bodega_id', as: 'bodega' });
+Remision.belongsTo(Venta,         { foreignKey: 'venta_id',  as: 'venta' });
+Remision.belongsTo(Compra,        { foreignKey: 'compra_id', as: 'compra' });
 
 Empaque.belongsTo(Reciclador, { foreignKey: 'reciclador_id', as: 'reciclador' });
 Empaque.belongsTo(Bodega,     { foreignKey: 'bodega_id', as: 'bodega' });
 Certificado.belongsTo(Cliente,{ foreignKey: 'cliente_id', as: 'cliente' });
+
+Vehiculo.hasMany(GastoVehiculo, { foreignKey: 'vehiculo_id', as: 'gastos' });
+GastoVehiculo.belongsTo(Vehiculo, { foreignKey: 'vehiculo_id', as: 'vehiculo' });
+GastoVehiculo.belongsTo(Bodega,   { foreignKey: 'bodega_id', as: 'bodega' });
 
 module.exports = {
     sequelize, Usuario, Bodega, Material, Reciclador,
     Compra, CompraItem, Cliente, ClienteSede, MaterialPrecioCliente,
     Venta, VentaItem, Empleado, PrestamoEmpleado, DiasNoLaborados,
     PrestamoReciclador, Caja, MovimientoCaja,
-    Remision, RemisionItem, Empaque, Certificado
+    Remision, RemisionItem, Empaque, Certificado,
+    Vehiculo, GastoVehiculo
 };

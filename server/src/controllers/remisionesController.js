@@ -1,14 +1,13 @@
-const { Remision, RemisionItem, Material, Cliente, ClienteSede, Bodega } = require('../models');
+const { Remision, RemisionItem, Material, Cliente, ClienteSede, Bodega, Venta, Compra, Reciclador } = require('../models');
 const path = require('path');
 
-const include = [
-    { model: Material, as: 'material' }
-];
 const includeRemision = [
-    { model: RemisionItem, as: 'items', include: include },
-    { model: Cliente, as: 'cliente' },
+    { model: RemisionItem, as: 'items', include: [{ model: Material, as: 'material' }] },
+    { model: Cliente,     as: 'cliente' },
     { model: ClienteSede, as: 'sede' },
-    { model: Bodega, as: 'bodega' }
+    { model: Bodega,      as: 'bodega' },
+    { model: Venta,       as: 'venta',  required: false },
+    { model: Compra,      as: 'compra', required: false, include: [{ model: Reciclador, as: 'reciclador' }] }
 ];
 
 exports.listar = async (req, res) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { exportarInformeComprasExcel, exportarInformeComprasPDF, exportarCertificadoDisposicionFinal } from '../utils/exportar';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -27,7 +28,7 @@ export default function Informes() {
         try {
             const params = new URLSearchParams({ desde, hasta });
             if (bodega_id) params.append('bodega_id', bodega_id);
-            const d = await api.get(`/informes/compras?${params}`);
+            const d = await api.get(`/informes/compras-periodo?${params}`);
             setCompras(d);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
@@ -38,7 +39,7 @@ export default function Informes() {
         setLoading(true);
         try {
             const params = new URLSearchParams({ desde, hasta, cliente_id });
-            const d = await api.get(`/informes/certificado?${params}`);
+            const d = await api.get(`/informes/certificado-cliente?${params}`);
             setCertificado(d);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
@@ -96,6 +97,18 @@ export default function Informes() {
             {/* Informe de compras */}
             {tab === 'compras' && compras && (
                 <div>
+                    {/* Botones exportar */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                        <button onClick={() => exportarInformeComprasExcel({ ...compras, desde, hasta })}
+                            style={{ padding: '8px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                            📊 Descargar Excel
+                        </button>
+                        <button onClick={() => exportarInformeComprasPDF({ ...compras, desde, hasta })}
+                            style={{ padding: '8px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                            📄 Descargar PDF
+                        </button>
+                    </div>
+
                     {/* Totales */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
                         {[
@@ -196,8 +209,12 @@ export default function Informes() {
                         Este certificado fue generado el {hoy()} y tiene validez como soporte de gestión ambiental.
                     </div>
 
-                    <div style={{ textAlign: 'center', marginTop: 20 }}>
-                        <button onClick={() => window.print()} style={{ padding: '9px 24px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir certificado</button>
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
+                        <button onClick={() => exportarCertificadoDisposicionFinal({ cliente: certificado.cliente, detalle: certificado.detalle, desde, fechaCertificado: new Date().toISOString().slice(0,10) })}
+                            style={{ padding: '9px 24px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                            📄 Descargar Certificado Oficial PDF
+                        </button>
+                        <button onClick={() => window.print()} style={{ padding: '9px 20px', background: '#f5f5f5', color: '#333', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir</button>
                     </div>
                 </div>
             )}

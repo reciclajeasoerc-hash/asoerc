@@ -7,6 +7,7 @@ const bcrypt    = require('bcryptjs');
 const path      = require('path');
 const fs        = require('fs');
 const sequelize = require('./config/db');
+const { Op } = require('sequelize');
 const { Usuario, Bodega, Material } = require('./models');
 const { startBot } = require('./services/telegramBot');
 
@@ -18,11 +19,12 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false 
 
 const allowedOrigins = isProd
     ? [process.env.ALLOWED_ORIGIN || 'https://asoerc-production.up.railway.app']
-    : ['http://localhost:5173', 'http://localhost:4173'];
+    : null; // en desarrollo permitimos cualquier localhost
 
 app.use(cors({
     origin: (origin, cb) => {
         if (!origin) return cb(null, true);
+        if (!isProd) return cb(null, true); // desarrollo: permitir todo
         if (allowedOrigins.includes(origin)) return cb(null, true);
         cb(new Error('CORS: origen no permitido'));
     },
@@ -35,23 +37,29 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { ok: false, msg: 'Demasiadas peticiones' } }));
 app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false, message: { ok: false, msg: 'Demasiados intentos de login' } }));
 
-// Servir fotos/uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Crear carpeta uploads si no existe (Railway tiene filesystem efímero)
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
 
-// En producción servir el frontend compilado
-if (isProd) {
-    const clientDist = path.join(__dirname, '../../client/dist');
-    if (fs.existsSync(clientDist)) app.use(express.static(clientDist));
+// Servir el frontend compilado (PWA) — siempre que exista el build
+const clientDist = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientDist)) {
+    app.get('/sw.js', (req, res) => {
+        res.setHeader('Service-Worker-Allowed', '/');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.sendFile(path.join(clientDist, 'sw.js'));
+    });
+    app.use(express.static(clientDist));
 }
 
-app.use('/api', require('./routes/index'));
 app.get('/api/health', (_, res) => res.json({ ok: true, sistema: 'ASOERC' }));
+app.use('/api', require('./routes/index'));
 
-if (isProd) {
+// SPA fallback — todas las rutas que no sean /api devuelven index.html
+if (fs.existsSync(clientDist)) {
     app.get('*', (req, res) => {
-        const index = path.join(__dirname, '../../client/dist/index.html');
-        if (fs.existsSync(index)) res.sendFile(index);
-        else res.status(404).send('Frontend no compilado');
+        res.sendFile(path.join(clientDist, 'index.html'));
     });
 }
 
@@ -62,52 +70,133 @@ app.use((err, req, res, next) => {
 });
 
 async function seed() {
-    // Admin
+    // Bodegas iniciales (primero para tener IDs disponibles)
+    const count = await Bodega.count();
+    if (count === 0) {
+        await Bodega.create({ nombre: 'Bodega Principal', direccion: 'Bogotá' });
+        await Bodega.create({ nombre: 'El Diamante', direccion: 'Bogotá' });
+        console.log('✅ Bodegas iniciales creadas');
+    }
+
+    // Admin / Superadmin
     if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+        const principal = await Bodega.findOne({ where: { nombre: { [Op.like]: '%Principal%' } } });
         const existe = await Usuario.findOne({ where: { email: process.env.ADMIN_EMAIL } });
         if (!existe) {
             const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-            await Usuario.create({ nombre: 'Administrador', email: process.env.ADMIN_EMAIL, password: hash, rol: 'admin' });
-            console.log(`✅ Admin creado: ${process.env.ADMIN_EMAIL}`);
+            await Usuario.create({ nombre: 'Administrador', email: process.env.ADMIN_EMAIL, password: hash, rol: 'superadmin', bodega_id: principal?.id });
+            console.log(`✅ Superadmin creado: ${process.env.ADMIN_EMAIL}`);
+        } else if (existe.rol !== 'superadmin') {
+            await existe.update({ rol: 'superadmin', bodega_id: principal?.id || existe.bodega_id });
+            console.log(`✅ Usuario actualizado a superadmin`);
         }
     }
-    // Bodegas iniciales
-    const count = await Bodega.count();
-    if (count === 0) {
-        await Bodega.create({ nombre: 'Bodega ASOERC El Diamante', direccion: 'Bogotá' });
-        await Bodega.create({ nombre: 'Bodega ASOERC Principal', direccion: 'Bogotá' });
-        console.log('✅ Bodegas iniciales creadas');
-    }
-    // Materiales de la factura de ejemplo
+    // Materiales con categorías
     const matCount = await Material.count();
     if (matCount === 0) {
         const materiales = [
-            { codigo: '201A', nombre: 'Archivo', precio_compra: 600 },
-            { codigo: '201C', nombre: 'Cartón', precio_compra: 400 },
-            { codigo: '202',  nombre: 'Plegadiza', precio_compra: 100 },
-            { codigo: '307',  nombre: 'PET Cristal', precio_compra: 1450 },
-            { codigo: '399S', nombre: 'PET Soplado', precio_compra: 1400 },
-            { codigo: '302G', nombre: 'Galón', precio_compra: 1100 },
-            { codigo: '109',  nombre: 'Ganchos Ropa', precio_compra: 200 },
-            { codigo: '302P', nombre: 'Plástico Transparente', precio_compra: 1300 },
-            { codigo: '305',  nombre: 'Plástico Color', precio_compra: 500 },
-            { codigo: '399A', nombre: 'PET Ámbar', precio_compra: 200 },
-            { codigo: '304',  nombre: 'Tina', precio_compra: 1200 },
-            { codigo: '206',  nombre: 'Poliboard', precio_compra: 150 },
-            { codigo: '302C', nombre: 'Caneca', precio_compra: 1800 },
-            { codigo: '102',  nombre: 'Chatarra', precio_compra: 650 },
-            { codigo: '101',  nombre: 'Aluminio Lata', precio_compra: 5500 },
-            { codigo: '499T', nombre: 'Tetrapack', precio_compra: 100 },
-            { codigo: '499V', nombre: 'Vidrio', precio_compra: 100 },
-            { codigo: '499VI',nombre: 'Vineras', precio_compra: 200 },
-            { codigo: '36',   nombre: 'Icopor', precio_compra: 50 },
-            { codigo: '102C', nombre: 'Cobre', precio_compra: 28000 },
-            { codigo: '102B', nombre: 'Bronce', precio_compra: 15000 },
-            { codigo: '102AC',nombre: 'Acero', precio_compra: 800 },
+            // ── Metales ──────────────────────────────────────────────────────
+            { codigo: '102CH', nombre: 'Chatarra',         precio_compra: 600,   categoria: 'Metales' },
+            { codigo: '102B',  nombre: 'Bronce',           precio_compra: 15000, categoria: 'Metales' },
+            { codigo: '102C',  nombre: 'Cobre Rojo',       precio_compra: 35000, categoria: 'Metales' },
+            { codigo: '103CA', nombre: 'Cobre Amarillo',   precio_compra: 20000, categoria: 'Metales' },
+            { codigo: '106',   nombre: 'Cable',            precio_compra: 3000,  categoria: 'Metales' },
+            { codigo: '101',   nombre: 'Aluminio Lata',    precio_compra: 5500,  categoria: 'Metales' },
+            { codigo: '102AC', nombre: 'Acero',            precio_compra: 800,   categoria: 'Metales' },
+            { codigo: '1',     nombre: 'Plomo',            precio_compra: 3000,  categoria: 'Metales' },
+            { codigo: '199RC', nombre: 'Radiador Cobre',   precio_compra: 15000, categoria: 'Metales' },
+            { codigo: '199RM', nombre: 'Radiador Mixto',   precio_compra: 13000, categoria: 'Metales' },
+            { codigo: '777',   nombre: 'Lámina',           precio_compra: 2500,  categoria: 'Metales' },
+            { codigo: '103P',  nombre: 'Perfil',           precio_compra: 6000,  categoria: 'Metales' },
+            { codigo: '199PL', nombre: 'Plancha',          precio_compra: 2200,  categoria: 'Metales' },
+            { codigo: '101D',  nombre: 'Desarme',          precio_compra: 900,   categoria: 'Metales' },
+            { codigo: '102PA', nombre: 'Patio',            precio_compra: 1200,  categoria: 'Metales' },
+            { codigo: '36C',   nombre: 'Colado',           precio_compra: 1000,  categoria: 'Metales' },
+            // ── Electrónicos ─────────────────────────────────────────────────
+            { codigo: '101CE', nombre: 'Celular',          precio_compra: 10000, categoria: 'Electrónicos' },
+            { codigo: '102B22',nombre: 'Batería 22',       precio_compra: 30000, categoria: 'Electrónicos' },
+            { codigo: '102B24',nombre: 'Batería 24',       precio_compra: 35000, categoria: 'Electrónicos' },
+            { codigo: '3B27',  nombre: 'Batería 27',       precio_compra: 40000, categoria: 'Electrónicos' },
+            { codigo: '102BM', nombre: 'Batería Maletín',  precio_compra: 15000, categoria: 'Electrónicos' },
+            { codigo: '399PA', nombre: 'Pantalla',         precio_compra: 2000,  categoria: 'Electrónicos' },
+            { codigo: '107',   nombre: 'Plaqueta',         precio_compra: 3000,  categoria: 'Electrónicos' },
+            { codigo: '302CD', nombre: 'Pasta de CD',      precio_compra: 300,   categoria: 'Electrónicos' },
+            { codigo: '102RG', nombre: 'Radiografía',      precio_compra: 1000,  categoria: 'Electrónicos' },
+            { codigo: '499PE', nombre: 'Peter',            precio_compra: 2000,  categoria: 'Electrónicos' },
+            { codigo: '111CO', nombre: 'Cores',            precio_compra: 300,   categoria: 'Electrónicos' },
+            // ── Plásticos ────────────────────────────────────────────────────
+            { codigo: '307',   nombre: 'PET Cristal',      precio_compra: 1500,  categoria: 'Plásticos' },
+            { codigo: '399S',  nombre: 'PET Soplado',      precio_compra: 1400,  categoria: 'Plásticos' },
+            { codigo: '399A',  nombre: 'PET Ámbar',        precio_compra: 200,   categoria: 'Plásticos' },
+            { codigo: '399R',  nombre: 'PET Revuelto',     precio_compra: 500,   categoria: 'Plásticos' },
+            { codigo: '399V',  nombre: 'PET Verde',        precio_compra: 300,   categoria: 'Plásticos' },
+            { codigo: '302P',  nombre: 'Plástico Transp.', precio_compra: 1300,  categoria: 'Plásticos' },
+            { codigo: '305',   nombre: 'Plástico Color',   precio_compra: 500,   categoria: 'Plásticos' },
+            { codigo: '308',   nombre: 'PVC',              precio_compra: 300,   categoria: 'Plásticos' },
+            { codigo: '302PP', nombre: 'Polipropileno',    precio_compra: 400,   categoria: 'Plásticos' },
+            { codigo: '304',   nombre: 'Tina',             precio_compra: 1200,  categoria: 'Plásticos' },
+            { codigo: '302C',  nombre: 'Caneca',           precio_compra: 1800,  categoria: 'Plásticos' },
+            { codigo: '399CA', nombre: 'Canasta',          precio_compra: 3000,  categoria: 'Plásticos' },
+            { codigo: '302G',  nombre: 'Galón',            precio_compra: 1100,  categoria: 'Plásticos' },
+            { codigo: '302GA', nombre: 'Galón Aceite',     precio_compra: 1300,  categoria: 'Plásticos' },
+            { codigo: '302GC', nombre: 'Galón Cristal',    precio_compra: 4000,  categoria: 'Plásticos' },
+            { codigo: '301',   nombre: 'Pasta',            precio_compra: 500,   categoria: 'Plásticos' },
+            // ── Papel y Cartón ───────────────────────────────────────────────
+            { codigo: '201A',  nombre: 'Archivo',          precio_compra: 600,   categoria: 'Papel y Cartón' },
+            { codigo: '201C',  nombre: 'Cartón',           precio_compra: 400,   categoria: 'Papel y Cartón' },
+            { codigo: '202',   nombre: 'Plegadiza',        precio_compra: 100,   categoria: 'Papel y Cartón' },
+            { codigo: '206',   nombre: 'Poliboard',        precio_compra: 150,   categoria: 'Papel y Cartón' },
+            { codigo: '499T',  nombre: 'Tetrapack',        precio_compra: 100,   categoria: 'Papel y Cartón' },
+            { codigo: '206E',  nombre: 'Estibas',          precio_compra: 5000,  categoria: 'Papel y Cartón' },
+            // ── Vidrio ───────────────────────────────────────────────────────
+            { codigo: '499V',  nombre: 'Vidrio',           precio_compra: 100,   categoria: 'Vidrio' },
+            { codigo: '499VC', nombre: 'Botella Café',     precio_compra: 1500,  categoria: 'Vidrio' },
+            { codigo: '303',   nombre: 'Botella Transp.',  precio_compra: 500,   categoria: 'Vidrio' },
+            { codigo: '499VV', nombre: 'Botella Verde',    precio_compra: 1500,  categoria: 'Vidrio' },
+            { codigo: '499VI', nombre: 'Vineras',          precio_compra: 200,   categoria: 'Vidrio' },
+            { codigo: '499PF', nombre: 'Perfumeros',       precio_compra: 200,   categoria: 'Vidrio' },
+            { codigo: '741',   nombre: 'Verde Limpio',     precio_compra: 300,   categoria: 'Vidrio' },
+            // ── Varios ───────────────────────────────────────────────────────
+            { codigo: '109',   nombre: 'Ganchos Ropa',     precio_compra: 300,   categoria: 'Varios' },
+            { codigo: '105',   nombre: 'Ganchos',          precio_compra: 200,   categoria: 'Varios' },
+            { codigo: '100',   nombre: 'Lonas',            precio_compra: 200,   categoria: 'Varios' },
+            { codigo: '1011',  nombre: 'Gualla',           precio_compra: 5000,  categoria: 'Varios' },
+            { codigo: '102AC2',nombre: 'Aceite',           precio_compra: 1000,  categoria: 'Varios' },
+            { codigo: '2',     nombre: 'Parafina',         precio_compra: 1000,  categoria: 'Varios' },
+            { codigo: '102T',  nombre: 'Tierra',           precio_compra: 1500,  categoria: 'Varios' },
+            { codigo: '699',   nombre: 'Madera',           precio_compra: 150,   categoria: 'Varios' },
+            { codigo: '36',    nombre: 'Icopor',           precio_compra: 50,    categoria: 'Varios' },
+            { codigo: '111CT', nombre: 'Contaminado',      precio_compra: 0,     categoria: 'Varios' },
+            { codigo: '628',   nombre: 'Retal',            precio_compra: 0,     categoria: 'Varios' },
         ];
         await Material.bulkCreate(materiales);
         console.log('✅ Materiales iniciales cargados');
     }
+
+    // Electrónicos adicionales — se insertan si no existen (findOrCreate por código)
+    const electronicos = [
+        { codigo: '102TD',   nombre: 'Tarjeta Dorada',          precio_compra: 50000, categoria: 'Electrónicos' },
+        { codigo: '102TVA',  nombre: 'Tarjeta Verde y Azul',    precio_compra: 15000, categoria: 'Electrónicos' },
+        { codigo: '102TM',   nombre: 'Tarjeta Marrón',          precio_compra:  4000, categoria: 'Electrónicos' },
+        { codigo: '102TMOD', nombre: 'Tarjeta Módem',           precio_compra: 10000, categoria: 'Electrónicos' },
+        { codigo: '102DD',   nombre: 'Disco Duro Entero',       precio_compra:  7000, categoria: 'Electrónicos' },
+        { codigo: '102PORT', nombre: 'Portátil',                precio_compra:  6000, categoria: 'Electrónicos' },
+        { codigo: '102BPC',  nombre: 'Batería Portátil/Celular',precio_compra:  4000, categoria: 'Electrónicos' },
+        { codigo: '102FCC',  nombre: 'Fuente con Cable',        precio_compra:  2000, categoria: 'Electrónicos' },
+        { codigo: '102FSC',  nombre: 'Fuente sin Cable',        precio_compra:  1000, categoria: 'Electrónicos' },
+        { codigo: '102CPU',  nombre: 'CPU Completa',            precio_compra: 20000, categoria: 'Electrónicos' },
+        { codigo: '102TV',   nombre: 'Televisor',               precio_compra:  5000, categoria: 'Electrónicos' },
+        { codigo: '102MON',  nombre: 'Monitor',                 precio_compra:  2500, categoria: 'Electrónicos' },
+        { codigo: '102TF',   nombre: 'Teléfono Fijo',           precio_compra:   800, categoria: 'Electrónicos' },
+        { codigo: '102PB',   nombre: 'Power Bank',              precio_compra:  1000, categoria: 'Electrónicos' },
+        { codigo: '102MPLA', nombre: 'Módem Plástico',          precio_compra:  2000, categoria: 'Electrónicos' },
+    ];
+    for (const mat of electronicos) {
+        await Material.findOrCreate({ where: { codigo: mat.codigo }, defaults: mat });
+    }
+    // Actualizar precio de Radiografía al valor vigente
+    await Material.update({ precio_compra: 3000 }, { where: { codigo: '102RG' } });
+    console.log('✅ Electrónicos adicionales sincronizados');
 }
 
 const PORT = process.env.PORT || 3000;
@@ -116,9 +205,16 @@ async function iniciar(intentos = 5) {
     for (let i = 1; i <= intentos; i++) {
         try {
             await sequelize.authenticate();
-            await sequelize.sync({ alter: true });
+            // Convierte la columna rol a VARCHAR si aún es ENUM (migración automática)
+            await sequelize.query("ALTER TABLE Usuarios MODIFY COLUMN rol VARCHAR(255) DEFAULT 'operador'").catch(() => {});
+            // Columnas nuevas en Remisiones (no afectan si ya existen)
+            await sequelize.query("ALTER TABLE Remisions ADD COLUMN tipo ENUM('compra','venta') NULL").catch(() => {});
+            await sequelize.query("ALTER TABLE Remisions ADD COLUMN venta_id INT NULL").catch(() => {});
+            await sequelize.query("ALTER TABLE Remisions ADD COLUMN compra_id INT NULL").catch(() => {});
+            await sequelize.query("ALTER TABLE Remisions ADD COLUMN numero_orden VARCHAR(50) NULL").catch(() => {});
+            await sequelize.sync();
             await seed();
-            app.listen(PORT, () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
+            app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT} — red local: http://192.168.1.52:${PORT}`));
             startBot();
             return;
         } catch (err) {

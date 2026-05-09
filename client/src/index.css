@@ -1,4 +1,25 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0faf0; color: #1a1a1a; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0faf0;
+    color: #1a1a1a;
+    /* Evitar rebote en iOS */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+}
 button { cursor: pointer; }
 input, select, textarea { font-family: inherit; }
+
+/* Scroll suave en móvil */
+* { -webkit-overflow-scrolling: touch; }
+
+/* Safe area para iPhone con notch */
+@supports (padding: env(safe-area-inset-bottom)) {
+    header { padding-top: max(10px, env(safe-area-inset-top)); }
+}
+
+/* Inputs más grandes en móvil (evitar zoom automático en iOS) */
+@media (max-width: 768px) {
+    input, select, textarea { font-size: 16px !important; }
+    table { font-size: 13px; }
+}

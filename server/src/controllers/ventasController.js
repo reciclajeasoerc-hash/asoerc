@@ -1,4 +1,4 @@
-const { Venta, VentaItem, Cliente, ClienteSede, Material, MaterialPrecioCliente, Bodega } = require('../models');
+const { Venta, VentaItem, Cliente, ClienteSede, Material, MaterialPrecioCliente, Bodega, Caja, MovimientoCaja } = require('../models');
 
 const include = [
     { model: Cliente, as: 'cliente', include: [{ model: MaterialPrecioCliente, as: 'precios', include: [{ model: Material, as: 'material' }] }] },
@@ -6,6 +6,21 @@ const include = [
     { model: Bodega, as: 'bodega' },
     { model: VentaItem, as: 'items', include: [{ model: Material, as: 'material' }] }
 ];
+
+async function registrarEnCaja(bodega_id, fecha, total, concepto) {
+    if (!total || total <= 0) return;
+    let caja = await Caja.findOne({ where: { bodega_id, fecha } });
+    if (!caja) {
+        const anterior = await Caja.findOne({ where: { bodega_id }, order: [['fecha', 'DESC']] });
+        caja = await Caja.create({ bodega_id, fecha, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 });
+    }
+    const hora = new Date().toTimeString().slice(0, 8);
+    await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora });
+    await caja.update({
+        total_ingresos: parseFloat(caja.total_ingresos) + total,
+        saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) + total - parseFloat(caja.total_egresos)
+    });
+}
 
 exports.listar = async (req, res) => {
     try {
@@ -53,6 +68,14 @@ exports.crear = async (req, res) => {
             await VentaItem.create({ venta_id: ventaData.id, material_id: item.material_id, kilos: item.kilos, precio_unitario, total: subtotal });
         }
         await ventaData.update({ total });
+
+        // Registrar en caja si el pago ya fue recibido
+        if (tipo_pago && tipo_pago !== 'pendiente') {
+            const fechaVenta = fecha || new Date().toISOString().slice(0, 10);
+            await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`);
+            await ventaData.update({ estado: 'pagada' });
+        }
+
         const full = await Venta.findByPk(ventaData.id, { include });
         res.json({ ok: true, venta: full });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
@@ -61,12 +84,20 @@ exports.crear = async (req, res) => {
 exports.actualizarEstado = async (req, res) => {
     try {
         const { estado, tipo_pago } = req.body;
-        const venta = await Venta.findByPk(req.params.id);
+        const venta = await Venta.findByPk(req.params.id, { include });
         if (!venta) return res.status(404).json({ ok: false, msg: 'No encontrada' });
         const update = {};
         if (estado) update.estado = estado;
         if (tipo_pago) update.tipo_pago = tipo_pago;
         await venta.update(update);
+
+        // Si marcan como pagada y aún no estaba pagada → registrar en caja
+        if (estado === 'pagada' && venta.estado !== 'pagada') {
+            const tp = tipo_pago || venta.tipo_pago;
+            await registrarEnCaja(venta.bodega_id, venta.fecha, parseFloat(venta.total),
+                `Venta #${venta.numero || venta.id} - ${venta.cliente?.nombre} (${tp})`);
+        }
+
         res.json({ ok: true, venta });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
@@ -119,5 +150,14 @@ exports.actualizarCliente = async (req, res) => {
         if (!cliente) return res.status(404).json({ ok: false, msg: 'No encontrado' });
         await cliente.update(req.body);
         res.json({ ok: true, cliente });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.crearSede = async (req, res) => {
+    try {
+        const { nombre, direccion } = req.body;
+        if (!nombre) return res.status(400).json({ ok: false, msg: 'Nombre de sede requerido' });
+        const sede = await ClienteSede.create({ cliente_id: req.params.id, nombre, direccion });
+        res.json({ ok: true, sede });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
