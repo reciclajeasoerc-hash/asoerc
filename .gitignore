@@ -3,5 +3,4 @@ server/node_modules/
 client/node_modules/
 server/.env
 server/uploads/
-server/client/dist/
 *.log
