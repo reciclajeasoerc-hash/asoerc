@@ -16,6 +16,7 @@ const Bodega = sequelize.define('Bodega', {
     nombre:    { type: DataTypes.STRING, allowNull: false },
     direccion: { type: DataTypes.STRING },
     telefono:  { type: DataTypes.STRING },
+    logo_url:  { type: DataTypes.STRING },
     activa:    { type: DataTypes.BOOLEAN, defaultValue: true }
 });
 

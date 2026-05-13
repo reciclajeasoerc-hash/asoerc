@@ -10,7 +10,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
-const authCtrl       = require('../controllers/authController');
+const authCtrl            = require('../controllers/authController');
+const configuracionCtrl   = require('../controllers/configuracionController');
 const setupCtrl      = require('../controllers/setupController');
 const comprasCtrl    = require('../controllers/comprasController');
 const materialesCtrl = require('../controllers/materialesController');
@@ -29,11 +30,20 @@ const { Bodega, Material, Reciclador } = require('../models');
 router.get('/setup/estado',  setupCtrl.estado);
 router.post('/setup',        setupCtrl.configurar);
 
+// Configuración pública (logo + nombre de empresa)
+router.get('/configuracion', configuracionCtrl.obtener);
+
 // Auth
 router.post('/auth/login', authCtrl.login);
 
 router.use(auth);
 router.use(bodegaFilter);
+
+// Configuración de empresa (superadmin)
+router.put('/configuracion', soloRoles('superadmin'), upload.single('logo'), configuracionCtrl.actualizar);
+
+// Perfil del usuario autenticado
+router.put('/usuarios/perfil', configuracionCtrl.actualizarPerfil);
 
 // Bodegas
 router.get('/bodegas', async (req, res) => {

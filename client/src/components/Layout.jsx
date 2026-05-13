@@ -19,6 +19,7 @@ const TODOS_NAV = [
     { to: '/informes',     icon: '📈', label: 'Informes',     modulo: 'informes'      },
     { to: '/usuarios',     icon: '👥', label: 'Usuarios',     modulo: 'usuarios'      },
     { to: '/bodegas',      icon: '🏭', label: 'Bodegas',      modulo: 'bodegas'       },
+    { to: '/configuracion',icon: '⚙️',  label: 'Configuración', modulo: 'configuracion' },
     { to: '/manual',       icon: '📖', label: 'Manual',        modulo: null, externo: '/manual.html' },
 ];
 
@@ -58,6 +59,13 @@ export default function Layout() {
     const [bodegas, setBodegas] = useState([]);
     const [bodegaActual, setBodegaActual] = useState(null);
     const [bodegaFiltro, setBodegaFiltro] = useState('');
+    const [config, setConfig] = useState({ nombre: '', logo_url: null });
+
+    useEffect(() => {
+        fetch('/api/configuracion').then(r => r.json()).then(d => {
+            if (d.ok) setConfig({ nombre: d.nombre, logo_url: d.logo_url });
+        }).catch(() => {});
+    }, []);
 
     useEffect(() => {
         api.get('/bodegas').then(d => {
@@ -99,9 +107,12 @@ export default function Layout() {
                 boxShadow: '0 2px 8px rgba(0,0,0,.25)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 22 }}>♻️</span>
+                    {config.logo_url
+                        ? <img src={config.logo_url} alt="Logo" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
+                        : <span style={{ fontSize: 22 }}>♻️</span>
+                    }
                     <div>
-                        <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1 }}>ASOERC</div>
+                        <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1 }}>{config.nombre || 'ASOERC'}</div>
                         <div style={{ fontSize: 10, color: '#8fcca0', marginTop: 1 }}>
                             {bodegaActual?.nombre || (user?.rol === 'superadmin' ? 'Bodega Principal' : 'Sistema')}
                         </div>
@@ -241,7 +252,13 @@ export default function Layout() {
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
             <aside style={{ width: 220, background: '#1a5c2a', color: '#fff', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
                 <div style={{ padding: '16px', borderBottom: '1px solid #2d7a3f' }}>
-                    <div style={{ fontSize: 20, fontWeight: 700 }}>♻️ ASOERC</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 20, fontWeight: 700 }}>
+                        {config.logo_url
+                            ? <img src={config.logo_url} alt="Logo" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
+                            : '♻️'
+                        }
+                        {config.nombre || 'ASOERC'}
+                    </div>
                     <div style={{ fontSize: 11, color: '#8fcca0', marginTop: 2 }}>
                         {bodegaActual?.nombre || (user?.rol === 'superadmin' ? 'Bodega Principal' : 'Sistema')}
                     </div>

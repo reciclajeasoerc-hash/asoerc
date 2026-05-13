@@ -30,5 +30,17 @@ export const api = {
         const data = await r.json();
         if (!r.ok) throw new Error(data.msg || 'Error');
         return data;
+    },
+
+    uploadPut: async (url, formData) => {
+        const token = localStorage.getItem('token');
+        const r = await fetch(`${BASE}${url}`, {
+            method: 'PUT',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.msg || 'Error');
+        return data;
     }
 };

@@ -18,6 +18,7 @@ import Bodegas from './pages/Bodegas';
 import BodegaDetalle from './pages/BodegaDetalle';
 import Vehiculos from './pages/Vehiculos';
 import Prestamos from './pages/Prestamos';
+import Configuracion from './pages/Configuracion';
 
 export const AuthCtx = createContext(null);
 export const useAuth = () => useContext(AuthCtx);
@@ -26,8 +27,8 @@ export const useAuth = () => useContext(AuthCtx);
 // superadmin (Bodega Principal): acceso total + coordinación global
 // admin (bodegas secundarias como El Diamante): solo operaciones diarias
 export const PERMISOS = {
-    superadmin: ['dashboard','compras','ventas','recicladores','empleados','caja','remisiones','empaques','materiales','informes','usuarios','bodegas','vehiculos','prestamos'],
-    admin:      ['dashboard','compras','ventas','recicladores','empleados','caja','remisiones','empaques','vehiculos','prestamos'],
+    superadmin: ['dashboard','compras','ventas','recicladores','empleados','caja','remisiones','empaques','materiales','informes','usuarios','bodegas','vehiculos','prestamos','configuracion'],
+    admin:      ['dashboard','compras','ventas','recicladores','empleados','caja','remisiones','empaques','vehiculos','prestamos','configuracion'],
     cajero:     ['dashboard','caja','vehiculos','prestamos'],
     vendedor:   ['dashboard','ventas','remisiones'],
     operador:   ['dashboard','compras','recicladores','empaques'],
@@ -116,7 +117,8 @@ function App() {
                         <Route path="bodegas"      element={<Guard modulo="bodegas"><Bodegas /></Guard>} />
                         <Route path="bodegas/:id"  element={<Guard modulo="bodegas"><BodegaDetalle /></Guard>} />
                         <Route path="vehiculos"    element={<Guard modulo="vehiculos"><Vehiculos /></Guard>} />
-                        <Route path="prestamos"    element={<Guard modulo="prestamos"><Prestamos /></Guard>} />
+                        <Route path="prestamos"      element={<Guard modulo="prestamos"><Prestamos /></Guard>} />
+                        <Route path="configuracion"  element={<Guard modulo="configuracion"><Configuracion /></Guard>} />
                     </Route>
                 </Routes>
             </BrowserRouter>
