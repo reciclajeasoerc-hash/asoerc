@@ -43,8 +43,29 @@ function Guard({ modulo, children }) {
     return puedePasar(user?.rol, modulo) ? children : <Navigate to="/" replace />;
 }
 
-function PantallaLicenciaVencida({ pagoUrl }) {
+function PantallaLicenciaVencida({ pagoUrl, onVerificar }) {
+    const [verificando, setVerificando] = React.useState(false);
+    const [msg, setMsg] = React.useState('');
     const wa = 'https://wa.me/573212674754?text=Hola%2C+necesito+renovar+la+licencia+de+mi+sistema+ASOERC';
+
+    async function verificarAhora() {
+        setVerificando(true);
+        setMsg('');
+        try {
+            const r = await fetch('/api/licencia/estado?force=1');
+            const d = await r.json();
+            if (d.valida) {
+                onVerificar(); // desbloquea la app
+            } else {
+                setMsg('La licencia aún no está activa. Si ya pagó, espere unos minutos e intente de nuevo.');
+            }
+        } catch {
+            setMsg('No se pudo verificar. Revise su conexión e intente de nuevo.');
+        } finally {
+            setVerificando(false);
+        }
+    }
+
     return (
         <div style={{ minHeight:'100vh', background:'#0f0f0f', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
             <div style={{ background:'#1a1a1a', borderRadius:16, padding:40, maxWidth:420, width:'100%', textAlign:'center', border:'1px solid #3d0000' }}>
@@ -52,8 +73,9 @@ function PantallaLicenciaVencida({ pagoUrl }) {
                 <h2 style={{ color:'#e74c3c', fontSize:20, marginBottom:8 }}>Licencia Vencida</h2>
                 <p style={{ color:'#888', fontSize:14, lineHeight:1.6, marginBottom:24 }}>
                     El acceso al sistema está bloqueado porque la licencia venció o no está activa.
-                    Contáctenos para renovar y continuar usando el sistema.
+                    Renueve su suscripción para continuar.
                 </p>
+
                 {pagoUrl && (
                     <a href={pagoUrl} target="_blank" rel="noopener noreferrer"
                         style={{ display:'block', padding:'14px', background:'#009ee3', color:'#fff', borderRadius:10, textDecoration:'none', fontWeight:700, fontSize:15, marginBottom:12 }}>
@@ -61,9 +83,17 @@ function PantallaLicenciaVencida({ pagoUrl }) {
                     </a>
                 )}
                 <a href={wa} target="_blank" rel="noopener noreferrer"
-                    style={{ display:'block', padding:'14px', background:'#25d366', color:'#fff', borderRadius:10, textDecoration:'none', fontWeight:700, fontSize:15, marginBottom:16 }}>
+                    style={{ display:'block', padding:'14px', background:'#25d366', color:'#fff', borderRadius:10, textDecoration:'none', fontWeight:700, fontSize:15, marginBottom:12 }}>
                     💬 Renovar por WhatsApp
                 </a>
+
+                <button onClick={verificarAhora} disabled={verificando}
+                    style={{ width:'100%', padding:'14px', background:'#2d2d2d', color:'#aaa', border:'1px solid #444', borderRadius:10, fontSize:14, fontWeight:600, cursor:'pointer', marginBottom:16 }}>
+                    {verificando ? '⏳ Verificando...' : '✅ Ya pagué — verificar ahora'}
+                </button>
+
+                {msg && <p style={{ color:'#f59e0b', fontSize:13, marginBottom:12 }}>{msg}</p>}
+
                 <div style={{ background:'#111', borderRadius:8, padding:'12px 16px' }}>
                     <p style={{ color:'#555', fontSize:12, margin:0 }}>Soporte técnico</p>
                     <p style={{ color:'#888', fontSize:14, margin:'4px 0 0', fontWeight:700 }}>AI Company CO</p>
@@ -102,7 +132,8 @@ function App() {
         </div>
     );
 
-    if (!licencia.valida) return <PantallaLicenciaVencida pagoUrl={licencia.pagoUrl} />;
+    if (!licencia.valida) return <PantallaLicenciaVencida pagoUrl={licencia.pagoUrl}
+        onVerificar={() => setLicencia(l => ({ ...l, valida: true }))} />;
 
     if (!configurado) return <Setup onListo={() => setConfigurado(true)} />;
 
