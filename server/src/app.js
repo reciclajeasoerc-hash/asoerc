@@ -219,6 +219,7 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Remisions ADD COLUMN venta_id INT NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Remisions ADD COLUMN compra_id INT NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Remisions ADD COLUMN numero_orden VARCHAR(50) NULL").catch(() => {});
+            await sequelize.query("ALTER TABLE Bodegas ADD COLUMN logo_url VARCHAR(500) NULL").catch(() => {});
             await sequelize.sync();
             await seed();
             app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
