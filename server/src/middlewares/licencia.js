@@ -51,8 +51,11 @@ async function iniciarVerificacion() {
 
 // Middleware para rutas de API
 async function verificarLicencia(req, res, next) {
-    // Siempre permitir login y health
-    if (req.path === '/auth/login' || req.path === '/health') return next();
+    // Siempre permitir login, health, setup y configuracion pública
+    if (req.path === '/auth/login' ||
+        req.path === '/health' ||
+        req.path.startsWith('/setup') ||
+        req.path === '/configuracion') return next();
 
     await refrescarSiNecesario();
 
