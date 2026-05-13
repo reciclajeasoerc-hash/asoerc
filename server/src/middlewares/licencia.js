@@ -71,12 +71,10 @@ async function verificarLicencia(req, res, next) {
 }
 
 // Endpoint interno para que el frontend sepa el estado
-// ?force=1 ignora el cache y re-verifica contra mi-plataforma
+// Siempre espera la primera verificación antes de responder
 async function estadoEndpoint(req, res) {
-    if (req.query.force === '1') {
-        estadoLicencia.checkedAt = 0; // forzar re-verificación
-        await refrescarSiNecesario();
-    }
+    if (req.query.force === '1') estadoLicencia.checkedAt = 0;
+    await refrescarSiNecesario(); // garantiza que siempre hay un resultado real
     res.json({
         valida:            estadoLicencia.valida,
         diasRestantes:     estadoLicencia.diasRestantes,
