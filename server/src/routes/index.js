@@ -29,6 +29,7 @@ const { Bodega, Material, Reciclador } = require('../models');
 // Setup inicial (sin autenticación)
 router.get('/setup/estado',  setupCtrl.estado);
 router.post('/setup',        setupCtrl.configurar);
+router.post('/setup/reset',  setupCtrl.reset);
 
 // Configuración pública (logo + nombre de empresa)
 router.get('/configuracion', configuracionCtrl.obtener);
