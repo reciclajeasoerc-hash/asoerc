@@ -44,22 +44,31 @@ function Guard({ modulo, children }) {
 }
 
 function PantallaLicenciaVencida({ pagoUrl }) {
+    const wa = 'https://wa.me/573212674754?text=Hola%2C+necesito+renovar+la+licencia+de+mi+sistema+ASOERC';
     return (
         <div style={{ minHeight:'100vh', background:'#0f0f0f', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
             <div style={{ background:'#1a1a1a', borderRadius:16, padding:40, maxWidth:420, width:'100%', textAlign:'center', border:'1px solid #3d0000' }}>
                 <div style={{ fontSize:56, marginBottom:16 }}>🔒</div>
                 <h2 style={{ color:'#e74c3c', fontSize:20, marginBottom:8 }}>Licencia Vencida</h2>
                 <p style={{ color:'#888', fontSize:14, lineHeight:1.6, marginBottom:24 }}>
-                    El acceso al sistema ASOERC está bloqueado porque la licencia ha vencido o no está activa.
-                    Renueve su suscripción para continuar usando el sistema.
+                    El acceso al sistema está bloqueado porque la licencia venció o no está activa.
+                    Contáctenos para renovar y continuar usando el sistema.
                 </p>
                 {pagoUrl && (
                     <a href={pagoUrl} target="_blank" rel="noopener noreferrer"
                         style={{ display:'block', padding:'14px', background:'#009ee3', color:'#fff', borderRadius:10, textDecoration:'none', fontWeight:700, fontSize:15, marginBottom:12 }}>
-                        💳 Renovar ahora
+                        💳 Pagar con tarjeta / PSE
                     </a>
                 )}
-                <p style={{ color:'#444', fontSize:12 }}>¿Problemas? Contacte a AI Company CO — +57 321 267 4754</p>
+                <a href={wa} target="_blank" rel="noopener noreferrer"
+                    style={{ display:'block', padding:'14px', background:'#25d366', color:'#fff', borderRadius:10, textDecoration:'none', fontWeight:700, fontSize:15, marginBottom:16 }}>
+                    💬 Renovar por WhatsApp
+                </a>
+                <div style={{ background:'#111', borderRadius:8, padding:'12px 16px' }}>
+                    <p style={{ color:'#555', fontSize:12, margin:0 }}>Soporte técnico</p>
+                    <p style={{ color:'#888', fontSize:14, margin:'4px 0 0', fontWeight:700 }}>AI Company CO</p>
+                    <p style={{ color:'#666', fontSize:13, margin:'2px 0 0' }}>+57 321 267 4754 · aicompanyco.com</p>
+                </div>
             </div>
         </div>
     );

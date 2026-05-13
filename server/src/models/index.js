@@ -216,6 +216,11 @@ const GastoVehiculo = sequelize.define('GastoVehiculo', {
     km_actual:   { type: DataTypes.INTEGER }
 });
 
+const Configuracion = sequelize.define('Configuracion', {
+    clave: { type: DataTypes.STRING(100), allowNull: false, unique: true },
+    valor: { type: DataTypes.TEXT }
+}, { tableName: 'configuracion', timestamps: false });
+
 const Certificado = sequelize.define('Certificado', {
     cliente_id:   { type: DataTypes.INTEGER, allowNull: false },
     mes:          { type: DataTypes.INTEGER, allowNull: false },
@@ -285,5 +290,5 @@ module.exports = {
     Venta, VentaItem, Empleado, PrestamoEmpleado, DiasNoLaborados,
     PrestamoReciclador, Caja, MovimientoCaja,
     Remision, RemisionItem, Empaque, Certificado,
-    Vehiculo, GastoVehiculo
+    Vehiculo, GastoVehiculo, Configuracion
 };

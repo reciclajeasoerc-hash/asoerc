@@ -1,10 +1,24 @@
-const { Bodega, Usuario } = require('../models');
+const { Configuracion, Bodega, Usuario } = require('../models');
 const bcrypt = require('bcryptjs');
 
 async function obtener(req, res) {
     try {
-        const bodega = await Bodega.findOne({ order: [['id', 'ASC']] });
-        res.json({ ok: true, nombre: bodega?.nombre || 'ASOERC', logo_url: bodega?.logo_url || null });
+        const configs = await Configuracion.findAll();
+        const map = {};
+        configs.forEach(c => { map[c.clave] = c.valor; });
+
+        // Fallback al nombre de Bodega si aún no está en Configuracion
+        let nombre = map['empresa_nombre'];
+        if (!nombre) {
+            const bodega = await Bodega.findOne({ order: [['id', 'ASC']] });
+            nombre = bodega?.nombre || 'ASOERC';
+        }
+
+        res.json({
+            ok: true,
+            nombre,
+            logo_url: map['empresa_logo'] ? `/uploads/${map['empresa_logo']}` : null
+        });
     } catch (e) {
         res.json({ ok: true, nombre: 'ASOERC', logo_url: null });
     }
@@ -12,14 +26,28 @@ async function obtener(req, res) {
 
 async function actualizar(req, res) {
     try {
-        const bodega = await Bodega.findOne({ order: [['id', 'ASC']] });
-        if (!bodega) return res.status(404).json({ ok: false, msg: 'No configurado' });
-        const updates = {};
-        if (req.body.nombre) updates.nombre = req.body.nombre;
-        if (req.file) updates.logo_url = `/uploads/${req.file.filename}`;
-        if (req.body.limpiar_logo === 'true') updates.logo_url = null;
-        await bodega.update(updates);
-        res.json({ ok: true, nombre: bodega.nombre, logo_url: bodega.logo_url });
+        if (req.body.nombre) {
+            await Configuracion.upsert({ clave: 'empresa_nombre', valor: req.body.nombre });
+            // Sincronizar también en Bodega Principal para consistencia
+            const bodega = await Bodega.findOne({ order: [['id', 'ASC']] });
+            if (bodega) await bodega.update({ nombre: req.body.nombre });
+        }
+        if (req.file) {
+            await Configuracion.upsert({ clave: 'empresa_logo', valor: req.file.filename });
+        }
+        if (req.body.limpiar_logo === 'true') {
+            await Configuracion.destroy({ where: { clave: 'empresa_logo' } });
+        }
+
+        const configs = await Configuracion.findAll();
+        const map = {};
+        configs.forEach(c => { map[c.clave] = c.valor; });
+
+        res.json({
+            ok: true,
+            nombre: map['empresa_nombre'] || 'ASOERC',
+            logo_url: map['empresa_logo'] ? `/uploads/${map['empresa_logo']}` : null
+        });
     } catch (e) {
         res.status(500).json({ ok: false, msg: e.message });
     }
@@ -31,7 +59,7 @@ async function actualizarPerfil(req, res) {
         if (!usuario) return res.status(404).json({ ok: false, msg: 'Usuario no encontrado' });
         const updates = {};
         if (req.body.nombre) updates.nombre = req.body.nombre;
-        if (req.body.email) updates.email = req.body.email;
+        if (req.body.email)  updates.email  = req.body.email;
         if (req.body.password) {
             if (req.body.password.length < 6) return res.status(400).json({ ok: false, msg: 'Mínimo 6 caracteres' });
             updates.password = await bcrypt.hash(req.body.password, 10);

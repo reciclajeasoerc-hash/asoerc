@@ -1,5 +1,5 @@
 const bcrypt   = require('bcryptjs');
-const { sequelize, Usuario, Bodega } = require('../models');
+const { sequelize, Usuario, Bodega, Configuracion } = require('../models');
 
 exports.estado = async (req, res) => {
     try {
@@ -24,6 +24,9 @@ exports.configurar = async (req, res) => {
         let bodega = await Bodega.findOne({ where: { nombre: 'Bodega Principal' } });
         if (bodega) await bodega.update({ nombre: nombre_empresa });
         else bodega = await Bodega.create({ nombre: nombre_empresa, direccion: '' });
+
+        // Guardar nombre en tabla configuracion (patrón clave-valor)
+        await Configuracion.upsert({ clave: 'empresa_nombre', valor: nombre_empresa });
 
         const hash = await bcrypt.hash(password, 10);
         await Usuario.create({
