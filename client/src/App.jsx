@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Layout from './components/Layout';
@@ -41,13 +41,51 @@ function Guard({ modulo, children }) {
     return puedePasar(user?.rol, modulo) ? children : <Navigate to="/" replace />;
 }
 
+function PantallaLicenciaVencida({ pagoUrl }) {
+    return (
+        <div style={{ minHeight:'100vh', background:'#0f0f0f', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+            <div style={{ background:'#1a1a1a', borderRadius:16, padding:40, maxWidth:420, width:'100%', textAlign:'center', border:'1px solid #3d0000' }}>
+                <div style={{ fontSize:56, marginBottom:16 }}>🔒</div>
+                <h2 style={{ color:'#e74c3c', fontSize:20, marginBottom:8 }}>Licencia Vencida</h2>
+                <p style={{ color:'#888', fontSize:14, lineHeight:1.6, marginBottom:24 }}>
+                    El acceso al sistema ASOERC está bloqueado porque la licencia ha vencido o no está activa.
+                    Renueve su suscripción para continuar usando el sistema.
+                </p>
+                {pagoUrl && (
+                    <a href={pagoUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ display:'block', padding:'14px', background:'#009ee3', color:'#fff', borderRadius:10, textDecoration:'none', fontWeight:700, fontSize:15, marginBottom:12 }}>
+                        💳 Renovar ahora
+                    </a>
+                )}
+                <p style={{ color:'#444', fontSize:12 }}>¿Problemas? Contacte a AI Company CO — +57 321 267 4754</p>
+            </div>
+        </div>
+    );
+}
+
 function App() {
     const [user, setUser] = useState(() => {
         try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
     });
+    const [licencia, setLicencia] = useState({ valida: true, pagoUrl: '', cargando: true });
+
+    useEffect(() => {
+        fetch('/api/licencia/estado')
+            .then(r => r.json())
+            .then(d => setLicencia({ valida: d.valida !== false, pagoUrl: d.pagoUrl || '', cargando: false }))
+            .catch(() => setLicencia({ valida: true, pagoUrl: '', cargando: false })); // grace: si no responde, dejar pasar
+    }, []);
 
     const login  = (u, token) => { localStorage.setItem('token', token); localStorage.setItem('user', JSON.stringify(u)); setUser(u); };
     const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null); };
+
+    if (licencia.cargando) return (
+        <div style={{ minHeight:'100vh', background:'#0f0f0f', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <p style={{ color:'#555' }}>Verificando licencia...</p>
+        </div>
+    );
+
+    if (!licencia.valida) return <PantallaLicenciaVencida pagoUrl={licencia.pagoUrl} />;
 
     return (
         <AuthCtx.Provider value={{ user, login, logout }}>

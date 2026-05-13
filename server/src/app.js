@@ -14,6 +14,7 @@ const sequelize = require('./config/db');
 const { Op } = require('sequelize');
 const { Usuario, Bodega, Material } = require('./models');
 const { startBot } = require('./services/telegramBot');
+const { iniciarVerificacion, verificarLicencia, estadoEndpoint } = require('./middlewares/licencia');
 
 const app    = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -57,7 +58,9 @@ if (fs.existsSync(clientDist)) {
     app.use(express.static(clientDist));
 }
 
-app.get('/api/health', (_, res) => res.json({ ok: true, sistema: 'ASOERC' }));
+app.get('/api/health',          (_, res) => res.json({ ok: true, sistema: 'ASOERC' }));
+app.get('/api/licencia/estado', estadoEndpoint);
+app.use('/api', verificarLicencia);
 app.use('/api', require('./routes/index'));
 
 // SPA fallback — todas las rutas que no sean /api devuelven index.html
@@ -220,6 +223,7 @@ async function iniciar(intentos = 5) {
             await seed();
             app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
             try { startBot(); } catch(e) { console.error('Bot init error:', e.message); }
+            iniciarVerificacion().catch(e => console.error('Licencia init error:', e.message));
             return;
         } catch (err) {
             console.error(`Intento ${i}/${intentos}: ${err.message}`);
