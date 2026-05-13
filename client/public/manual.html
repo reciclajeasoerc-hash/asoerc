@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Manual de Usuario — ASOERC</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; background: #fff; font-size: 13px; line-height: 1.6; }
+
+  /* Portada */
+  .portada { height: 100vh; background: linear-gradient(160deg, #1a5c2a 0%, #2d7a3f 60%, #166534 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; padding: 40px; break-after: page; }
+  .portada .emoji { font-size: 80px; margin-bottom: 24px; }
+  .portada h1 { font-size: 48px; font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; }
+  .portada .sub { font-size: 18px; opacity: 0.85; margin-bottom: 40px; }
+  .portada .version { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 100px; padding: 6px 20px; font-size: 13px; letter-spacing: 0.05em; }
+
+  /* Layout general */
+  .pagina { padding: 40px 48px; max-width: 800px; margin: 0 auto; }
+  h1.seccion { font-size: 22px; font-weight: 800; color: #1a5c2a; border-bottom: 3px solid #1a5c2a; padding-bottom: 8px; margin: 32px 0 16px; }
+  h2.modulo { font-size: 16px; font-weight: 700; color: #166534; margin: 24px 0 8px; display: flex; align-items: center; gap: 8px; }
+  h3 { font-size: 13px; font-weight: 700; color: #374151; margin: 14px 0 6px; }
+  p { color: #4b5563; margin-bottom: 8px; }
+  ul, ol { color: #4b5563; padding-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+
+  /* Módulo card */
+  .modulo-card { background: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid #1a5c2a; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; break-inside: avoid; }
+  .modulo-card h2 { margin: 0 0 8px; }
+  .modulo-card p { margin-bottom: 4px; }
+
+  /* Tabla de roles */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+  th { background: #1a5c2a; color: #fff; padding: 8px 12px; text-align: left; font-weight: 600; }
+  td { padding: 7px 12px; border-bottom: 1px solid #e5e7eb; }
+  tr:nth-child(even) td { background: #f9fafb; }
+
+  /* Aviso / tip */
+  .tip { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 14px; margin: 10px 0; font-size: 12px; color: #166534; }
+  .alerta { background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 14px; margin: 10px 0; font-size: 12px; color: #92400e; }
+
+  /* Paso a paso */
+  .pasos { counter-reset: paso; }
+  .paso { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
+  .paso-num { background: #1a5c2a; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .paso-txt { color: #374151; flex: 1; }
+
+  /* Salto de página */
+  .nueva-pagina { break-before: page; padding-top: 40px; }
+
+  /* Índice */
+  .indice-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dotted #d1d5db; font-size: 13px; }
+  .indice-item span:first-child { color: #374151; }
+  .indice-item span:last-child { color: #9ca3af; font-size: 12px; }
+
+  /* Pie de página impresión */
+  @media print {
+    .portada { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .modulo-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .nueva-pagina { break-before: page; }
+    @page { margin: 0; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="portada">
+  <div class="emoji">♻️</div>
+  <h1>ASOERC</h1>
+  <div class="sub">Sistema de Gestión de Reciclaje</div>
+  <div style="font-size:15px; opacity:.7; margin-bottom:32px;">Manual de Usuario — Versión 2026</div>
+  <div class="version">Desarrollado por AI Company CO · aicompanyco.com</div>
+</div>
+
+<!-- ÍNDICE -->
+<div class="pagina">
+  <h1 class="seccion">Contenido</h1>
+  <div class="indice-item"><span>1. Primeros pasos — Configuración inicial</span><span>Pág 3</span></div>
+  <div class="indice-item"><span>2. Inicio de sesión</span><span>Pág 3</span></div>
+  <div class="indice-item"><span>3. Roles y permisos</span><span>Pág 4</span></div>
+  <div class="indice-item"><span>4. Dashboard</span><span>Pág 4</span></div>
+  <div class="indice-item"><span>5. Recicladores</span><span>Pág 5</span></div>
+  <div class="indice-item"><span>6. Compras</span><span>Pág 5</span></div>
+  <div class="indice-item"><span>7. Ventas</span><span>Pág 6</span></div>
+  <div class="indice-item"><span>8. Caja</span><span>Pág 6</span></div>
+  <div class="indice-item"><span>9. Remisiones</span><span>Pág 7</span></div>
+  <div class="indice-item"><span>10. Empaques</span><span>Pág 7</span></div>
+  <div class="indice-item"><span>11. Empleados y préstamos</span><span>Pág 8</span></div>
+  <div class="indice-item"><span>12. Vehículos y gastos</span><span>Pág 8</span></div>
+  <div class="indice-item"><span>13. Materiales y precios</span><span>Pág 9</span></div>
+  <div class="indice-item"><span>14. Informes</span><span>Pág 9</span></div>
+  <div class="indice-item"><span>15. Usuarios y bodegas</span><span>Pág 10</span></div>
+  <div class="indice-item"><span>16. Licencia y suscripción</span><span>Pág 10</span></div>
+  <div class="indice-item"><span>17. Preguntas frecuentes</span><span>Pág 11</span></div>
+</div>
+
+<!-- SECCIÓN 1: PRIMEROS PASOS -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">1. Primeros Pasos — Configuración Inicial</h1>
+  <p>La primera vez que accede al sistema, verá el asistente de configuración. Solo debe hacerse una vez.</p>
+
+  <div class="pasos">
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt"><strong>Nombre de la empresa:</strong> Ingrese el nombre oficial de su empresa o asociación (Ej: ASOERC S.A.S.).</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt"><strong>Nombre del administrador:</strong> El nombre que aparecerá en el sistema para la cuenta principal.</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt"><strong>Correo electrónico:</strong> Este será su usuario de inicio de sesión. Use uno al que tenga acceso.</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt"><strong>Contraseña:</strong> Mínimo 6 caracteres. Guárdela en un lugar seguro.</div></div>
+    <div class="paso"><div class="paso-num">5</div><div class="paso-txt">Haga clic en <strong>"Finalizar configuración"</strong>. El sistema queda listo para usarse.</div></div>
+  </div>
+
+  <div class="alerta">⚠️ Una vez configurado, el asistente no vuelve a aparecer. Si olvida su contraseña, contacte a soporte técnico.</div>
+
+  <h1 class="seccion" style="margin-top:32px;">2. Inicio de Sesión</h1>
+  <p>Acceda al sistema ingresando su correo electrónico y contraseña en la pantalla de login.</p>
+
+  <div class="pasos">
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Abra el sistema en su navegador o dispositivo móvil.</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Ingrese su <strong>correo electrónico</strong> y <strong>contraseña</strong>.</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Haga clic en <strong>"Ingresar"</strong>.</div></div>
+  </div>
+
+  <div class="tip">💡 La sesión dura 12 horas. Si el sistema cierra su sesión, simplemente vuelva a ingresar sus credenciales.</div>
+  <div class="alerta">⚠️ Después de 5 intentos fallidos, la cuenta queda bloqueada por 15 minutos por seguridad.</div>
+</div>
+
+<!-- SECCIÓN 3: ROLES -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">3. Roles y Permisos</h1>
+  <p>El sistema maneja diferentes niveles de acceso según el rol asignado a cada usuario:</p>
+
+  <table>
+    <tr><th>Rol</th><th>Acceso</th><th>Descripción</th></tr>
+    <tr><td><strong>Superadmin</strong></td><td>Total</td><td>Acceso completo al sistema. Ve todas las bodegas. Puede gestionar usuarios y configuración.</td></tr>
+    <tr><td><strong>Admin</strong></td><td>Operativo</td><td>Compras, ventas, recicladores, caja, remisiones, empaques, vehículos y préstamos de su bodega.</td></tr>
+    <tr><td><strong>Cajero</strong></td><td>Limitado</td><td>Solo accede a Dashboard, Caja, Vehículos y Préstamos.</td></tr>
+    <tr><td><strong>Vendedor</strong></td><td>Limitado</td><td>Dashboard, Ventas y Remisiones.</td></tr>
+    <tr><td><strong>Operador</strong></td><td>Limitado</td><td>Dashboard, Compras, Recicladores y Empaques.</td></tr>
+  </table>
+
+  <div class="tip">💡 El Superadmin es el único que puede crear, editar y eliminar usuarios y bodegas.</div>
+
+  <h1 class="seccion" style="margin-top:32px;">4. Dashboard</h1>
+  <p>La pantalla principal muestra un resumen en tiempo real del negocio:</p>
+  <ul>
+    <li><strong>Compras del día:</strong> Total en pesos comprado a recicladores hoy.</li>
+    <li><strong>Ventas del día:</strong> Total en pesos de ventas realizadas hoy.</li>
+    <li><strong>Saldo en caja:</strong> Efectivo disponible actualmente.</li>
+    <li><strong>Recicladores activos:</strong> Número de recicladores registrados.</li>
+    <li><strong>Gráficas semanales:</strong> Compras y ventas de los últimos 7 días.</li>
+    <li><strong>Materiales más comprados:</strong> Ranking del período actual.</li>
+  </ul>
+  <div class="tip">💡 El dashboard se actualiza automáticamente. No necesita recargar la página.</div>
+</div>
+
+<!-- SECCIÓN 5-6 -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">5. Recicladores</h1>
+  <p>Registro y gestión de las personas que le venden material a la bodega.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">📋 Registrar un reciclador</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Recicladores</strong> en el menú lateral.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Haga clic en <strong>"+ Nuevo reciclador"</strong>.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Complete: nombre, cédula, teléfono y dirección.</div></div>
+      <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Haga clic en <strong>"Guardar"</strong>.</div></div>
+    </div>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">💰 Préstamos a recicladores</h2>
+    <p>Puede registrar préstamos de dinero a recicladores. Al hacer una compra, el sistema descuenta automáticamente el préstamo del pago.</p>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Abra el perfil del reciclador.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Haga clic en la pestaña <strong>"Préstamos"</strong>.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Registre el monto prestado y la fecha.</div></div>
+    </div>
+  </div>
+
+  <h1 class="seccion" style="margin-top:24px;">6. Compras</h1>
+  <p>Registro de material comprado a recicladores. Cada compra mueve la caja automáticamente.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">🛒 Crear una compra</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Compras → Nueva compra</strong>.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Seleccione el <strong>reciclador</strong> que trae el material.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Agregue los materiales con su peso en kilos. El sistema calcula el valor automáticamente según el precio configurado.</div></div>
+      <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Si el reciclador tiene préstamo pendiente, se muestra el descuento.</div></div>
+      <div class="paso"><div class="paso-num">5</div><div class="paso-txt">Haga clic en <strong>"Finalizar compra"</strong>. El pago sale de caja automáticamente.</div></div>
+    </div>
+  </div>
+
+  <div class="tip">💡 El resumen del día en el Dashboard se actualiza inmediatamente después de finalizar cada compra.</div>
+</div>
+
+<!-- SECCIÓN 7-8 -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">7. Ventas</h1>
+  <p>Registro de ventas de material a empresas compradoras.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">📦 Registrar una venta</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Ventas → Nueva venta</strong>.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Seleccione o cree el <strong>cliente comprador</strong> (empresa).</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Agregue los materiales vendidos con peso y precio de venta.</div></div>
+      <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Seleccione el estado: <strong>Pendiente</strong> (no pagado aún) o <strong>Pagado</strong>.</div></div>
+      <div class="paso"><div class="paso-num">5</div><div class="paso-txt">Guarde la venta. Si está pagada, el dinero entra a caja automáticamente.</div></div>
+    </div>
+  </div>
+
+  <div class="tip">💡 Puede generar el certificado de venta para el cliente desde el módulo de Informes.</div>
+
+  <h1 class="seccion" style="margin-top:24px;">8. Caja</h1>
+  <p>Control del efectivo disponible en la bodega. Todas las compras y ventas en efectivo se registran automáticamente.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">💵 Abrir caja del día</h2>
+    <p>Al inicio de cada jornada, el sistema abre la caja automáticamente con el saldo del día anterior. También puede ingresar un monto inicial manualmente.</p>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">➕ Movimientos manuales</h2>
+    <p>Para registrar ingresos o egresos que no vienen de compras/ventas (gastos de servicios, anticipos, etc.):</p>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Caja → Agregar movimiento</strong>.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Seleccione tipo: <strong>Ingreso</strong> o <strong>Egreso</strong>.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Ingrese monto y descripción del movimiento.</div></div>
+    </div>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">🔒 Cerrar caja</h2>
+    <p>Al finalizar la jornada, haga clic en <strong>"Cerrar caja"</strong>. Esto genera un resumen del día con todos los movimientos y queda registrado en el historial.</p>
+  </div>
+
+  <div class="alerta">⚠️ Solo el Superadmin puede reabrir una caja ya cerrada.</div>
+</div>
+
+<!-- SECCIÓN 9-10 -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">9. Remisiones</h1>
+  <p>Registro de despachos de material con foto del vehículo o remisión.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">🚛 Crear remisión</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Remisiones → Nueva remisión</strong>.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Seleccione el tipo: <strong>Compra</strong> (material que entra) o <strong>Venta</strong> (material que sale).</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Asocie la remisión a una compra o venta existente.</div></div>
+      <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Agregue datos del vehículo y opcionalmente una foto.</div></div>
+      <div class="paso"><div class="paso-num">5</div><div class="paso-txt">Guarde. La remisión queda como soporte documental.</div></div>
+    </div>
+  </div>
+
+  <div class="tip">💡 Las remisiones pueden exportarse o imprimirse como soporte para el cliente.</div>
+
+  <h1 class="seccion" style="margin-top:24px;">10. Empaques</h1>
+  <p>Control del material empacado listo para despacho. Permite organizar el inventario antes de las ventas.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">📦 Registrar empaque</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Empaques → Registrar</strong>.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Seleccione el material y el peso empacado.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Indique si está listo para despacho o en proceso.</div></div>
+    </div>
+  </div>
+
+  <div class="tip">💡 El resumen de empaques muestra cuánto material tiene disponible por tipo, listo para vender.</div>
+</div>
+
+<!-- SECCIÓN 11-12 -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">11. Empleados y Préstamos</h1>
+  <p>Gestión del personal de la empresa y control de anticipos y préstamos de nómina.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">👷 Registrar empleado</h2>
+    <p>Complete: nombre, cédula, cargo, teléfono y salario. El empleado queda asociado a la bodega activa.</p>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">💸 Préstamos de nómina</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Abra el perfil del empleado y vaya a <strong>"Préstamos"</strong>.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Registre el monto y la fecha del préstamo.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Cuando se descuente de nómina, márquelo como <strong>"Descontado"</strong>.</div></div>
+    </div>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">📅 Días no laborados</h2>
+    <p>Registre ausencias, incapacidades o permisos del empleado. Esto permite llevar control de novedades de nómina.</p>
+  </div>
+
+  <h1 class="seccion" style="margin-top:24px;">12. Vehículos y Gastos</h1>
+  <p>Control de la flota de vehículos y sus gastos asociados (combustible, mantenimiento, peajes).</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">🚚 Registrar vehículo</h2>
+    <p>Ingrese: placa, tipo (camión, camioneta, moto), marca y modelo. El vehículo queda disponible para asociar a remisiones.</p>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">⛽ Registrar gasto de vehículo</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Seleccione el vehículo en la lista.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Haga clic en <strong>"+ Gasto"</strong>.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Ingrese tipo de gasto, monto y descripción. El gasto sale de caja automáticamente.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SECCIÓN 13-14 -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">13. Materiales y Precios</h1>
+  <p>Catálogo de todos los materiales que maneja la bodega con sus precios de compra.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">📋 Ver y actualizar precios</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Materiales</strong>. Verá la lista completa organizada por categoría.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Haga clic en el ícono de editar junto al material.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Actualice el <strong>precio de compra</strong> por kilo y guarde.</div></div>
+    </div>
+  </div>
+
+  <p>Categorías disponibles: <strong>Metales, Electrónicos, Plásticos, Papel y Cartón, Vidrio, Varios</strong>.</p>
+  <div class="tip">💡 Al cambiar el precio de un material, las nuevas compras usarán el precio actualizado. Las compras anteriores no se modifican.</div>
+
+  <h1 class="seccion" style="margin-top:24px;">14. Informes</h1>
+  <p>Reportes para análisis del negocio y documentos para clientes.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">📊 Informes disponibles</h2>
+    <ul>
+      <li><strong>Dashboard:</strong> Resumen general con gráficas de compras y ventas.</li>
+      <li><strong>Compras por período:</strong> Filtre por rango de fechas para ver el total comprado, por material y por reciclador.</li>
+      <li><strong>Certificado de cliente:</strong> Documento formal que certifica las cantidades compradas a un reciclador en un período (útil para recicladores que lo necesitan para trámites).</li>
+    </ul>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">📄 Exportar a PDF</h2>
+    <p>En la mayoría de informes encontrará un botón <strong>"Exportar PDF"</strong> o <strong>"Imprimir"</strong>. Al hacer clic, se abre la vista de impresión del navegador. Seleccione <em>"Guardar como PDF"</em> como destino.</p>
+  </div>
+</div>
+
+<!-- SECCIÓN 15-16 -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">15. Usuarios y Bodegas</h1>
+  <p><em>Solo disponible para Superadmin.</em></p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">👤 Crear usuario</h2>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Vaya a <strong>Usuarios → Nuevo usuario</strong>.</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Complete nombre, correo, contraseña y seleccione el <strong>rol</strong>.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Asigne la bodega a la que pertenece.</div></div>
+      <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Guarde. El usuario ya puede iniciar sesión.</div></div>
+    </div>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">🏭 Gestionar bodegas</h2>
+    <p>Puede tener múltiples bodegas (sucursales). Cada bodega tiene sus propios datos de compras, ventas y caja. El Superadmin ve todo; los demás usuarios solo ven su bodega asignada.</p>
+  </div>
+
+  <div class="alerta">⚠️ Si elimina un usuario, sus registros históricos se conservan pero no podrá iniciar sesión.</div>
+
+  <h1 class="seccion" style="margin-top:24px;">16. Licencia y Suscripción</h1>
+  <p>ASOERC funciona bajo un modelo de suscripción mensual. Su acceso depende de que la licencia esté vigente.</p>
+
+  <div class="modulo-card">
+    <h2 class="modulo">🔄 Suscripción automática (recomendado)</h2>
+    <p>Con la suscripción automática, el cobro se hace cada mes sin que usted tenga que hacer nada. Es igual a Netflix o Spotify: su tarjeta se debita automáticamente y el sistema se renueva solo.</p>
+    <div class="pasos">
+      <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Acceda al link de pago que le enviaron (o solicítelo a soporte).</div></div>
+      <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Haga clic en <strong>"Activar suscripción automática"</strong>.</div></div>
+      <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Complete el pago en MercadoPago. Su tarjeta queda registrada de forma segura.</div></div>
+      <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Listo. Cada mes se cobra automáticamente y su licencia se renueva.</div></div>
+    </div>
+  </div>
+
+  <div class="modulo-card">
+    <h2 class="modulo">❌ Cancelar suscripción</h2>
+    <p>Puede cancelar cuando quiera desde la misma página de pago, haciendo clic en <strong>"Cancelar suscripción"</strong>. Su acceso continúa hasta la fecha de vencimiento actual.</p>
+  </div>
+
+  <div class="alerta">⚠️ Si la licencia vence, el sistema mostrará una pantalla de bloqueo. Renueve su suscripción para recuperar el acceso inmediatamente.</div>
+</div>
+
+<!-- SECCIÓN 17: FAQ -->
+<div class="pagina nueva-pagina">
+  <h1 class="seccion">17. Preguntas Frecuentes</h1>
+
+  <h3>¿El sistema funciona en celular?</h3>
+  <p>Sí. ASOERC es una Progressive Web App (PWA). Puede instalarlo en su celular Android o iPhone desde el navegador. En Android, aparecerá la opción "Agregar a pantalla de inicio" al abrir el sistema en Chrome.</p>
+
+  <h3>¿Qué pasa si se va la luz o el internet?</h3>
+  <p>Al recuperar la conexión, el sistema funciona normalmente. Los datos están en la nube y no se pierden.</p>
+
+  <h3>¿Puedo usar el sistema en varios dispositivos al mismo tiempo?</h3>
+  <p>Sí. Cada usuario puede iniciar sesión desde su propio dispositivo. Varios usuarios pueden trabajar simultáneamente sin conflictos.</p>
+
+  <h3>¿Cómo recupero mi contraseña si la olvido?</h3>
+  <p>Contacte al administrador del sistema o a soporte técnico. El Superadmin puede cambiar la contraseña de cualquier usuario desde el módulo de Usuarios.</p>
+
+  <h3>¿Puedo borrar un registro equivocado?</h3>
+  <p>Sí. Compras, ventas y movimientos de caja pueden eliminarse. Al eliminar, el sistema revierte automáticamente el impacto en la caja. Esta acción solo la puede hacer el Superadmin o Admin.</p>
+
+  <h3>¿Dónde están almacenados mis datos?</h3>
+  <p>En servidores de Railway (infraestructura en la nube con respaldo automático). Sus datos son privados y solo usted tiene acceso.</p>
+
+  <h3>¿Qué pasa si hay un error en el sistema?</h3>
+  <p>Contacte soporte técnico. Describa qué estaba haciendo cuando ocurrió el error y tome una captura de pantalla si puede.</p>
+
+  <!-- Contacto -->
+  <div style="margin-top:40px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:24px; text-align:center;">
+    <div style="font-size:32px; margin-bottom:8px;">🛠️</div>
+    <h2 style="color:#1a5c2a; font-size:16px; margin-bottom:8px;">Soporte Técnico</h2>
+    <p style="color:#166534; margin-bottom:4px;"><strong>AI Company CO</strong></p>
+    <p style="color:#4b5563;">WhatsApp: +57 321 267 4754</p>
+    <p style="color:#4b5563;">Web: aicompanyco.com</p>
+    <p style="color:#4b5563; margin-top:8px; font-size:12px;">Lunes a viernes 8am – 6pm · Sábados 9am – 1pm</p>
+  </div>
+
+  <p style="text-align:center; color:#9ca3af; font-size:11px; margin-top:32px;">
+    ASOERC v2026 · Desarrollado por AI Company CO · Todos los derechos reservados<br>
+    Este manual es confidencial y para uso exclusivo del cliente licenciado.
+  </p>
+</div>
+
+</body>
+</html>

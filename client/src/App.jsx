@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Setup from './pages/Setup';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Compras from './pages/Compras';
@@ -67,25 +68,33 @@ function App() {
     const [user, setUser] = useState(() => {
         try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
     });
-    const [licencia, setLicencia] = useState({ valida: true, pagoUrl: '', cargando: true });
+    const [licencia, setLicencia]   = useState({ valida: true, pagoUrl: '', cargando: true });
+    const [configurado, setConfigurado] = useState(null); // null = verificando
 
     useEffect(() => {
         fetch('/api/licencia/estado')
             .then(r => r.json())
             .then(d => setLicencia({ valida: d.valida !== false, pagoUrl: d.pagoUrl || '', cargando: false }))
-            .catch(() => setLicencia({ valida: true, pagoUrl: '', cargando: false })); // grace: si no responde, dejar pasar
+            .catch(() => setLicencia({ valida: true, pagoUrl: '', cargando: false }));
+
+        fetch('/api/setup/estado')
+            .then(r => r.json())
+            .then(d => setConfigurado(d.configurado))
+            .catch(() => setConfigurado(true)); // si falla, asumir configurado
     }, []);
 
     const login  = (u, token) => { localStorage.setItem('token', token); localStorage.setItem('user', JSON.stringify(u)); setUser(u); };
     const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null); };
 
-    if (licencia.cargando) return (
-        <div style={{ minHeight:'100vh', background:'#0f0f0f', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <p style={{ color:'#555' }}>Verificando licencia...</p>
+    if (licencia.cargando || configurado === null) return (
+        <div style={{ minHeight:'100vh', background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <p style={{ color:'#555' }}>Iniciando sistema...</p>
         </div>
     );
 
     if (!licencia.valida) return <PantallaLicenciaVencida pagoUrl={licencia.pagoUrl} />;
+
+    if (!configurado) return <Setup onListo={() => setConfigurado(true)} />;
 
     return (
         <AuthCtx.Provider value={{ user, login, logout }}>

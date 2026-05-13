@@ -11,6 +11,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 const authCtrl       = require('../controllers/authController');
+const setupCtrl      = require('../controllers/setupController');
 const comprasCtrl    = require('../controllers/comprasController');
 const materialesCtrl = require('../controllers/materialesController');
 const recicladoresCtrl = require('../controllers/recicladoresController');
@@ -23,6 +24,10 @@ const informesCtrl   = require('../controllers/informesController');
 const usuariosCtrl   = require('../controllers/usuariosController');
 const vehiculosCtrl  = require('../controllers/vehiculosController');
 const { Bodega, Material, Reciclador } = require('../models');
+
+// Setup inicial (sin autenticación)
+router.get('/setup/estado',  setupCtrl.estado);
+router.post('/setup',        setupCtrl.configurar);
 
 // Auth
 router.post('/auth/login', authCtrl.login);

@@ -19,6 +19,7 @@ const TODOS_NAV = [
     { to: '/informes',     icon: '📈', label: 'Informes',     modulo: 'informes'      },
     { to: '/usuarios',     icon: '👥', label: 'Usuarios',     modulo: 'usuarios'      },
     { to: '/bodegas',      icon: '🏭', label: 'Bodegas',      modulo: 'bodegas'       },
+    { to: '/manual',       icon: '📖', label: 'Manual',        modulo: null, externo: '/manual.html' },
 ];
 
 // Tabs principales del bottom nav por rol (máx 4)
@@ -76,7 +77,7 @@ export default function Layout() {
 
     useEffect(() => { setMenuAbierto(false); }, [location.pathname]);
 
-    const nav = TODOS_NAV.filter(n => puedePasar(user?.rol, n.modulo));
+    const nav = TODOS_NAV.filter(n => n.modulo === null || puedePasar(user?.rol, n.modulo));
     const handleLogout = () => { logout(); navigate('/login'); };
     const roleInfo = ROLE_LABELS[user?.rol] || { label: user?.rol, color: '#6b7280' };
 
@@ -196,7 +197,14 @@ export default function Layout() {
 
                         {/* Todas las secciones */}
                         <div style={{ flex: 1, padding: '8px 0' }}>
-                            {nav.map(({ to, icon, label }) => {
+                            {nav.map(({ to, icon, label, externo }) => {
+                                if (externo) return (
+                                    <a key={to} href={externo} target="_blank" rel="noopener noreferrer"
+                                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', textDecoration: 'none', color: '#a8d5b5', fontSize: 15, borderLeft: '3px solid transparent' }}>
+                                        <span style={{ fontSize: 20 }}>{icon}</span>
+                                        <span>{label}</span>
+                                    </a>
+                                );
                                 const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
                                 return (
                                     <NavLink key={to} to={to} end={to === '/'}
@@ -246,7 +254,15 @@ export default function Layout() {
                     )}
                 </div>
                 <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-                    {nav.map(({ to, icon, label }) => (
+                    {nav.map(({ to, icon, label, externo }) => externo ? (
+                        <a key={to} href={externo} target="_blank" rel="noopener noreferrer" style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
+                            color: '#a8d5b5', textDecoration: 'none', fontSize: 14,
+                            background: 'transparent', borderLeft: '3px solid transparent', transition: 'all .15s'
+                        }}>
+                            <span style={{ fontSize: 18 }}>{icon}</span> {label}
+                        </a>
+                    ) : (
                         <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
                             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
                             color: isActive ? '#fff' : '#a8d5b5', textDecoration: 'none', fontSize: 14,
