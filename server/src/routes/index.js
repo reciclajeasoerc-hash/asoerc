@@ -96,10 +96,15 @@ router.post('/compras/:id/finalizar',           comprasCtrl.finalizar);
 router.delete('/compras/:id',                   comprasCtrl.eliminar);
 
 // Ventas y clientes
-router.get('/clientes',              ventasCtrl.listarClientes);
-router.post('/clientes',             ventasCtrl.crearCliente);
-router.put('/clientes/:id',          ventasCtrl.actualizarCliente);
-router.post('/clientes/:id/sedes',   ventasCtrl.crearSede);
+router.get('/clientes',                              ventasCtrl.listarClientes);
+router.post('/clientes',                             ventasCtrl.crearCliente);
+router.get('/clientes/:id',                          ventasCtrl.obtenerCliente);
+router.put('/clientes/:id',                          ventasCtrl.actualizarCliente);
+router.delete('/clientes/:id',                       ventasCtrl.eliminarCliente);
+router.post('/clientes/:id/sedes',                   ventasCtrl.crearSede);
+router.get('/clientes/:id/precios',                  ventasCtrl.listarPrecios);
+router.post('/clientes/:id/precios',                 ventasCtrl.guardarPrecio);
+router.delete('/clientes/:id/precios/:material_id',  ventasCtrl.eliminarPrecio);
 router.get('/ventas',           ventasCtrl.listar);
 router.post('/ventas',          ventasCtrl.crear);
 router.get('/ventas/:id',       ventasCtrl.obtener);

@@ -18,6 +18,7 @@ import Bodegas from './pages/Bodegas';
 import BodegaDetalle from './pages/BodegaDetalle';
 import Vehiculos from './pages/Vehiculos';
 import Prestamos from './pages/Prestamos';
+import Clientes from './pages/Clientes';
 import Configuracion from './pages/Configuracion';
 
 export const AuthCtx = createContext(null);
@@ -27,8 +28,8 @@ export const useAuth = () => useContext(AuthCtx);
 // superadmin (Bodega Principal): acceso total + coordinación global
 // admin (bodegas secundarias como El Diamante): solo operaciones diarias
 export const PERMISOS = {
-    superadmin: ['dashboard','compras','ventas','recicladores','empleados','caja','remisiones','empaques','materiales','informes','usuarios','bodegas','vehiculos','prestamos','configuracion'],
-    admin:      ['dashboard','compras','ventas','recicladores','empleados','caja','remisiones','empaques','vehiculos','prestamos','configuracion'],
+    superadmin: ['dashboard','compras','ventas','recicladores','clientes','empleados','caja','remisiones','empaques','materiales','informes','usuarios','bodegas','vehiculos','prestamos','configuracion'],
+    admin:      ['dashboard','compras','ventas','recicladores','clientes','empleados','caja','remisiones','empaques','vehiculos','prestamos','configuracion'],
     cajero:     ['dashboard','caja','vehiculos','prestamos'],
     vendedor:   ['dashboard','ventas','remisiones'],
     operador:   ['dashboard','compras','recicladores','empaques'],
@@ -147,6 +148,7 @@ function App() {
                         <Route path="compras"      element={<Guard modulo="compras"><Compras /></Guard>} />
                         <Route path="ventas"       element={<Guard modulo="ventas"><Ventas /></Guard>} />
                         <Route path="recicladores" element={<Guard modulo="recicladores"><Recicladores /></Guard>} />
+                        <Route path="clientes"     element={<Guard modulo="clientes"><Clientes /></Guard>} />
                         <Route path="empleados"    element={<Guard modulo="empleados"><Empleados /></Guard>} />
                         <Route path="caja"         element={<Guard modulo="caja"><Caja /></Guard>} />
                         <Route path="remisiones"   element={<Guard modulo="remisiones"><Remisiones /></Guard>} />

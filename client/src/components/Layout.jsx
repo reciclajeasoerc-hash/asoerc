@@ -10,6 +10,7 @@ const TODOS_NAV = [
     { to: '/ventas',       icon: '📤', label: 'Ventas',       modulo: 'ventas'        },
     { to: '/caja',         icon: '💰', label: 'Caja',         modulo: 'caja'          },
     { to: '/recicladores', icon: '♻️',  label: 'Recicladores', modulo: 'recicladores'  },
+    { to: '/clientes',     icon: '🏢', label: 'Clientes',      modulo: 'clientes'      },
     { to: '/empleados',    icon: '👷', label: 'Empleados',    modulo: 'empleados'     },
     { to: '/remisiones',   icon: '🚛', label: 'Remisiones',   modulo: 'remisiones'    },
     { to: '/vehiculos',    icon: '🚚', label: 'Vehículos',    modulo: 'vehiculos'     },

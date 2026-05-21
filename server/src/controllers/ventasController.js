@@ -161,3 +161,60 @@ exports.crearSede = async (req, res) => {
         res.json({ ok: true, sede });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
+
+exports.obtenerCliente = async (req, res) => {
+    try {
+        const cliente = await Cliente.findByPk(req.params.id, {
+            include: [
+                { model: ClienteSede, as: 'sedes' },
+                { model: MaterialPrecioCliente, as: 'precios', include: [{ model: Material, as: 'material' }] }
+            ]
+        });
+        if (!cliente) return res.status(404).json({ ok: false, msg: 'No encontrado' });
+        res.json({ ok: true, cliente });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.eliminarCliente = async (req, res) => {
+    try {
+        await Cliente.update({ activo: false }, { where: { id: req.params.id } });
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.listarPrecios = async (req, res) => {
+    try {
+        const precios = await MaterialPrecioCliente.findAll({
+            where: { cliente_id: req.params.id },
+            include: [{ model: Material, as: 'material' }],
+            order: [[{ model: Material, as: 'material' }, 'nombre', 'ASC']]
+        });
+        res.json({ ok: true, precios });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.guardarPrecio = async (req, res) => {
+    try {
+        const { material_id, precio } = req.body;
+        if (!material_id || precio === undefined) return res.status(400).json({ ok: false, msg: 'material_id y precio requeridos' });
+        const existente = await MaterialPrecioCliente.findOne({ where: { cliente_id: req.params.id, material_id } });
+        if (existente) {
+            await existente.update({ precio });
+        } else {
+            await MaterialPrecioCliente.create({ cliente_id: req.params.id, material_id, precio });
+        }
+        const precios = await MaterialPrecioCliente.findAll({
+            where: { cliente_id: req.params.id },
+            include: [{ model: Material, as: 'material' }],
+            order: [[{ model: Material, as: 'material' }, 'nombre', 'ASC']]
+        });
+        res.json({ ok: true, precios });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.eliminarPrecio = async (req, res) => {
+    try {
+        await MaterialPrecioCliente.destroy({ where: { cliente_id: req.params.id, material_id: req.params.material_id } });
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
