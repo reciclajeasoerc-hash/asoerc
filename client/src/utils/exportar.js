@@ -2,6 +2,19 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// ─── Logo ASOERC ───────────────────────────────────────────────────────────
+let _logoB64 = null;
+async function getLogoB64() {
+    if (_logoB64) return _logoB64;
+    const resp = await fetch('/logo.png');
+    const blob = await resp.blob();
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => { _logoB64 = reader.result; resolve(_logoB64); };
+        reader.readAsDataURL(blob);
+    });
+}
+
 // ─── Categorías de materiales → Industria Final ────────────────────────────
 const INDUSTRIAS_FINALES = [
     { categoria: 'Papeles y Cartón',  industria: 'Empacor S.A. y papeles nacionales', keywords: ['carton','cartón','papel','archivo','plegadiza','periodico','periódico'] },
@@ -24,28 +37,16 @@ function agruparPorCategoria(detalle = []) {
 }
 
 // ─── Certificado de Disposición Final (documento oficial) ─────────────────
-export function exportarCertificadoDisposicionFinal({ cliente, detalle, desde, fechaCertificado }) {
+export async function exportarCertificadoDisposicionFinal({ cliente, detalle, desde, fechaCertificado }) {
+    const logoB64 = await getLogoB64();
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const W = 196; // ancho útil
     const L = 14;  // margen izquierdo
     const negro = [0, 0, 0];
     const verde = [26, 92, 42];
 
-    // ── Logo circular ──────────────────────────────────────────────────────
-    doc.setDrawColor(...verde);
-    doc.setLineWidth(0.8);
-    doc.circle(26, 22, 13, 'S');
-    doc.setLineWidth(0.4);
-    doc.circle(26, 22, 11, 'S');
-    doc.setFontSize(5.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...verde);
-    doc.text('ASOCIACIÓN', 26, 16, { align: 'center' });
-    doc.text('ECO RECICLAJE', 26, 19.5, { align: 'center' });
-    doc.setFontSize(8);
-    doc.text('ASOERC', 26, 24, { align: 'center' });
-    doc.setFontSize(5.5);
-    doc.text('CAPITAL', 26, 27.5, { align: 'center' });
+    // ── Logo ───────────────────────────────────────────────────────────────
+    doc.addImage(logoB64, 'PNG', 13, 8, 26, 26);
 
     // ── Encabezado derecho ─────────────────────────────────────────────────
     doc.setTextColor(...negro);
@@ -181,22 +182,31 @@ export function exportarExcel(hojas, nombreArchivo) {
 }
 
 // ─── PDF genérico ──────────────────────────────────────────────────────────
-export function exportarPDF({ titulo, subtitulo, tablas, nombreArchivo }) {
+export async function exportarPDF({ titulo, subtitulo, tablas, nombreArchivo }) {
+    const logoB64 = await getLogoB64();
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const verde = [26, 92, 42];
+    const negro = [0, 0, 0];
 
-    // Encabezado
-    doc.setFillColor(...verde);
-    doc.rect(0, 0, 210, 22, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
+    // Encabezado con logo
+    doc.addImage(logoB64, 'PNG', 13, 6, 24, 24);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text('ASOERC ESP', 14, 10);
-    doc.setFontSize(10);
+    doc.setTextColor(...verde);
+    doc.text('ASOCIACIÓN ECO RECICLAJE CAPITAL ERC (ASOERC)', 41, 13);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(titulo, 14, 17);
+    doc.setTextColor(80, 80, 80);
+    doc.text('NIT. 901.299.762-6', 41, 19);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...negro);
+    doc.text(titulo, 41, 26);
+    doc.setDrawColor(...verde);
+    doc.setLineWidth(0.5);
+    doc.line(13, 34, 197, 34);
 
-    let y = 28;
+    let y = 40;
     doc.setTextColor(80, 80, 80);
     doc.setFontSize(9);
     if (subtitulo) { doc.text(subtitulo, 14, y); y += 7; }
@@ -282,8 +292,8 @@ export function exportarInformeComprasExcel({ resumen, por_material, por_recicla
     ], `Informe-Compras-${desde}-${hasta}`);
 }
 
-export function exportarInformeComprasPDF({ resumen, por_material, por_reciclador, desde, hasta }) {
-    exportarPDF({
+export async function exportarInformeComprasPDF({ resumen, por_material, por_reciclador, desde, hasta }) {
+    await exportarPDF({
         titulo: `Informe de compras · ${desde} al ${hasta}`,
         subtitulo: `Total: $${fmt(resumen.total_pagado)} | ${resumen.total_compras} compras | ${fmt(resumen.total_kilos)} kg | ${resumen.total_recicladores} recicladores`,
         tablas: [
@@ -326,12 +336,12 @@ export function exportarCajaExcel({ caja, movimientos, fecha }) {
     ], `Caja-${fecha}`);
 }
 
-export function exportarCajaPDF({ caja, movimientos, fecha }) {
+export async function exportarCajaPDF({ caja, movimientos, fecha }) {
     const verde = [26, 92, 42];
     const ingresos = movimientos.filter(m => m.tipo === 'ingreso');
     const egresos  = movimientos.filter(m => m.tipo === 'egreso');
 
-    exportarPDF({
+    await exportarPDF({
         titulo: `Cierre de caja · ${fecha}`,
         subtitulo: `Bodega: ${caja.bodega?.nombre || ''} | Saldo final: $${fmt(caja.saldo_final)}`,
         tablas: [

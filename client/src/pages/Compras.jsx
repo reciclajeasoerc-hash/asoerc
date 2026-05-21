@@ -259,8 +259,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s',
                                         boxShadow: esActivo ? `0 4px 12px ${cc.active}44` : '0 1px 4px rgba(0,0,0,.06)'
                                     }}>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3, marginBottom: 4 }}>{mat.nombre}</div>
-                                    <div style={{ fontSize: 11, color: esActivo ? 'rgba(255,255,255,.85)' : '#888' }}>${fmt(mat.precio_compra)}/kg</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
                                     {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
                                 </button>
                             );
@@ -464,8 +463,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                 <div key={mat.id}>
                                     <button onClick={() => seleccionarMaterial(mat)}
                                         style={{ width: '100%', padding: '12px 8px', background: esActivo ? cc.active : enCarrito ? cc.bg : '#fff', border: `2px solid ${esActivo ? cc.active : enCarrito ? cc.border : '#e5e7eb'}`, borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s' }}>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3, marginBottom: 3 }}>{mat.nombre}</div>
-                                        <div style={{ fontSize: 11, color: esActivo ? 'rgba(255,255,255,.85)' : '#888' }}>${fmt(mat.precio_compra)}/kg</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
                                         {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
                                     </button>
                                     {esActivo && (
@@ -586,10 +584,12 @@ function Recibo({ compra, onClose }) {
 
             <div className="recibo-contenido" style={{ background: '#fff', borderRadius: 10, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 460, fontFamily: 'monospace' }}>
                 <div style={{ textAlign: 'center', marginBottom: 20, fontFamily: 'sans-serif' }}>
-                    <div style={{ fontWeight: 800, fontSize: 20, color: '#1a5c2a' }}>ASOERC ESP</div>
+                    <img src="/logo.png" alt="ASOERC" style={{ width: 80, marginBottom: 6 }} />
+                    <div style={{ fontWeight: 800, fontSize: 16, color: '#1a5c2a' }}>ASOERC ESP</div>
                     <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
                     <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE COMPRA</div>
                     <div style={{ fontSize: 12, color: '#888' }}>#{compra.numero || compra.id} · {compra.fecha}</div>
+                    <div style={{ fontSize: 11, color: '#aaa' }}>Generado: {new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</div>
                 </div>
 
                 <div style={{ borderTop: '1px dashed #ccc', borderBottom: '1px dashed #ccc', padding: '10px 0', marginBottom: 14 }}>

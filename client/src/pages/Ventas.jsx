@@ -138,7 +138,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
         setLoading(true);
         try {
             const d = await api.post('/ventas', {
-                cliente_id, sede_id, bodega_id, fecha, tipo_pago,
+                cliente_id, sede_id: sede_id || null, bodega_id, fecha, tipo_pago,
                 items: items.map(i => ({ material_id: i.material_id, kilos: i.kilos, precio_unitario: i.precio_unitario })),
             });
             setReciboVenta(d.venta);
@@ -204,8 +204,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     style={{ width: '100%', padding: '12px 8px', background: esActivo ? c.active : enCarrito ? c.bg : '#fff',
                                         border: `2px solid ${esActivo ? c.active : enCarrito ? c.border : '#e5e7eb'}`,
                                         borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s' }}>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3, marginBottom: 3 }}>{mat.nombre}</div>
-                                    <div style={{ fontSize: 11, color: esActivo ? 'rgba(255,255,255,.85)' : '#888' }}>${fmt(precioDefault(mat))}/kg</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
                                     {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : c.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
                                 </button>
                                 {esActivo && (
@@ -524,8 +523,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         style={{ width: '100%', padding: '12px 8px', background: esActivo ? c.active : enCarrito ? c.bg : '#fff',
                                             border: `2px solid ${esActivo ? c.active : enCarrito ? c.border : '#e5e7eb'}`,
                                             borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s' }}>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3, marginBottom: 3 }}>{mat.nombre}</div>
-                                        <div style={{ fontSize: 11, color: esActivo ? 'rgba(255,255,255,.85)' : '#888' }}>${fmt(precioDefault(mat))}/kg</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
                                         {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : c.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
                                     </button>
                                     {esActivo && (
@@ -642,10 +640,12 @@ function ReciboVenta({ venta, onClose }) {
             </div>
             <div className="recibo-venta" style={{ background: '#fff', borderRadius: 10, padding: 28, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 460, fontFamily: 'monospace' }}>
                 <div style={{ textAlign: 'center', marginBottom: 20, fontFamily: 'sans-serif' }}>
-                    <div style={{ fontWeight: 800, fontSize: 20, color: '#1a5c2a' }}>ASOERC ESP</div>
+                    <img src="/logo.png" alt="ASOERC" style={{ width: 80, marginBottom: 6 }} />
+                    <div style={{ fontWeight: 800, fontSize: 16, color: '#1a5c2a' }}>ASOERC ESP</div>
                     <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
                     <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE VENTA</div>
                     <div style={{ fontSize: 12, color: '#888' }}>#{venta.numero || venta.id} · {venta.fecha}</div>
+                    <div style={{ fontSize: 11, color: '#aaa' }}>Generado: {new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</div>
                 </div>
                 <div style={{ borderTop: '1px dashed #ccc', borderBottom: '1px dashed #ccc', padding: '10px 0', marginBottom: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}><span style={{ color: '#666' }}>Cliente:</span><strong>{venta.cliente?.nombre}</strong></div>

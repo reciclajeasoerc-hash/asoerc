@@ -174,6 +174,7 @@ export default function Informes() {
             {tab === 'certificado' && certificado && (
                 <div style={{ background: '#fff', borderRadius: 10, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 700 }}>
                     <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                        <img src="/logo.png" alt="ASOERC" style={{ width: 90, marginBottom: 8 }} />
                         <div style={{ fontWeight: 800, fontSize: 20, color: '#1a5c2a' }}>ASOERC ESP</div>
                         <div style={{ fontSize: 13, color: '#666' }}>NIT: 901.299.762-6</div>
                         <div style={{ fontWeight: 700, fontSize: 16, marginTop: 16, textTransform: 'uppercase', letterSpacing: 1 }}>Certificado de Compra de Material Reciclable</div>
