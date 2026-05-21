@@ -6,7 +6,7 @@ const {
     Material, Compra, CompraItem, Bodega,
     Cliente, Venta, VentaItem, MaterialPrecioCliente,
     Caja, MovimientoCaja, Remision,
-    Empleado, PrestamoEmpleado
+    Empleado, PrestamoEmpleado, Configuracion
 } = require('../models');
 const { Op } = require('sequelize');
 const whatsappService = require('./whatsappService');
@@ -767,6 +767,17 @@ async function guardarFotoEnDisco(buffer, prefijo = 'foto') {
     return `/uploads/${filename}`;
 }
 
+// ── Autorización por chat ID ──────────────────────────────────────────────
+async function estaAutorizado(chatId) {
+    try {
+        const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
+        if (!conf || !conf.valor) return true;
+        const chats = JSON.parse(conf.valor || '[]');
+        if (chats.length === 0) return true;
+        return chats.some(c => String(c.chat_id) === String(chatId));
+    } catch { return true; }
+}
+
 // ── Bot ───────────────────────────────────────────────────────────────────
 let bot;
 
@@ -780,6 +791,16 @@ function startBot() {
     bot.on('message', async (msg) => {
         const chatId = msg.chat.id;
         try {
+            // Verificar autorización
+            const autorizado = await estaAutorizado(chatId);
+            if (!autorizado) {
+                await bot.sendMessage(chatId,
+                    `⛔ *Sin acceso*\n\nTu chat ID es: \`${chatId}\`\n\nPide al administrador que te agregue en *Configuración → Bot Telegram* del sistema ASOERC.`,
+                    { parse_mode: 'Markdown' }
+                );
+                return;
+            }
+
             let textoParaIA = '';
 
             // ── Foto ──────────────────────────────────────────────────────
@@ -836,7 +857,7 @@ function startBot() {
                     fotosPendientes.delete(chatId);
                     ultimaOp.delete(chatId);
                     await bot.sendMessage(chatId,
-                        `♻️ *Asistente completo ASOERC*\n\n` +
+                        `♻️ *Asistente completo ASOERC*\n🆔 Tu chat ID: \`${chatId}\`\n\n` +
                         `*Operaciones:*\n` +
                         `• _"Venta a Camilo: cartón 40 kg, 566 mil en efectivo"_\n` +
                         `• _"Compra a Juan: pasta 590 kg"_\n` +

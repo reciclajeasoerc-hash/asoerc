@@ -43,6 +43,11 @@ router.use(bodegaFilter);
 // Configuración de empresa (superadmin)
 router.put('/configuracion', soloRoles('superadmin'), upload.single('logo'), configuracionCtrl.actualizar);
 
+// Telegram chats autorizados
+router.get('/telegram/chats',                soloRoles('superadmin','admin'), configuracionCtrl.listarTelegramChats);
+router.post('/telegram/chats',               soloRoles('superadmin','admin'), configuracionCtrl.agregarTelegramChat);
+router.delete('/telegram/chats/:chat_id',    soloRoles('superadmin','admin'), configuracionCtrl.eliminarTelegramChat);
+
 // Perfil del usuario autenticado
 router.put('/usuarios/perfil', configuracionCtrl.actualizarPerfil);
 

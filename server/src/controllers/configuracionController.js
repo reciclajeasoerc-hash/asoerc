@@ -73,4 +73,36 @@ async function actualizarPerfil(req, res) {
     }
 }
 
-module.exports = { obtener, actualizar, actualizarPerfil };
+async function listarTelegramChats(req, res) {
+    try {
+        const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
+        const chats = conf ? JSON.parse(conf.valor || '[]') : [];
+        res.json({ ok: true, chats });
+    } catch (e) { res.status(500).json({ ok: false, msg: e.message }); }
+}
+
+async function agregarTelegramChat(req, res) {
+    try {
+        const { chat_id, nombre } = req.body;
+        if (!chat_id) return res.status(400).json({ ok: false, msg: 'chat_id requerido' });
+        const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
+        const chats = conf ? JSON.parse(conf.valor || '[]') : [];
+        if (!chats.find(c => String(c.chat_id) === String(chat_id))) {
+            chats.push({ chat_id: String(chat_id), nombre: nombre || `Chat ${chat_id}` });
+        }
+        await Configuracion.upsert({ clave: 'telegram_chats', valor: JSON.stringify(chats) });
+        res.json({ ok: true, chats });
+    } catch (e) { res.status(500).json({ ok: false, msg: e.message }); }
+}
+
+async function eliminarTelegramChat(req, res) {
+    try {
+        const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
+        if (!conf) return res.json({ ok: true, chats: [] });
+        const chats = JSON.parse(conf.valor || '[]').filter(c => String(c.chat_id) !== String(req.params.chat_id));
+        await conf.update({ valor: JSON.stringify(chats) });
+        res.json({ ok: true, chats });
+    } catch (e) { res.status(500).json({ ok: false, msg: e.message }); }
+}
+
+module.exports = { obtener, actualizar, actualizarPerfil, listarTelegramChats, agregarTelegramChat, eliminarTelegramChat };
