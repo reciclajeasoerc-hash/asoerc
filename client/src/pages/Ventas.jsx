@@ -217,13 +217,6 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                                 onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
                                                 placeholder="Kg"
                                                 style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 16, minWidth: 0 }} />
-                                            {esAdmin && (
-                                                <input type="number" step="100" min="0"
-                                                    value={precios[mat.id] ?? precioDefault(mat)}
-                                                    onChange={e => setPrecios(p => ({ ...p, [mat.id]: e.target.value }))}
-                                                    placeholder="$/kg"
-                                                    style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 14, minWidth: 0 }} />
-                                            )}
                                             <button onClick={() => agregarItem(mat, cantidades[mat.id], precios[mat.id])}
                                                 style={{ padding: '8px 14px', background: c.active, color: '#fff', border: 'none', borderRadius: 6, fontSize: 18, cursor: 'pointer', fontWeight: 700 }}>✓</button>
                                         </div>
@@ -536,13 +529,6 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                                     onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
                                                     placeholder="Kg"
                                                     style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 14, minWidth: 0 }} />
-                                                {esAdmin && (
-                                                    <input type="number" step="100" min="0"
-                                                        value={precios[mat.id] ?? precioDefault(mat)}
-                                                        onChange={e => setPrecios(p => ({ ...p, [mat.id]: e.target.value }))}
-                                                        placeholder="$/kg"
-                                                        style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 13, minWidth: 0 }} />
-                                                )}
                                                 <button onClick={() => agregarItem(mat, cantidades[mat.id], precios[mat.id])}
                                                     style={{ padding: '7px 12px', background: c.active, color: '#fff', border: 'none', borderRadius: 6, fontSize: 16, cursor: 'pointer', fontWeight: 700 }}>✓</button>
                                             </div>
