@@ -13,7 +13,7 @@ const ROLE_LABELS = {
     vendedor: 'Vendedor', operador: 'Operador'
 };
 
-const EMPTY = { nombre: '', email: '', password: '', rol: 'operador', bodega_id: '' };
+const EMPTY = { nombre: '', email: '', password: '', rol: 'operador', bodega_id: '', telegram_chat_id: '' };
 
 export default function Usuarios() {
     const { user } = useAuth();
@@ -43,7 +43,7 @@ export default function Usuarios() {
     };
 
     const abrirEditar = (u) => {
-        setForm({ nombre: u.nombre, email: u.email, password: '', rol: u.rol, bodega_id: u.bodega_id || '' });
+        setForm({ nombre: u.nombre, email: u.email, password: '', rol: u.rol, bodega_id: u.bodega_id || '', telegram_chat_id: u.telegram_chat_id || '' });
         setEditId(u.id);
         setError('');
         setModal(true);
@@ -134,6 +134,11 @@ export default function Usuarios() {
                             <tr key={u.id} style={{ borderBottom: '1px solid #f3f4f6', opacity: u.activo ? 1 : 0.5 }}>
                                 <td style={td}>
                                     <div style={{ fontWeight: 600 }}>{u.nombre}</div>
+                                    {u.telegram_chat_id && (
+                                        <div style={{ fontSize: 11, color: '#229ed9', marginTop: 2 }}>
+                                            ✈️ Telegram vinculado
+                                        </div>
+                                    )}
                                 </td>
                                 <td style={td}>{u.email}</td>
                                 <td style={td}>
@@ -195,6 +200,16 @@ export default function Usuarios() {
                                 </select>
                             </>
                         )}
+
+                        <label style={lbl}>
+                            Chat ID de Telegram <span style={{ fontWeight: 400, color: '#9ca3af' }}>(opcional — para usar el bot)</span>
+                        </label>
+                        <input style={inp} value={form.telegram_chat_id}
+                            onChange={e => setForm(f => ({ ...f, telegram_chat_id: e.target.value }))}
+                            placeholder="Ej: 123456789 — se obtiene enviando /start al bot" />
+                        <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>
+                            El usuario debe abrir el bot en Telegram y enviar /start para ver su Chat ID.
+                        </p>
 
                         {error && <p style={{ color: '#ef4444', fontSize: 13, margin: '8px 0' }}>{error}</p>}
 

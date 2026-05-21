@@ -20,7 +20,7 @@ exports.listar = async (req, res) => {
 
 exports.crear = async (req, res) => {
     try {
-        const { nombre, email, password, rol, bodega_id } = req.body;
+        const { nombre, email, password, rol, bodega_id, telegram_chat_id } = req.body;
         if (!nombre || !email || !password || !rol)
             return res.status(400).json({ ok: false, msg: 'Nombre, email, contraseña y rol requeridos' });
         if (!ROLES_VALIDOS.includes(rol))
@@ -34,7 +34,8 @@ exports.crear = async (req, res) => {
         if (existe) return res.status(400).json({ ok: false, msg: 'El email ya está registrado' });
         const hash = await bcrypt.hash(password, 10);
         const usuario = await Usuario.create({
-            nombre, email: email.toLowerCase().trim(), password: hash, rol, bodega_id: bodegaAsignada
+            nombre, email: email.toLowerCase().trim(), password: hash, rol, bodega_id: bodegaAsignada,
+            telegram_chat_id: telegram_chat_id?.trim() || null
         });
         res.json({ ok: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, bodega_id: usuario.bodega_id } });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
@@ -47,13 +48,14 @@ exports.actualizar = async (req, res) => {
         // admin no puede editar usuarios de otras bodegas
         if (req.user.rol !== 'superadmin' && usuario.bodega_id !== req.user.bodega_id)
             return res.status(403).json({ ok: false, msg: 'Sin permisos' });
-        const { nombre, rol, activo, bodega_id, password } = req.body;
+        const { nombre, rol, activo, bodega_id, password, telegram_chat_id } = req.body;
         const upd = {};
         if (nombre) upd.nombre = nombre;
         if (rol && ROLES_VALIDOS.includes(rol)) upd.rol = rol;
         if (activo !== undefined) upd.activo = activo;
         if (bodega_id !== undefined && req.user.rol === 'superadmin') upd.bodega_id = bodega_id;
         if (password) upd.password = await bcrypt.hash(password, 10);
+        if (telegram_chat_id !== undefined) upd.telegram_chat_id = telegram_chat_id?.trim() || null;
         await usuario.update(upd);
         res.json({ ok: true, usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, activo: usuario.activo } });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }

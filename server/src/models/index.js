@@ -4,12 +4,13 @@ const { DataTypes } = require('sequelize');
 // ── Modelos ──────────────────────────────────────────────────────────────────
 
 const Usuario = sequelize.define('Usuario', {
-    nombre:   { type: DataTypes.STRING, allowNull: false },
-    email:    { type: DataTypes.STRING, allowNull: false, unique: true },
-    password: { type: DataTypes.STRING, allowNull: false },
-    rol:      { type: DataTypes.STRING, defaultValue: 'operador' },
-    bodega_id:{ type: DataTypes.INTEGER, allowNull: true },
-    activo:   { type: DataTypes.BOOLEAN, defaultValue: true }
+    nombre:            { type: DataTypes.STRING, allowNull: false },
+    email:             { type: DataTypes.STRING, allowNull: false, unique: true },
+    password:          { type: DataTypes.STRING, allowNull: false },
+    rol:               { type: DataTypes.STRING, defaultValue: 'operador' },
+    bodega_id:         { type: DataTypes.INTEGER, allowNull: true },
+    activo:            { type: DataTypes.BOOLEAN, defaultValue: true },
+    telegram_chat_id:  { type: DataTypes.STRING, allowNull: true }
 });
 
 const Bodega = sequelize.define('Bodega', {

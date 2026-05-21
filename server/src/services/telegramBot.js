@@ -6,7 +6,7 @@ const {
     Material, Compra, CompraItem, Bodega,
     Cliente, Venta, VentaItem, MaterialPrecioCliente,
     Caja, MovimientoCaja, Remision,
-    Empleado, PrestamoEmpleado, Configuracion
+    Empleado, PrestamoEmpleado, Configuracion, Usuario
 } = require('../models');
 const { Op } = require('sequelize');
 const whatsappService = require('./whatsappService');
@@ -669,7 +669,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
 }
 
 // ── Agente IA ─────────────────────────────────────────────────────────────
-async function procesarConIA(chatId, mensajeUsuario) {
+async function procesarConIA(chatId, mensajeUsuario, toolsActivas = TOOLS) {
     if (!process.env.OPENAI_API_KEY) return '⚠️ OpenAI no configurado. Agrega OPENAI_API_KEY al .env';
 
     agregarMensaje(chatId, 'user', mensajeUsuario);
@@ -679,7 +679,7 @@ async function procesarConIA(chatId, mensajeUsuario) {
         const resp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gpt-4o', messages, tools: TOOLS, tool_choice: 'auto', max_tokens: 1000 })
+            body: JSON.stringify({ model: 'gpt-4o', messages, tools: toolsActivas, tool_choice: 'auto', max_tokens: 1000 })
         });
         const data = await resp.json();
         if (data.error) throw new Error(data.error.message);
@@ -767,15 +767,38 @@ async function guardarFotoEnDisco(buffer, prefijo = 'foto') {
     return `/uploads/${filename}`;
 }
 
+// ── Permisos por rol ──────────────────────────────────────────────────────
+const TOOLS_ROL = {
+    superadmin: null, // null = acceso total
+    admin:      null,
+    vendedor:   ['buscar_materiales','listar_materiales','buscar_cliente','listar_clientes','crear_cliente','ver_cliente',
+                 'registrar_venta','cancelar_ultima_operacion','ver_caja','ver_resumen_dia','ver_ventas_hoy','ver_historial','guardar_remision'],
+    cajero:     ['ver_caja','ver_resumen_dia','ver_ventas_hoy','ver_compras_hoy','ver_historial','ver_prestamos_pendientes'],
+    operador:   ['buscar_materiales','listar_materiales','buscar_reciclador','listar_recicladores','crear_reciclador','ver_reciclador',
+                 'registrar_compra','registrar_prestamo','cancelar_ultima_operacion','ver_resumen_dia','ver_compras_hoy','ver_historial','guardar_remision'],
+};
+
+const ROL_LABELS = {
+    superadmin: '🔑 Super Admin', admin: '🏢 Admin',
+    vendedor: '📤 Vendedor', cajero: '💰 Cajero', operador: '♻️ Operador'
+};
+
 // ── Autorización por chat ID ──────────────────────────────────────────────
-async function estaAutorizado(chatId) {
+async function obtenerChat(chatId) {
     try {
+        // 1) Buscar en Usuarios (fuente principal)
+        const usuario = await Usuario.findOne({ where: { telegram_chat_id: String(chatId), activo: true } });
+        if (usuario) return { autorizado: true, rol: usuario.rol || 'operador', nombre: usuario.nombre };
+
+        // 2) Fallback: lista JSON en Configuracion
         const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
-        if (!conf || !conf.valor) return true;
+        if (!conf || !conf.valor) return { autorizado: true, rol: 'admin', nombre: null };
         const chats = JSON.parse(conf.valor || '[]');
-        if (chats.length === 0) return true;
-        return chats.some(c => String(c.chat_id) === String(chatId));
-    } catch { return true; }
+        if (chats.length === 0) return { autorizado: true, rol: 'admin', nombre: null };
+        const chat = chats.find(c => String(c.chat_id) === String(chatId));
+        if (!chat) return { autorizado: false, rol: null, nombre: null };
+        return { autorizado: true, rol: chat.rol || 'operador', nombre: chat.nombre };
+    } catch { return { autorizado: true, rol: 'admin', nombre: null }; }
 }
 
 // ── Bot ───────────────────────────────────────────────────────────────────
@@ -791,8 +814,8 @@ function startBot() {
     bot.on('message', async (msg) => {
         const chatId = msg.chat.id;
         try {
-            // Verificar autorización
-            const autorizado = await estaAutorizado(chatId);
+            // Verificar autorización y obtener rol
+            const { autorizado, rol, nombre } = await obtenerChat(chatId);
             if (!autorizado) {
                 await bot.sendMessage(chatId,
                     `⛔ *Sin acceso*\n\nTu chat ID es: \`${chatId}\`\n\nPide al administrador que te agregue en *Configuración → Bot Telegram* del sistema ASOERC.`,
@@ -800,6 +823,10 @@ function startBot() {
                 );
                 return;
             }
+
+            // Filtrar herramientas permitidas según el rol
+            const toolsPermitidas = TOOLS_ROL[rol];
+            const toolsActivas = toolsPermitidas ? TOOLS.filter(t => toolsPermitidas.includes(t.function.name)) : TOOLS;
 
             let textoParaIA = '';
 
@@ -856,8 +883,9 @@ function startBot() {
                     historiales.delete(chatId);
                     fotosPendientes.delete(chatId);
                     ultimaOp.delete(chatId);
+                    const rolLabel = ROL_LABELS[rol] || rol;
                     await bot.sendMessage(chatId,
-                        `♻️ *Asistente completo ASOERC*\n🆔 Tu chat ID: \`${chatId}\`\n\n` +
+                        `♻️ *Asistente ASOERC*\n🆔 Chat ID: \`${chatId}\`  |  ${rolLabel}\n\n` +
                         `*Operaciones:*\n` +
                         `• _"Venta a Camilo: cartón 40 kg, 566 mil en efectivo"_\n` +
                         `• _"Compra a Juan: pasta 590 kg"_\n` +
@@ -882,7 +910,7 @@ function startBot() {
             if (!textoParaIA.trim()) return;
 
             await bot.sendChatAction(chatId, 'typing');
-            const respuesta = await procesarConIA(chatId, textoParaIA);
+            const respuesta = await procesarConIA(chatId, textoParaIA, toolsActivas);
             await bot.sendMessage(chatId, respuesta, { parse_mode: 'Markdown' });
 
         } catch (err) {
