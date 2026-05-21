@@ -1,4 +1,4 @@
-const { Reciclador, Compra, PrestamoReciclador, Bodega } = require('../models');
+const { Reciclador, Compra, PrestamoReciclador, Bodega, MaterialPrecioReciclador, Material } = require('../models');
 
 exports.listar = async (req, res) => {
     try {
@@ -52,6 +52,43 @@ exports.prestamos = async (req, res) => {
             include: [{ model: Reciclador, as: 'reciclador' }]
         });
         res.json({ ok: true, prestamos });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.listarPrecios = async (req, res) => {
+    try {
+        const precios = await MaterialPrecioReciclador.findAll({
+            where: { reciclador_id: req.params.id },
+            include: [{ model: Material, as: 'material' }],
+            order: [[{ model: Material, as: 'material' }, 'nombre', 'ASC']]
+        });
+        res.json({ ok: true, precios });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.guardarPrecio = async (req, res) => {
+    try {
+        const { material_id, precio } = req.body;
+        if (!material_id || precio === undefined) return res.status(400).json({ ok: false, msg: 'material_id y precio requeridos' });
+        const existente = await MaterialPrecioReciclador.findOne({ where: { reciclador_id: req.params.id, material_id } });
+        if (existente) {
+            await existente.update({ precio });
+        } else {
+            await MaterialPrecioReciclador.create({ reciclador_id: req.params.id, material_id, precio });
+        }
+        const precios = await MaterialPrecioReciclador.findAll({
+            where: { reciclador_id: req.params.id },
+            include: [{ model: Material, as: 'material' }],
+            order: [[{ model: Material, as: 'material' }, 'nombre', 'ASC']]
+        });
+        res.json({ ok: true, precios });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.eliminarPrecio = async (req, res) => {
+    try {
+        await MaterialPrecioReciclador.destroy({ where: { reciclador_id: req.params.id, material_id: req.params.material_id } });
+        res.json({ ok: true });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 

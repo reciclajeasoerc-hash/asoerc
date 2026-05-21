@@ -1,4 +1,4 @@
-const { Compra, CompraItem, Reciclador, Material, Bodega, PrestamoReciclador, Caja, MovimientoCaja } = require('../models');
+const { Compra, CompraItem, Reciclador, Material, Bodega, PrestamoReciclador, Caja, MovimientoCaja, MaterialPrecioReciclador } = require('../models');
 const { Op } = require('sequelize');
 const whatsappService = require('../services/whatsappService');
 
@@ -54,7 +54,8 @@ exports.agregarItem = async (req, res) => {
         if (compra.estado === 'finalizada') return res.status(400).json({ ok: false, msg: 'Compra ya finalizada' });
         const material = await Material.findByPk(material_id);
         if (!material) return res.status(404).json({ ok: false, msg: 'Material no encontrado' });
-        const precio_unitario = parseFloat(material.precio_compra);
+        const precioEsp = await MaterialPrecioReciclador.findOne({ where: { reciclador_id: compra.reciclador_id, material_id } });
+        const precio_unitario = precioEsp ? parseFloat(precioEsp.precio) : parseFloat(material.precio_compra);
         const total = parseFloat(kilos) * precio_unitario;
 
         // Si ya existe ese material en la compra, actualizar

@@ -38,6 +38,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const esAdmin = ['superadmin', 'admin'].includes(user?.rol);
     const [recicladores, setRecicladores] = useState([]);
     const [bodegas, setBodegas] = useState([]);
+    const [filtroBodegaRec, setFiltroBodegaRec] = useState('');
     const [materiales, setMateriales] = useState([]);
     const [categorias, setCategorias] = useState([]);
     const [catActiva, setCatActiva] = useState('');
@@ -189,11 +190,19 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                         <div style={{ background: '#fff', margin: 12, borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
                             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: '#1a5c2a' }}>♻️ Abrir cuenta de compra</div>
                             <div style={{ marginBottom: 10 }}>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+                                    <span style={{ fontSize: 11, color: '#666' }}>Filtrar sede:</span>
+                                    <select value={filtroBodegaRec} onChange={e => setFiltroBodegaRec(e.target.value)}
+                                        style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                        <option value="">Todas</option>
+                                        {bodegas.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
+                                    </select>
+                                </div>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>Reciclador *</div>
                                 <select value={reciclador_id} onChange={e => setRecicladorId(e.target.value)}
                                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 15 }}>
                                     <option value="">-- Selecciona --</option>
-                                    {recicladores.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                                    {recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                                 </select>
                             </div>
                             {esAdmin && (
@@ -404,12 +413,19 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                 {!compraActiva ? (
                     <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
                         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#1a5c2a' }}>♻️ Abrir cuenta de compra</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: esAdmin ? '1fr 1fr 140px 90px' : '1fr 90px', gap: 10, alignItems: 'flex-end' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: esAdmin ? '120px 1fr 1fr 140px 90px' : '120px 1fr 90px', gap: 10, alignItems: 'flex-end' }}>
+                            <label>
+                                <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Sede</div>
+                                <select value={filtroBodegaRec} onChange={e => setFiltroBodegaRec(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                    <option value="">Todas</option>
+                                    {bodegas.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
+                                </select>
+                            </label>
                             <label>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Reciclador*</div>
                                 <select value={reciclador_id} onChange={e => setRecicladorId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
                                     <option value="">-- Selecciona --</option>
-                                    {recicladores.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                                    {recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                                 </select>
                             </label>
                             {esAdmin && (
