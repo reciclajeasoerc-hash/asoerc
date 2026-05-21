@@ -16,7 +16,7 @@ export default function Configuracion() {
     const [msgPerfil,  setMsgPerfil]  = useState(null);
 
     const [telegramChats, setTelegramChats] = useState([]);
-    const [tgForm, setTgForm] = useState({ chat_id: '', nombre: '' });
+    const [tgForm, setTgForm] = useState({ chat_id: '', nombre: '', rol: 'operador' });
     const [msgTg, setMsgTg] = useState(null);
 
     const fileRef = useRef();
@@ -69,6 +69,15 @@ export default function Configuracion() {
         } finally { setGuardandoPerfil(false); }
     }
 
+    const ROL_OPCIONES = [
+        { val: 'superadmin', label: '🔑 Super Admin — acceso total' },
+        { val: 'admin',      label: '🏢 Admin — acceso total' },
+        { val: 'vendedor',   label: '📤 Vendedor — ventas, clientes, caja (consulta)' },
+        { val: 'cajero',     label: '💰 Cajero — solo consultas de caja y resúmenes' },
+        { val: 'operador',   label: '♻️ Operador — compras, recicladores, préstamos' },
+    ];
+    const ROL_BADGE = { superadmin:'#f59e0b', admin:'#3b82f6', vendedor:'#8b5cf6', cajero:'#10b981', operador:'#6b7280' };
+
     async function agregarChat(e) {
         e.preventDefault();
         if (!tgForm.chat_id.trim()) return;
@@ -76,7 +85,7 @@ export default function Configuracion() {
         try {
             const d = await api.post('/telegram/chats', tgForm);
             setTelegramChats(d.chats);
-            setTgForm({ chat_id: '', nombre: '' });
+            setTgForm({ chat_id: '', nombre: '', rol: 'operador' });
             setMsgTg({ ok: true, texto: 'Chat agregado' });
         } catch (err) { setMsgTg({ ok: false, texto: err.message }); }
     }
@@ -146,6 +155,7 @@ export default function Configuracion() {
                             <tr style={{ background: '#f0faf0' }}>
                                 <th style={{ padding: '8px 10px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Nombre</th>
                                 <th style={{ padding: '8px 10px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Chat ID</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Rol</th>
                                 <th style={{ width: 40 }}></th>
                             </tr>
                         </thead>
@@ -154,6 +164,11 @@ export default function Configuracion() {
                                 <tr key={c.chat_id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                                     <td style={{ padding: '8px 10px', fontWeight: 600 }}>{c.nombre}</td>
                                     <td style={{ padding: '8px 10px', color: '#666', fontFamily: 'monospace' }}>{c.chat_id}</td>
+                                    <td style={{ padding: '8px 10px' }}>
+                                        <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, color: '#fff', background: ROL_BADGE[c.rol] || '#6b7280' }}>
+                                            {ROL_OPCIONES.find(r => r.val === c.rol)?.label.split(' — ')[0] || c.rol || 'operador'}
+                                        </span>
+                                    </td>
                                     <td style={{ padding: '8px 10px' }}>
                                         <button onClick={() => eliminarChat(c.chat_id)}
                                             style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 16 }}>✕</button>
@@ -168,15 +183,24 @@ export default function Configuracion() {
                 )}
 
                 <form onSubmit={agregarChat} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <label style={{ ...s.label, flex: '1 1 140px', margin: 0 }}>
+                    <label style={{ ...s.label, flex: '1 1 130px', margin: 0 }}>
                         <span style={{ fontSize: 11, color: '#666' }}>Nombre</span>
                         <input value={tgForm.nombre} onChange={e => setTgForm(f => ({ ...f, nombre: e.target.value }))}
                             placeholder="Ej: César" style={{ ...s.input, marginTop: 4 }} />
                     </label>
-                    <label style={{ ...s.label, flex: '1 1 160px', margin: 0 }}>
+                    <label style={{ ...s.label, flex: '1 1 140px', margin: 0 }}>
                         <span style={{ fontSize: 11, color: '#666' }}>Chat ID *</span>
                         <input value={tgForm.chat_id} onChange={e => setTgForm(f => ({ ...f, chat_id: e.target.value }))}
                             placeholder="Ej: 123456789" required style={{ ...s.input, marginTop: 4 }} />
+                    </label>
+                    <label style={{ ...s.label, flex: '1 1 170px', margin: 0 }}>
+                        <span style={{ fontSize: 11, color: '#666' }}>Rol</span>
+                        <select value={tgForm.rol} onChange={e => setTgForm(f => ({ ...f, rol: e.target.value }))}
+                            style={{ ...s.input, marginTop: 4 }}>
+                            {ROL_OPCIONES.filter(r => r.val !== 'superadmin').map(r => (
+                                <option key={r.val} value={r.val}>{r.label}</option>
+                            ))}
+                        </select>
                     </label>
                     <button type="submit" style={{ ...s.btn, marginTop: 0, whiteSpace: 'nowrap' }}>+ Agregar</button>
                 </form>
