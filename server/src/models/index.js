@@ -89,6 +89,13 @@ const MaterialPrecioReciclador = sequelize.define('MaterialPrecioReciclador', {
     precio:        { type: DataTypes.DECIMAL(10,2), allowNull: false }
 });
 
+const RecicladorSede = sequelize.define('RecicladorSede', {
+    reciclador_id: { type: DataTypes.INTEGER, allowNull: false },
+    nombre:        { type: DataTypes.STRING, allowNull: false },
+    direccion:     { type: DataTypes.STRING },
+    activa:        { type: DataTypes.BOOLEAN, defaultValue: true }
+});
+
 const Venta = sequelize.define('Venta', {
     numero:     { type: DataTypes.INTEGER },
     cliente_id: { type: DataTypes.INTEGER, allowNull: false },
@@ -267,6 +274,8 @@ Reciclador.belongsTo(Bodega,  { foreignKey: 'bodega_id', as: 'bodega' });
 Reciclador.hasMany(MaterialPrecioReciclador, { foreignKey: 'reciclador_id', as: 'precios_especiales' });
 MaterialPrecioReciclador.belongsTo(Reciclador, { foreignKey: 'reciclador_id' });
 MaterialPrecioReciclador.belongsTo(Material,   { foreignKey: 'material_id', as: 'material' });
+Reciclador.hasMany(RecicladorSede, { foreignKey: 'reciclador_id', as: 'sedes' });
+RecicladorSede.belongsTo(Reciclador, { foreignKey: 'reciclador_id' });
 Empleado.belongsTo(Bodega,    { foreignKey: 'bodega_id', as: 'bodega' });
 PrestamoEmpleado.belongsTo(Empleado, { foreignKey: 'empleado_id', as: 'empleado' });
 DiasNoLaborados.belongsTo(Empleado,  { foreignKey: 'empleado_id', as: 'empleado' });
@@ -295,7 +304,7 @@ GastoVehiculo.belongsTo(Bodega,   { foreignKey: 'bodega_id', as: 'bodega' });
 
 module.exports = {
     sequelize, Usuario, Bodega, Material, Reciclador,
-    Compra, CompraItem, Cliente, ClienteSede, MaterialPrecioCliente, MaterialPrecioReciclador,
+    Compra, CompraItem, Cliente, ClienteSede, MaterialPrecioCliente, MaterialPrecioReciclador, RecicladorSede,
     Venta, VentaItem, Empleado, PrestamoEmpleado, DiasNoLaborados,
     PrestamoReciclador, Caja, MovimientoCaja,
     Remision, RemisionItem, Empaque, Certificado,

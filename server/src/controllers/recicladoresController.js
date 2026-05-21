@@ -1,4 +1,4 @@
-const { Reciclador, Compra, PrestamoReciclador, Bodega, MaterialPrecioReciclador, Material } = require('../models');
+const { Reciclador, Compra, PrestamoReciclador, Bodega, MaterialPrecioReciclador, Material, RecicladorSede } = require('../models');
 
 exports.listar = async (req, res) => {
     try {
@@ -89,6 +89,22 @@ exports.eliminarPrecio = async (req, res) => {
     try {
         await MaterialPrecioReciclador.destroy({ where: { reciclador_id: req.params.id, material_id: req.params.material_id } });
         res.json({ ok: true });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.listarSedes = async (req, res) => {
+    try {
+        const sedes = await RecicladorSede.findAll({ where: { reciclador_id: req.params.id, activa: true }, order: [['createdAt', 'ASC']] });
+        res.json({ ok: true, sedes });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+exports.crearSede = async (req, res) => {
+    try {
+        const { nombre, direccion } = req.body;
+        if (!nombre) return res.status(400).json({ ok: false, msg: 'Nombre requerido' });
+        const sede = await RecicladorSede.create({ reciclador_id: req.params.id, nombre, direccion });
+        res.json({ ok: true, sede });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 

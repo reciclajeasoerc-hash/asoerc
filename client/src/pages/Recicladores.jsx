@@ -11,12 +11,15 @@ export default function Recicladores() {
     const [selected, setSelected] = useState(null);
     const [prestamos, setPrestamos] = useState([]);
     const [precios, setPrecios] = useState([]);
+    const [sedes, setSedes] = useState([]);
     const [tabDetalle, setTabDetalle] = useState('prestamos');
     const [showForm, setShowForm] = useState(false);
     const [showPrestamo, setShowPrestamo] = useState(false);
+    const [showSedeForm, setShowSedeForm] = useState(false);
     const [form, setForm] = useState({ nombre: '', cedula: '', telefono: '', whatsapp: '', bodega_id: '' });
     const [pForm, setPForm] = useState({ monto: '', descripcion: '', fecha: new Date().toISOString().slice(0, 10) });
     const [precioForm, setPrecioForm] = useState({ material_id: '', precio: '' });
+    const [sedeForm, setSedeForm] = useState({ nombre: '', direccion: '' });
     const [msg, setMsg] = useState('');
 
     useEffect(() => {
@@ -34,6 +37,18 @@ export default function Recicladores() {
         setPrestamos(d.prestamos || []);
         const p = await api.get(`/recicladores/${r.id}/precios`).catch(() => ({ precios: [] }));
         setPrecios(p.precios || []);
+        const s = await api.get(`/recicladores/${r.id}/sedes`).catch(() => ({ sedes: [] }));
+        setSedes(s.sedes || []);
+    };
+
+    const guardarSede = async () => {
+        if (!sedeForm.nombre.trim()) return;
+        try {
+            const d = await api.post(`/recicladores/${selected.id}/sedes`, sedeForm);
+            setSedes(prev => [...prev, d.sede]);
+            setSedeForm({ nombre: '', direccion: '' });
+            setShowSedeForm(false);
+        } catch (err) { setMsg(err.message); }
     };
 
     const guardarPrecioEspecial = async () => {
@@ -157,7 +172,7 @@ export default function Recicladores() {
 
                         {/* Tabs */}
                         <div style={{ display: 'flex', borderBottom: '2px solid #f0f0f0', marginBottom: 14, gap: 4 }}>
-                            {[['prestamos','💰 Préstamos'],['precios','🏷️ Precios especiales']].map(([k,l]) => (
+                            {[['prestamos','💰 Préstamos'],['sedes','📍 Sedes'],['precios','🏷️ Precios especiales']].map(([k,l]) => (
                                 <button key={k} onClick={() => setTabDetalle(k)}
                                     style={{ padding: '7px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: tabDetalle === k ? 700 : 400,
                                         color: tabDetalle === k ? '#1a5c2a' : '#888',
@@ -199,6 +214,42 @@ export default function Recicladores() {
                                                 <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: p.pagado ? '#d1fae5' : '#fee2e2', color: p.pagado ? '#059669' : '#dc2626' }}>
                                                     {p.pagado ? 'Pagado' : 'Pendiente'}
                                                 </span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </>
+                        )}
+
+                        {/* Tab: Sedes */}
+                        {tabDetalle === 'sedes' && (
+                            <>
+                                <button onClick={() => setShowSedeForm(!showSedeForm)}
+                                    style={{ padding: '6px 12px', background: '#e0f2e9', color: '#1a5c2a', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
+                                    + Nueva sede
+                                </button>
+                                {showSedeForm && (
+                                    <div style={{ background: '#f0faf0', border: '1px solid #a7d7a7', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                            <input placeholder="Nombre sede*" value={sedeForm.nombre} onChange={e => setSedeForm({ ...sedeForm, nombre: e.target.value })}
+                                                style={{ padding: '8px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }} />
+                                            <input placeholder="Dirección" value={sedeForm.direccion} onChange={e => setSedeForm({ ...sedeForm, direccion: e.target.value })}
+                                                style={{ padding: '8px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }} />
+                                        </div>
+                                        <button onClick={guardarSede}
+                                            style={{ padding: '7px 16px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13 }}>
+                                            Agregar sede
+                                        </button>
+                                    </div>
+                                )}
+                                {sedes.length === 0 ? (
+                                    <p style={{ color: '#999', fontSize: 13 }}>Sin sedes registradas</p>
+                                ) : (
+                                    sedes.map(s => (
+                                        <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                                            <div>
+                                                <span style={{ fontWeight: 600 }}>{s.nombre}</span>
+                                                {s.direccion && <span style={{ color: '#888', marginLeft: 8 }}>{s.direccion}</span>}
                                             </div>
                                         </div>
                                     ))
