@@ -97,7 +97,8 @@ exports.finalizar = async (req, res) => {
             await p.update({ pagado: true, compra_id: compra.id });
         }
         const neto = Math.max(0, parseFloat(compra.total) - descuento);
-        await compra.update({ estado: 'finalizada', descuento_prestamo: descuento, neto });
+        const numeroDiario = await Compra.count({ where: { fecha: compra.fecha, bodega_id: compra.bodega_id, estado: 'finalizada' } }) + 1;
+        await compra.update({ estado: 'finalizada', descuento_prestamo: descuento, neto, numero_diario: numeroDiario });
 
         // Actualizar saldo_prestamo del reciclador
         if (descuento > 0) {

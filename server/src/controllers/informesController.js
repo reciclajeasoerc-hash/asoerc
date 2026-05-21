@@ -79,8 +79,11 @@ exports.comprasPorPeriodo = async (req, res) => {
         for (const c of compras) {
             for (const item of c.items) {
                 detalle.push({
+                    numero_diario: c.numero_diario || null,
                     fecha: c.fecha,
+                    hora: c.updatedAt ? new Date(c.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
                     reciclador: c.reciclador?.nombre || 'Sin nombre',
+                    codigo: item.material?.codigo || '',
                     material: item.material?.nombre || 'Desconocido',
                     kilos: parseFloat(item.kilos || 0),
                     precio_unitario: parseFloat(item.precio_unitario || 0),

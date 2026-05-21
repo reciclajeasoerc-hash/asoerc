@@ -263,8 +263,11 @@ export function exportarInformeComprasExcel({ resumen, por_material, por_recicla
         {
             nombre: 'Detalle por persona',
             datos: detalle.length ? detalle.map(d => ({
+                'Consecutivo día': d.numero_diario ? String(d.numero_diario).padStart(5, '0') : '—',
                 'Fecha': d.fecha,
+                'Hora': d.hora || '',
                 'Reciclador': d.reciclador,
+                'Código': d.codigo || '',
                 'Material': d.material,
                 'Kilos': d.kilos,
                 'Precio unitario ($/kg)': d.precio_unitario,

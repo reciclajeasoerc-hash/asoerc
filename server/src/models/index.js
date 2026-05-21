@@ -40,16 +40,17 @@ const Reciclador = sequelize.define('Reciclador', {
 });
 
 const Compra = sequelize.define('Compra', {
-    numero:       { type: DataTypes.INTEGER },
-    reciclador_id:{ type: DataTypes.INTEGER, allowNull: false },
-    bodega_id:    { type: DataTypes.INTEGER, allowNull: false },
-    fecha:        { type: DataTypes.DATEONLY, allowNull: false },
-    total:        { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
+    numero:         { type: DataTypes.INTEGER },
+    numero_diario:  { type: DataTypes.INTEGER, defaultValue: 0 },
+    reciclador_id:  { type: DataTypes.INTEGER, allowNull: false },
+    bodega_id:      { type: DataTypes.INTEGER, allowNull: false },
+    fecha:          { type: DataTypes.DATEONLY, allowNull: false },
+    total:          { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
     descuento_prestamo: { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
-    neto:         { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
-    estado:       { type: DataTypes.ENUM('borrador','finalizada'), defaultValue: 'borrador' },
+    neto:           { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
+    estado:         { type: DataTypes.ENUM('borrador','finalizada'), defaultValue: 'borrador' },
     whatsapp_enviado: { type: DataTypes.BOOLEAN, defaultValue: false },
-    observaciones:{ type: DataTypes.TEXT }
+    observaciones:  { type: DataTypes.TEXT }
 });
 
 const CompraItem = sequelize.define('CompraItem', {

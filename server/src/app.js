@@ -12,7 +12,7 @@ const path      = require('path');
 const fs        = require('fs');
 const sequelize = require('./config/db');
 const { Op } = require('sequelize');
-const { Usuario, Bodega, Material } = require('./models');
+const { Usuario, Bodega, Material, Cliente, ClienteSede, MaterialPrecioCliente } = require('./models');
 const { startBot } = require('./services/telegramBot');
 const { iniciarVerificacion, verificarLicencia, estadoEndpoint } = require('./middlewares/licencia');
 
@@ -206,6 +206,57 @@ async function seed() {
     console.log('✅ Electrónicos adicionales sincronizados');
 }
 
+async function seedEcology() {
+    // Sedes y precios especiales de Ecology Victoria SAS
+    const cliente = await Cliente.findOne({ where: { nombre: { [Op.like]: '%Ecology%' } } });
+    if (!cliente) return;
+
+    const SEDES = ['Atlantis plaza','Plaza central','Nuestro Bogotá','El Eden','FM chocolates','Hotel bosques','Hotel Peñalisa','Alkosto 2','Alkosto 3','Corbeta'];
+    const sedesExistentes = await ClienteSede.findAll({ where: { cliente_id: cliente.id } });
+    const nombresExistentes = sedesExistentes.map(s => s.nombre.toLowerCase());
+    let sedesAdded = 0;
+    for (const nombre of SEDES) {
+        if (!nombresExistentes.includes(nombre.toLowerCase())) {
+            await ClienteSede.create({ cliente_id: cliente.id, nombre });
+            sedesAdded++;
+        }
+    }
+
+    // Precios especiales por código de material
+    const PRECIOS = [
+        { codigo: '101',   precio: 4500 },
+        { codigo: '201A',  precio: 500  },
+        { codigo: '399CA', precio: 4000 },
+        { codigo: '302C',  precio: 1500 },
+        { codigo: '201C',  precio: 430  },
+        { codigo: '102CH', precio: 500  },
+        { codigo: '302G',  precio: 1100 },
+        { codigo: '109',   precio: 200  },
+        { codigo: '302CD', precio: 200  },
+        { codigo: '399A',  precio: 200  },
+        { codigo: '307',   precio: 1000 },
+        { codigo: '399S',  precio: 1000 },
+        { codigo: '305',   precio: 500  },
+        { codigo: '302P',  precio: 1000 },
+        { codigo: '202',   precio: 100  },
+        { codigo: '206',   precio: 200  },
+        { codigo: '302PP', precio: 200  },
+        { codigo: '308',   precio: 300  },
+        { codigo: '499T',  precio: 50   },
+        { codigo: '304',   precio: 700  },
+        { codigo: '499V',  precio: 100  },
+    ];
+    let preciosAdded = 0;
+    for (const { codigo, precio } of PRECIOS) {
+        const mat = await Material.findOne({ where: { codigo } });
+        if (!mat) continue;
+        const existe = await MaterialPrecioCliente.findOne({ where: { cliente_id: cliente.id, material_id: mat.id } });
+        if (!existe) { await MaterialPrecioCliente.create({ cliente_id: cliente.id, material_id: mat.id, precio }); preciosAdded++; }
+    }
+    if (sedesAdded > 0 || preciosAdded > 0)
+        console.log(`✅ Ecology Victoria: ${sedesAdded} sedes y ${preciosAdded} precios especiales cargados`);
+}
+
 const PORT = process.env.PORT || 3000;
 
 async function iniciar(intentos = 5) {
@@ -220,8 +271,10 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Remisions ADD COLUMN compra_id INT NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Remisions ADD COLUMN numero_orden VARCHAR(50) NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Bodegas ADD COLUMN logo_url VARCHAR(500) NULL").catch(() => {});
+            await sequelize.query("ALTER TABLE Compras ADD COLUMN numero_diario INT DEFAULT 0").catch(() => {});
             await sequelize.sync();
             await seed();
+            await seedEcology();
             app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
             try { startBot(); } catch(e) { console.error('Bot init error:', e.message); }
             iniciarVerificacion().catch(e => console.error('Licencia init error:', e.message));

@@ -604,8 +604,11 @@ function Recibo({ compra, onClose }) {
                     <div style={{ fontWeight: 800, fontSize: 16, color: '#1a5c2a' }}>ASOERC ESP</div>
                     <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
                     <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE COMPRA</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>#{compra.numero || compra.id} · {compra.fecha}</div>
-                    <div style={{ fontSize: 11, color: '#aaa' }}>Generado: {new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#1a5c2a', letterSpacing: 1 }}>
+                        #{String(compra.numero_diario || compra.numero || compra.id).padStart(5, '0')}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888' }}>{compra.fecha} · {compra.updatedAt ? new Date(compra.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                    <div style={{ fontSize: 11, color: '#aaa' }}>Impreso: {new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</div>
                 </div>
 
                 <div style={{ borderTop: '1px dashed #ccc', borderBottom: '1px dashed #ccc', padding: '10px 0', marginBottom: 14 }}>
@@ -622,6 +625,7 @@ function Recibo({ compra, onClose }) {
                 <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
                     <thead>
                         <tr style={{ borderBottom: '1px dashed #ccc' }}>
+                            <th style={{ textAlign: 'left', padding: '4px 0', color: '#666', fontWeight: 600 }}>Cód.</th>
                             <th style={{ textAlign: 'left', padding: '4px 0', color: '#666', fontWeight: 600 }}>Material</th>
                             <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>Kg</th>
                             <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>$/kg</th>
@@ -631,6 +635,7 @@ function Recibo({ compra, onClose }) {
                     <tbody>
                         {(compra.items || []).map(item => (
                             <tr key={item.id} style={{ borderBottom: '1px dotted #eee' }}>
+                                <td style={{ padding: '5px 0', color: '#888', fontSize: 11 }}>{item.material?.codigo}</td>
                                 <td style={{ padding: '5px 0' }}>{item.material?.nombre}</td>
                                 <td style={{ textAlign: 'right', color: '#555' }}>{item.kilos}</td>
                                 <td style={{ textAlign: 'right', color: '#555' }}>${fmt(item.precio_unitario)}</td>
