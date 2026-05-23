@@ -83,12 +83,16 @@ async function listarTelegramChats(req, res) {
 
 async function agregarTelegramChat(req, res) {
     try {
-        const { chat_id, nombre } = req.body;
+        const { chat_id, nombre, rol } = req.body;
         if (!chat_id) return res.status(400).json({ ok: false, msg: 'chat_id requerido' });
         const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
         const chats = conf ? JSON.parse(conf.valor || '[]') : [];
-        if (!chats.find(c => String(c.chat_id) === String(chat_id))) {
-            chats.push({ chat_id: String(chat_id), nombre: nombre || `Chat ${chat_id}` });
+        const existe = chats.find(c => String(c.chat_id) === String(chat_id));
+        if (existe) {
+            existe.nombre = nombre || existe.nombre;
+            existe.rol = rol || existe.rol || 'operador';
+        } else {
+            chats.push({ chat_id: String(chat_id), nombre: nombre || `Chat ${chat_id}`, rol: rol || 'operador' });
         }
         await Configuracion.upsert({ clave: 'telegram_chats', valor: JSON.stringify(chats) });
         res.json({ ok: true, chats });
