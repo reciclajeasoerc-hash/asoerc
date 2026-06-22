@@ -57,6 +57,8 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const [comprasHoy, setComprasHoy] = useState([]);
     const [resumen, setResumen] = useState(null);
     const [mostrarRecibo, setMostrarRecibo] = useState(null);
+    const [showNuevoRec, setShowNuevoRec] = useState(false);
+    const [recForm, setRecForm] = useState({ nombre: '', cedula: '', telefono: '' });
     const [tabMobile, setTabMobile] = useState('nueva');
     const inputRef = useRef(null);
     const kgInputRef = useRef(null);
@@ -113,6 +115,17 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
         finally { setLoading(false); }
     };
 
+    const crearReciclador = async () => {
+        if (!recForm.nombre.trim()) return setMsg('Nombre del reciclador requerido');
+        try {
+            const d = await api.post('/recicladores', { ...recForm, bodega_id: bodega_id || null });
+            setRecicladores(prev => [...prev, d.reciclador]);
+            setRecicladorId(String(d.reciclador.id));
+            setRecForm({ nombre: '', cedula: '', telefono: '' });
+            setShowNuevoRec(false); setMsg('');
+        } catch (e) { setMsg(e.msg || e.message); }
+    };
+
     const seleccionarMaterial = (mat) => {
         if (!compraActiva) return setMsg('Primero abre una cuenta para un reciclador');
         setMaterialActivo(mat.id === materialActivo?.id ? null : mat);
@@ -162,6 +175,23 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const totalCarrito = compraActiva?.items?.reduce((s, i) => s + parseFloat(i.total), 0) || 0;
     const c = materialActivo ? (CAT_COLORS[materialActivo.categoria] || CAT_COLORS['Varios']) : null;
 
+    // Formulario inline para crear un reciclador nuevo (compartido móvil + escritorio)
+    const formNuevoRec = showNuevoRec && (
+        <div style={{ marginTop: 10, background: '#f0faf0', border: '2px solid #1a5c2a', borderRadius: 8, padding: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1a5c2a', marginBottom: 8 }}>Nuevo reciclador</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 }}>
+                {[['nombre','Nombre *'],['cedula','Cédula'],['telefono','Teléfono']].map(([k,l]) => (
+                    <input key={k} placeholder={l} value={recForm[k]} onChange={e => setRecForm({ ...recForm, [k]: e.target.value })}
+                        style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13, minWidth: 0 }} />
+                ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={crearReciclador} style={{ padding: '7px 16px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Guardar</button>
+                <button onClick={() => setShowNuevoRec(false)} style={{ padding: '7px 12px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+            </div>
+        </div>
+    );
+
     if (mostrarRecibo) return (
         <div style={{ padding: isMobile ? 16 : 24 }}>
             <Recibo compra={mostrarRecibo} onClose={() => setMostrarRecibo(null)} />
@@ -205,12 +235,17 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         {bodegas.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
                                     </select>
                                 </div>
-                                <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>Reciclador *</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <span style={{ fontSize: 11, color: '#666' }}>Reciclador *</span>
+                                    <button onClick={() => setShowNuevoRec(!showNuevoRec)}
+                                        style={{ fontSize: 11, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
+                                </div>
                                 <select value={reciclador_id} onChange={e => setRecicladorId(e.target.value)}
                                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 15 }}>
                                     <option value="">-- Selecciona --</option>
                                     {recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                                 </select>
+                                {formNuevoRec}
                             </div>
                             {esAdmin && (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -429,7 +464,11 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                 </select>
                             </label>
                             <label>
-                                <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Reciclador*</div>
+                                <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Reciclador*</span>
+                                    <button type="button" onClick={() => setShowNuevoRec(!showNuevoRec)}
+                                        style={{ fontSize: 10, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
+                                </div>
                                 <select value={reciclador_id} onChange={e => setRecicladorId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
                                     <option value="">-- Selecciona --</option>
                                     {recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
@@ -451,6 +490,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                             )}
                             <button onClick={abrirCuenta} disabled={loading} style={{ padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Abrir</button>
                         </div>
+                        {formNuevoRec}
                         {msg && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 8 }}>{msg}</div>}
                     </div>
                 ) : (
