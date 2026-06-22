@@ -3,6 +3,8 @@ import { api } from '../api';
 import { useAuth } from '../App';
 
 const fmt  = n => Number(n || 0).toLocaleString('es-CO');
+// Kilos sin ceros sobrantes: 1520.000 → 1520, 700.500 → 700.5
+const fmtKg = n => String(parseFloat(n) || 0);
 const hoy  = () => new Date().toISOString().slice(0, 10);
 
 const CAT_ICONS = {
@@ -83,6 +85,11 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     useEffect(() => { if (materialActivo && inputRef.current) inputRef.current.focus(); }, [materialActivo]);
     useEffect(() => { if (materialActivo && kgInputRef.current) kgInputRef.current.focus(); }, [materialActivo]);
+    // Refresca las compras de hoy cada 20s para ver las creadas desde el celular (bot Telegram)
+    useEffect(() => {
+        const t = setInterval(() => cargarHoy(), 20000);
+        return () => clearInterval(t);
+    }, []);
 
     const cargarHoy = async () => {
         const d = await api.get(`/compras?fecha=${hoy()}&estado=finalizada`).catch(() => null);
@@ -269,7 +276,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         boxShadow: esActivo ? `0 4px 12px ${cc.active}44` : '0 1px 4px rgba(0,0,0,.06)'
                                     }}>
                                     <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
-                                    {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
+                                    {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {fmtKg(enCarrito.kilos)} kg</div>}
                                 </button>
                             );
                         })}
@@ -285,7 +292,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                 <div key={item.id} style={{ padding: '10px 16px', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: 13 }}>{item.material?.nombre}</div>
-                                        <div style={{ fontSize: 12, color: '#888' }}>{item.kilos} kg × ${fmt(item.precio_unitario)}</div>
+                                        <div style={{ fontSize: 12, color: '#888' }}>{fmtKg(item.kilos)} kg × ${fmt(item.precio_unitario)}</div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                         <span style={{ fontWeight: 700, color: '#1a5c2a', fontSize: 14 }}>${fmt(item.total)}</span>
@@ -347,7 +354,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         <div style={{ fontSize: 12, color: '#888', marginTop: 3 }}>{c.bodega?.nombre} · #{c.numero || c.id}</div>
                                         {c.items?.length > 0 && (
                                             <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                                                {c.items.map(i => `${i.material?.nombre} ${i.kilos}kg`).join(', ')}
+                                                {c.items.map(i => `${i.material?.nombre} ${fmtKg(i.kilos)}kg`).join(', ')}
                                             </div>
                                         )}
                                     </div>
@@ -480,7 +487,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     <button onClick={() => seleccionarMaterial(mat)}
                                         style={{ width: '100%', padding: '12px 8px', background: esActivo ? cc.active : enCarrito ? cc.bg : '#fff', border: `2px solid ${esActivo ? cc.active : enCarrito ? cc.border : '#e5e7eb'}`, borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s' }}>
                                         <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
-                                        {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {enCarrito.kilos} kg</div>}
+                                        {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {fmtKg(enCarrito.kilos)} kg</div>}
                                     </button>
                                     {esActivo && (
                                         <div style={{ marginTop: 4, background: cc.bg, border: `2px solid ${cc.border}`, borderRadius: 8, padding: 10 }}>
@@ -535,7 +542,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                             <div key={item.id} style={{ padding: '10px 0', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <div style={{ fontWeight: 600, fontSize: 13 }}>{item.material?.nombre}</div>
-                                    <div style={{ fontSize: 12, color: '#888' }}>{item.kilos} kg × ${fmt(item.precio_unitario)}</div>
+                                    <div style={{ fontSize: 12, color: '#888' }}>{fmtKg(item.kilos)} kg × ${fmt(item.precio_unitario)}</div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ fontWeight: 700, color: '#1a5c2a' }}>${fmt(item.total)}</span>
@@ -562,9 +569,12 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     <div style={{ borderTop: '1px solid #f0f0f0', maxHeight: 180, overflowY: 'auto' }}>
                         <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: .5 }}>COMPRAS DE HOY</div>
                         {comprasHoy.map(c => (
-                            <div key={c.id} onClick={() => setMostrarRecibo(c)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', padding: '7px 16px', borderTop: '1px solid #f5f5f5', fontSize: 12 }}>
+                            <div key={c.id} onClick={() => setMostrarRecibo(c)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 16px', borderTop: '1px solid #f5f5f5', fontSize: 12 }}>
                                 <span style={{ color: '#555' }}>{c.reciclador?.nombre}</span>
-                                <span style={{ fontWeight: 700, color: '#1a5c2a' }}>${fmt(c.neto)}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontWeight: 700, color: '#1a5c2a' }}>${fmt(c.neto)}</span>
+                                    <span title="Imprimir recibo" style={{ fontSize: 13 }}>🖨️</span>
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -576,6 +586,14 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
 /* ── Recibo ──────────────────────────────────────────────────────────────── */
 function Recibo({ compra, onClose }) {
+    // Logo embebido en base64 para que SIEMPRE se imprima (sin depender de red/caché)
+    const [logo, setLogo] = useState('/logo.png');
+    useEffect(() => {
+        fetch('/logo.png')
+            .then(r => r.blob())
+            .then(b => { const fr = new FileReader(); fr.onload = () => setLogo(fr.result); fr.readAsDataURL(b); })
+            .catch(() => {});
+    }, []);
     return (
         <div>
             <style>{`
@@ -591,6 +609,10 @@ function Recibo({ compra, onClose }) {
                         box-shadow: none !important;
                         border-radius: 0 !important;
                     }
+                    .recibo-contenido img {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
                 }
             `}</style>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -600,7 +622,7 @@ function Recibo({ compra, onClose }) {
 
             <div className="recibo-contenido" style={{ background: '#fff', borderRadius: 10, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 460, fontFamily: 'monospace' }}>
                 <div style={{ textAlign: 'center', marginBottom: 20, fontFamily: 'sans-serif' }}>
-                    <img src="/logo.png" alt="ASOERC" style={{ width: 80, marginBottom: 6 }} />
+                    <img src={logo} alt="ASOERC" style={{ width: 80, marginBottom: 6 }} />
                     <div style={{ fontWeight: 800, fontSize: 16, color: '#1a5c2a' }}>ASOERC ESP</div>
                     <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
                     <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE COMPRA</div>
@@ -637,7 +659,7 @@ function Recibo({ compra, onClose }) {
                             <tr key={item.id} style={{ borderBottom: '1px dotted #eee' }}>
                                 <td style={{ padding: '5px 0', color: '#888', fontSize: 11 }}>{item.material?.codigo}</td>
                                 <td style={{ padding: '5px 0' }}>{item.material?.nombre}</td>
-                                <td style={{ textAlign: 'right', color: '#555' }}>{item.kilos}</td>
+                                <td style={{ textAlign: 'right', color: '#555' }}>{fmtKg(item.kilos)}</td>
                                 <td style={{ textAlign: 'right', color: '#555' }}>${fmt(item.precio_unitario)}</td>
                                 <td style={{ textAlign: 'right', fontWeight: 600 }}>${fmt(item.total)}</td>
                             </tr>

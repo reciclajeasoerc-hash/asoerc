@@ -3,6 +3,8 @@ import { api } from '../api';
 import { useAuth } from '../App';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
+// Kilos sin ceros sobrantes: 1520.000 → 1520, 700.500 → 700.5
+const fmtKg = n => String(parseFloat(n) || 0);
 const hoy = () => new Date().toISOString().slice(0, 10);
 
 const CAT_COLORS = {
@@ -86,6 +88,11 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     useEffect(() => { if (propBodegaId) setBodegaId(String(propBodegaId)); }, [propBodegaId]);
     useEffect(() => { if (materialActivo && inputRef.current) inputRef.current.focus(); }, [materialActivo]);
+    // Refresca las órdenes de hoy cada 20s para ver las creadas desde el celular (bot Telegram)
+    useEffect(() => {
+        const t = setInterval(() => cargarHoy(), 20000);
+        return () => clearInterval(t);
+    }, []);
 
     const cargarHoy = () =>
         api.get(`/ventas?fecha=${hoy()}`).then(d => setVentasHoy(d.items || [])).catch(() => {});
@@ -399,12 +406,10 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                             ✅ Marcar pagada
                                         </button>
                                     )}
-                                    {v.estado === 'pagada' && (
-                                        <button onClick={() => setReciboVenta(v)}
-                                            style={{ flex: 1, padding: '8px', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
-                                            🖨️ Ver recibo
-                                        </button>
-                                    )}
+                                    <button onClick={() => setReciboVenta(v)}
+                                        style={{ flex: 1, padding: '8px', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                                        🖨️ Imprimir
+                                    </button>
                                 </div>
                             </div>
                         );
@@ -603,7 +608,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         <div style={{ display: 'flex', gap: 4 }}>
                                             {v.estado === 'orden' && <button onClick={() => cambiarEstado(v.id, 'facturada')} style={{ padding: '2px 8px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 4, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}>Facturar</button>}
                                             {v.estado === 'facturada' && <button onClick={() => cambiarEstado(v.id, 'pagada', 'efectivo')} style={{ padding: '2px 8px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: 4, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}>Pagada</button>}
-                                            {v.estado === 'pagada' && <button onClick={() => setReciboVenta(v)} style={{ padding: '2px 8px', background: '#f9fafb', color: '#6b7280', border: 'none', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}>🖨️ Ver</button>}
+                                            <button onClick={() => setReciboVenta(v)} style={{ padding: '2px 8px', background: '#f9fafb', color: '#6b7280', border: 'none', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}>🖨️ Imprimir</button>
                                         </div>
                                     </div>
                                 </div>
@@ -617,16 +622,24 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
 }
 
 function ReciboVenta({ venta, onClose }) {
+    // Logo embebido en base64 para que SIEMPRE se imprima (sin depender de red/caché)
+    const [logo, setLogo] = useState('/logo.png');
+    useEffect(() => {
+        fetch('/logo.png')
+            .then(r => r.blob())
+            .then(b => { const fr = new FileReader(); fr.onload = () => setLogo(fr.result); fr.readAsDataURL(b); })
+            .catch(() => {});
+    }, []);
     return (
         <div>
-            <style>{`@media print { body * { visibility: hidden !important; } .recibo-venta, .recibo-venta * { visibility: visible !important; } .recibo-venta { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; padding: 20px !important; box-shadow: none !important; } }`}</style>
+            <style>{`@media print { body * { visibility: hidden !important; } .recibo-venta, .recibo-venta * { visibility: visible !important; } .recibo-venta { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; padding: 20px !important; box-shadow: none !important; } .recibo-venta img { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }`}</style>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                 <button onClick={() => window.print()} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir</button>
                 <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>← Volver</button>
             </div>
             <div className="recibo-venta" style={{ background: '#fff', borderRadius: 10, padding: 28, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 460, fontFamily: 'monospace' }}>
                 <div style={{ textAlign: 'center', marginBottom: 20, fontFamily: 'sans-serif' }}>
-                    <img src="/logo.png" alt="ASOERC" style={{ width: 80, marginBottom: 6 }} />
+                    <img src={logo} alt="ASOERC" style={{ width: 80, marginBottom: 6 }} />
                     <div style={{ fontWeight: 800, fontSize: 16, color: '#1a5c2a' }}>ASOERC ESP</div>
                     <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
                     <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE VENTA</div>
@@ -647,7 +660,7 @@ function ReciboVenta({ venta, onClose }) {
                     <tbody>{(venta.items || []).map((item, i) => (
                         <tr key={i} style={{ borderBottom: '1px dotted #eee' }}>
                             <td style={{ padding: '5px 0' }}>{item.material?.nombre || item.material_nombre}</td>
-                            <td style={{ textAlign: 'right', color: '#555' }}>{item.kilos}</td>
+                            <td style={{ textAlign: 'right', color: '#555' }}>{fmtKg(item.kilos)}</td>
                             <td style={{ textAlign: 'right', color: '#555' }}>${fmt(item.precio_unitario)}</td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>${fmt(item.total)}</td>
                         </tr>
