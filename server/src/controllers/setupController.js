@@ -1,5 +1,6 @@
 const bcrypt   = require('bcryptjs');
-const { sequelize, Usuario, Bodega, Configuracion } = require('../models');
+const { sequelize, Usuario, Bodega, Configuracion,
+    Venta, VentaItem, Compra, CompraItem, Caja, MovimientoCaja, Reciclador } = require('../models');
 
 exports.estado = async (req, res) => {
     try {
@@ -38,6 +39,25 @@ exports.configurar = async (req, res) => {
         });
 
         res.json({ ok: true, msg: 'Sistema configurado correctamente. Ya puede iniciar sesión.' });
+    } catch (err) {
+        res.status(500).json({ ok: false, msg: err.message });
+    }
+};
+
+// Limpia SOLO operaciones (datos de prueba): ventas, compras, cajas y movimientos.
+// Mantiene usuarios, bodegas, materiales, clientes, recicladores y empleados.
+exports.limpiarOperaciones = async (req, res) => {
+    try {
+        const r = {};
+        r.movimientos = await MovimientoCaja.destroy({ where: {} });
+        r.cajas       = await Caja.destroy({ where: {} });
+        r.ventaItems  = await VentaItem.destroy({ where: {} });
+        r.ventas      = await Venta.destroy({ where: {} });
+        r.compraItems = await CompraItem.destroy({ where: {} });
+        r.compras     = await Compra.destroy({ where: {} });
+        // Los descuentos de préstamo de las compras de prueba quedaron reflejados en el saldo → reset a 0
+        await Reciclador.update({ saldo_prestamo: 0 }, { where: {} });
+        res.json({ ok: true, msg: 'Datos de prueba eliminados (ventas, compras, cajas y movimientos).', detalle: r });
     } catch (err) {
         res.status(500).json({ ok: false, msg: err.message });
     }

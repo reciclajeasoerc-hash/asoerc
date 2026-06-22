@@ -19,6 +19,9 @@ export default function Configuracion() {
     const [tgForm, setTgForm] = useState({ chat_id: '', nombre: '', rol: 'operador' });
     const [msgTg, setMsgTg] = useState(null);
 
+    const [limpiando, setLimpiando]   = useState(false);
+    const [msgLimpiar, setMsgLimpiar] = useState(null);
+
     const fileRef = useRef();
 
     useEffect(() => {
@@ -93,6 +96,19 @@ export default function Configuracion() {
     async function eliminarChat(chat_id) {
         const d = await api.delete(`/telegram/chats/${chat_id}`);
         setTelegramChats(d.chats);
+    }
+
+    async function limpiarDatosPrueba() {
+        if (!window.confirm('⚠️ Esto BORRARÁ todas las ventas, compras, cajas y movimientos de TODAS las bodegas.\n\nSe mantienen clientes, recicladores, materiales y empleados.\n\n¿Continuar?')) return;
+        const texto = window.prompt('Esta acción es IRREVERSIBLE. Escribe BORRAR para confirmar:');
+        if (texto !== 'BORRAR') { setMsgLimpiar({ ok: false, texto: 'Cancelado. Debes escribir BORRAR exactamente.' }); return; }
+        setLimpiando(true); setMsgLimpiar(null);
+        try {
+            const d = await api.post('/setup/limpiar-operaciones', {});
+            setMsgLimpiar({ ok: true, texto: d.msg || 'Datos de prueba eliminados.' });
+        } catch (err) {
+            setMsgLimpiar({ ok: false, texto: err.message });
+        } finally { setLimpiando(false); }
     }
 
     const logoActual = logoPreview || empresa.logo_url;
@@ -245,6 +261,21 @@ export default function Configuracion() {
                     </button>
                 </form>
             </div>
+
+            {/* ── Zona de peligro (solo superadmin) ── */}
+            {user?.rol === 'superadmin' && (
+                <div style={{ ...s.card, border: '1px solid #fca5a5' }}>
+                    <h3 style={{ ...s.cardTitle, color: '#dc2626' }}>🧹 Limpiar datos de prueba</h3>
+                    <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
+                        Borra <strong>todas las ventas, compras, cajas y movimientos</strong> de todas las bodegas, para dejar el sistema limpio antes de operar en real.
+                        <strong> No</strong> borra clientes, recicladores, materiales ni empleados. Esta acción es <strong>irreversible</strong>.
+                    </p>
+                    {msgLimpiar && <div style={msgLimpiar.ok ? s.ok : s.err}>{msgLimpiar.texto}</div>}
+                    <button type="button" onClick={limpiarDatosPrueba} disabled={limpiando} style={{ ...s.btn, background: '#dc2626' }}>
+                        {limpiando ? 'Limpiando...' : '🧹 Limpiar datos de prueba'}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

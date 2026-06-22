@@ -43,6 +43,9 @@ router.use(bodegaFilter);
 // Configuración de empresa (superadmin)
 router.put('/configuracion', soloRoles('superadmin'), upload.single('logo'), configuracionCtrl.actualizar);
 
+// Limpiar datos de prueba — ventas, compras, cajas y movimientos (solo superadmin)
+router.post('/setup/limpiar-operaciones', soloRoles('superadmin'), setupCtrl.limpiarOperaciones);
+
 // Telegram chats autorizados
 router.get('/telegram/chats',                soloRoles('superadmin','admin'), configuracionCtrl.listarTelegramChats);
 router.post('/telegram/chats',               soloRoles('superadmin','admin'), configuracionCtrl.agregarTelegramChat);
