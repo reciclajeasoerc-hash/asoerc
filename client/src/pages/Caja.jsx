@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
-import Ventas from './Ventas';
-import Compras from './Compras';
+import Ventas, { ReciboVenta } from './Ventas';
+import Compras, { Recibo as ReciboCompra } from './Compras';
 import { exportarCajaExcel, exportarCajaPDF } from '../utils/exportar';
 
 const fmt    = n => Number(n || 0).toLocaleString('es-CO');
@@ -52,7 +52,24 @@ export default function Caja() {
     const [msg, setMsg]             = useState('');
     const [loading, setLoading]     = useState(false);
     const [mostrarDescarga, setMostrarDescarga] = useState(false);
+    const [recibo, setRecibo] = useState(null); // { tipo: 'venta'|'compra', data }
     const montoRef = useRef(null);
+
+    // Abre el recibo de la venta/compra enlazada a un movimiento de caja (referencia = "venta:ID" / "compra:ID")
+    const abrirReciboDesdeMov = async (referencia) => {
+        if (!referencia) return;
+        const [tipo, id] = String(referencia).split(':');
+        if (!id) return;
+        try {
+            if (tipo === 'venta') {
+                const d = await api.get(`/ventas/${id}`);
+                setRecibo({ tipo: 'venta', data: d.venta });
+            } else if (tipo === 'compra') {
+                const d = await api.get(`/compras/${id}`);
+                setRecibo({ tipo: 'compra', data: d.compra });
+            }
+        } catch (e) { alert('No se pudo cargar el recibo: ' + (e.msg || e.message)); }
+    };
 
     useEffect(() => {
         if (user?.rol === 'superadmin') {
@@ -172,8 +189,16 @@ export default function Caja() {
                             <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.concepto}</div>
                             <div style={{ fontSize: 11, color: '#9ca3af' }}>{m.hora}</div>
                         </div>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: m.tipo === 'ingreso' ? '#059669' : '#dc2626', flexShrink: 0, marginLeft: 8 }}>
-                            {m.tipo === 'ingreso' ? '+' : '-'}{fmtCOP(m.monto)}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: m.tipo === 'ingreso' ? '#059669' : '#dc2626' }}>
+                                {m.tipo === 'ingreso' ? '+' : '-'}{fmtCOP(m.monto)}
+                            </div>
+                            {/^(venta|compra):/.test(m.referencia || '') && (
+                                <button onClick={() => abrirReciboDesdeMov(m.referencia)} title="Imprimir recibo"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 2, lineHeight: 1 }}>
+                                    🖨️
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -306,6 +331,17 @@ export default function Caja() {
         </div>
     ) : null;
 
+    // ── Overlay recibo (reimprimir venta/compra desde un movimiento) ────────
+    const reciboOverlay = recibo ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1000, overflowY: 'auto', padding: 16 }}>
+            <div style={{ maxWidth: 520, margin: '0 auto' }}>
+                {recibo.tipo === 'venta'
+                    ? <ReciboVenta  venta={recibo.data}  onClose={() => setRecibo(null)} />
+                    : <ReciboCompra compra={recibo.data} onClose={() => setRecibo(null)} />}
+            </div>
+        </div>
+    ) : null;
+
     // ══════════════════════════════════════════════════════════════════════
     // MÓVIL: 4 tabs en barra superior
     // ══════════════════════════════════════════════════════════════════════
@@ -319,6 +355,7 @@ export default function Caja() {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f0faf0' }}>
                 <ModalApertura />
+                {reciboOverlay}
 
                 {/* Tab bar superior */}
                 <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
@@ -351,6 +388,7 @@ export default function Caja() {
     return (
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
             <ModalApertura />
+            {reciboOverlay}
 
             {/* Panel izquierdo */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

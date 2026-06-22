@@ -585,7 +585,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 }
 
 /* ── Recibo ──────────────────────────────────────────────────────────────── */
-function Recibo({ compra, onClose }) {
+export function Recibo({ compra, onClose }) {
     // Logo embebido en base64 para que SIEMPRE se imprima (sin depender de red/caché)
     const [logo, setLogo] = useState('/logo.png');
     useEffect(() => {

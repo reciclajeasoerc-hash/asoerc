@@ -114,7 +114,7 @@ exports.finalizar = async (req, res) => {
                 caja = await Caja.create({ bodega_id: compra.bodega_id, fecha: fechaHoy, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 });
             }
             const hora = new Date().toTimeString().slice(0, 8);
-            await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora });
+            await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora, referencia: `compra:${compra.id}` });
             await caja.update({ total_egresos: parseFloat(caja.total_egresos) + neto, saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) - (parseFloat(caja.total_egresos) + neto) });
         }
 

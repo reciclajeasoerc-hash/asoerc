@@ -7,7 +7,7 @@ const include = [
     { model: VentaItem, as: 'items', include: [{ model: Material, as: 'material' }] }
 ];
 
-async function registrarEnCaja(bodega_id, fecha, total, concepto) {
+async function registrarEnCaja(bodega_id, fecha, total, concepto, referencia = '') {
     if (!total || total <= 0) return;
     let caja = await Caja.findOne({ where: { bodega_id, fecha } });
     if (!caja) {
@@ -15,7 +15,7 @@ async function registrarEnCaja(bodega_id, fecha, total, concepto) {
         caja = await Caja.create({ bodega_id, fecha, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 });
     }
     const hora = new Date().toTimeString().slice(0, 8);
-    await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora });
+    await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora, referencia });
     await caja.update({
         total_ingresos: parseFloat(caja.total_ingresos) + total,
         saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) + total - parseFloat(caja.total_egresos)
@@ -72,7 +72,7 @@ exports.crear = async (req, res) => {
         // Registrar en caja si el pago ya fue recibido
         if (tipo_pago && tipo_pago !== 'pendiente') {
             const fechaVenta = fecha || new Date().toISOString().slice(0, 10);
-            await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`);
+            await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`, `venta:${ventaData.id}`);
             await ventaData.update({ estado: 'pagada' });
         }
 
@@ -95,7 +95,7 @@ exports.actualizarEstado = async (req, res) => {
         if (estado === 'pagada' && venta.estado !== 'pagada') {
             const tp = tipo_pago || venta.tipo_pago;
             await registrarEnCaja(venta.bodega_id, venta.fecha, parseFloat(venta.total),
-                `Venta #${venta.numero || venta.id} - ${venta.cliente?.nombre} (${tp})`);
+                `Venta #${venta.numero || venta.id} - ${venta.cliente?.nombre} (${tp})`, `venta:${venta.id}`);
         }
 
         res.json({ ok: true, venta });

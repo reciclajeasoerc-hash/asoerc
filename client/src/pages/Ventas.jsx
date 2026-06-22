@@ -621,7 +621,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
     );
 }
 
-function ReciboVenta({ venta, onClose }) {
+export function ReciboVenta({ venta, onClose }) {
     // Logo embebido en base64 para que SIEMPRE se imprima (sin depender de red/caché)
     const [logo, setLogo] = useState('/logo.png');
     useEffect(() => {
