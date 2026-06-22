@@ -99,7 +99,7 @@ export default function Configuracion() {
     }
 
     async function limpiarDatosPrueba() {
-        if (!window.confirm('⚠️ Esto BORRARÁ todas las ventas, compras, cajas y movimientos de TODAS las bodegas.\n\nSe mantienen clientes, recicladores, materiales y empleados.\n\n¿Continuar?')) return;
+        if (!window.confirm('⚠️ Esto BORRARÁ todas las ventas, compras, cajas, movimientos, remisiones y préstamos de TODAS las bodegas.\n\nSe mantienen clientes, recicladores, materiales y empleados.\n\n¿Continuar?')) return;
         const texto = window.prompt('Esta acción es IRREVERSIBLE. Escribe BORRAR para confirmar:');
         if (texto !== 'BORRAR') { setMsgLimpiar({ ok: false, texto: 'Cancelado. Debes escribir BORRAR exactamente.' }); return; }
         setLimpiando(true); setMsgLimpiar(null);
@@ -267,7 +267,7 @@ export default function Configuracion() {
                 <div style={{ ...s.card, border: '1px solid #fca5a5' }}>
                     <h3 style={{ ...s.cardTitle, color: '#dc2626' }}>🧹 Limpiar datos de prueba</h3>
                     <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
-                        Borra <strong>todas las ventas, compras, cajas y movimientos</strong> de todas las bodegas, para dejar el sistema limpio antes de operar en real.
+                        Borra <strong>todas las ventas, compras, cajas, movimientos, remisiones y préstamos</strong> de todas las bodegas, para dejar el sistema limpio antes de operar en real.
                         <strong> No</strong> borra clientes, recicladores, materiales ni empleados. Esta acción es <strong>irreversible</strong>.
                     </p>
                     {msgLimpiar && <div style={msgLimpiar.ok ? s.ok : s.err}>{msgLimpiar.texto}</div>}

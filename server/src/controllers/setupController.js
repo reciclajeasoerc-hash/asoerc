@@ -1,6 +1,7 @@
 const bcrypt   = require('bcryptjs');
 const { sequelize, Usuario, Bodega, Configuracion,
-    Venta, VentaItem, Compra, CompraItem, Caja, MovimientoCaja, Reciclador } = require('../models');
+    Venta, VentaItem, Compra, CompraItem, Caja, MovimientoCaja, Reciclador,
+    Remision, RemisionItem, PrestamoReciclador, PrestamoEmpleado } = require('../models');
 
 exports.estado = async (req, res) => {
     try {
@@ -44,21 +45,33 @@ exports.configurar = async (req, res) => {
     }
 };
 
-// Limpia SOLO operaciones (datos de prueba): ventas, compras, cajas y movimientos.
-// Mantiene usuarios, bodegas, materiales, clientes, recicladores y empleados.
+// Limpia SOLO operaciones (datos de prueba): ventas, compras, cajas, movimientos,
+// remisiones y préstamos. Mantiene usuarios, bodegas, materiales, clientes,
+// recicladores y empleados. Se desactivan las FKs en una transacción para evitar
+// que las remisiones/préstamos (que apuntan a ventas/compras) bloqueen el borrado.
 exports.limpiarOperaciones = async (req, res) => {
+    const t = await sequelize.transaction();
     try {
+        await sequelize.query('SET FOREIGN_KEY_CHECKS = 0', { transaction: t });
+        const opts = { where: {}, transaction: t };
         const r = {};
-        r.movimientos = await MovimientoCaja.destroy({ where: {} });
-        r.cajas       = await Caja.destroy({ where: {} });
-        r.ventaItems  = await VentaItem.destroy({ where: {} });
-        r.ventas      = await Venta.destroy({ where: {} });
-        r.compraItems = await CompraItem.destroy({ where: {} });
-        r.compras     = await Compra.destroy({ where: {} });
-        // Los descuentos de préstamo de las compras de prueba quedaron reflejados en el saldo → reset a 0
-        await Reciclador.update({ saldo_prestamo: 0 }, { where: {} });
-        res.json({ ok: true, msg: 'Datos de prueba eliminados (ventas, compras, cajas y movimientos).', detalle: r });
+        r.movimientos   = await MovimientoCaja.destroy(opts);
+        r.cajas         = await Caja.destroy(opts);
+        r.remisionItems = await RemisionItem.destroy(opts);
+        r.remisiones    = await Remision.destroy(opts);
+        r.ventaItems    = await VentaItem.destroy(opts);
+        r.ventas        = await Venta.destroy(opts);
+        r.compraItems   = await CompraItem.destroy(opts);
+        r.compras       = await Compra.destroy(opts);
+        r.prestamosRec  = await PrestamoReciclador.destroy(opts);
+        r.prestamosEmp  = await PrestamoEmpleado.destroy(opts);
+        // Los saldos de préstamo quedaron afectados por las compras de prueba → reset a 0
+        await Reciclador.update({ saldo_prestamo: 0 }, { where: {}, transaction: t });
+        await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { transaction: t });
+        await t.commit();
+        res.json({ ok: true, msg: 'Datos de prueba eliminados (ventas, compras, cajas, movimientos, remisiones y préstamos).', detalle: r });
     } catch (err) {
+        await t.rollback();
         res.status(500).json({ ok: false, msg: err.message });
     }
 };
