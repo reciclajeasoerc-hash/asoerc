@@ -597,19 +597,25 @@ export function Recibo({ compra, onClose }) {
     return (
         <div>
             <style>{`
+                @page { size: 80mm auto; margin: 0; }
                 @media print {
+                    html, body { width: 80mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
                     body * { visibility: hidden !important; }
                     .recibo-contenido, .recibo-contenido * { visibility: visible !important; }
                     .recibo-contenido {
                         position: fixed !important;
                         top: 0 !important;
                         left: 0 !important;
-                        width: 100% !important;
-                        padding: 20px !important;
+                        width: 80mm !important;
+                        max-width: 80mm !important;
+                        margin: 0 !important;
+                        padding: 4mm 3mm !important;
                         box-shadow: none !important;
                         border-radius: 0 !important;
+                        font-size: 12px !important;
                     }
                     .recibo-contenido img {
+                        width: 60px !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }

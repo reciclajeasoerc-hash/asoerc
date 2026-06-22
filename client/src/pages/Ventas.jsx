@@ -632,7 +632,7 @@ export function ReciboVenta({ venta, onClose }) {
     }, []);
     return (
         <div>
-            <style>{`@media print { body * { visibility: hidden !important; } .recibo-venta, .recibo-venta * { visibility: visible !important; } .recibo-venta { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; padding: 20px !important; box-shadow: none !important; } .recibo-venta img { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }`}</style>
+            <style>{`@page { size: 80mm auto; margin: 0; } @media print { html, body { width: 80mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; } body * { visibility: hidden !important; } .recibo-venta, .recibo-venta * { visibility: visible !important; } .recibo-venta { position: fixed !important; top: 0 !important; left: 0 !important; width: 80mm !important; max-width: 80mm !important; margin: 0 !important; padding: 4mm 3mm !important; box-shadow: none !important; border-radius: 0 !important; font-size: 12px !important; } .recibo-venta img { width: 60px !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }`}</style>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                 <button onClick={() => window.print()} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir</button>
                 <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>← Volver</button>
