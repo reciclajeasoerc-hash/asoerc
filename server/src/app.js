@@ -19,6 +19,10 @@ const { iniciarVerificacion, verificarLicencia, estadoEndpoint } = require('./mi
 const app    = express();
 const isProd = process.env.NODE_ENV === 'production';
 
+// Railway/Proxies: confiar en el primer proxy para que express-rate-limit
+// identifique bien la IP real (X-Forwarded-For) y no tire el ValidationError.
+app.set('trust proxy', 1);
+
 // ── Seguridad ────────────────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
