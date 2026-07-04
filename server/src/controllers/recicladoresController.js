@@ -128,11 +128,31 @@ exports.marcarPrestamoPagado = async (req, res) => {
         // Marcar como pagado (true) o revertir a pendiente (false).
         const pagado = req.body.pagado !== undefined ? !!req.body.pagado : true;
         if (pagado !== prestamo.pagado) {
+            // Solo se mueve el saldo por lo que FALTABA (monto − abonado), para no
+            // descontar dos veces lo ya abonado.
+            const restante = parseFloat(prestamo.monto) - parseFloat(prestamo.abonado || 0);
             await prestamo.update({ pagado });
-            // Pagar reduce el saldo pendiente del reciclador; revertir lo vuelve a sumar.
-            const delta = pagado ? -parseFloat(prestamo.monto) : parseFloat(prestamo.monto);
+            const delta = pagado ? -restante : restante;
             await Reciclador.increment('saldo_prestamo', { by: delta, where: { id: prestamo.reciclador_id } });
         }
         res.json({ ok: true, prestamo });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+// Abono (pago parcial) a un préstamo de reciclador.
+exports.abonarPrestamo = async (req, res) => {
+    try {
+        const prestamo = await PrestamoReciclador.findByPk(req.params.prestamo_id);
+        if (!prestamo) return res.status(404).json({ ok: false, msg: 'Préstamo no encontrado' });
+        if (prestamo.pagado) return res.status(400).json({ ok: false, msg: 'Este préstamo ya está pagado' });
+        const monto = parseFloat(req.body.monto);
+        if (!monto || monto <= 0) return res.status(400).json({ ok: false, msg: 'Monto de abono inválido' });
+        const restante = parseFloat(prestamo.monto) - parseFloat(prestamo.abonado || 0);
+        const abono = Math.min(monto, restante); // no abonar más de lo que falta
+        const nuevoAbonado = parseFloat(prestamo.abonado || 0) + abono;
+        const quedaPagado = nuevoAbonado >= parseFloat(prestamo.monto) - 0.001;
+        await prestamo.update({ abonado: nuevoAbonado, pagado: quedaPagado });
+        await Reciclador.increment('saldo_prestamo', { by: -abono, where: { id: prestamo.reciclador_id } });
+        res.json({ ok: true, prestamo, abonado_ahora: abono, pagado: quedaPagado });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

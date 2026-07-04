@@ -203,6 +203,18 @@ async function seed() {
     }
     // Actualizar precio de Radiografía al valor vigente
     await Material.update({ precio_compra: 3000 }, { where: { codigo: '102RG' } });
+
+    // Asegurar "Retal de Madera" en la familia Madera (el cliente reportó que faltaba)
+    const normNombre = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const todosMat = await Material.findAll();
+    const retal = todosMat.find(m => normNombre(m.nombre) === 'retal de madera');
+    if (retal) {
+        if (retal.categoria !== 'Madera' || retal.orden !== 2) await retal.update({ categoria: 'Madera', orden: 2 });
+    } else {
+        await Material.create({ codigo: '699R', nombre: 'Retal de Madera', precio_compra: 150, categoria: 'Madera', orden: 2 });
+        console.log('✅ Material "Retal de Madera" creado en familia Madera');
+    }
+
     console.log('✅ Electrónicos adicionales sincronizados');
 }
 
@@ -334,6 +346,8 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Usuarios ADD COLUMN telegram_chat_id VARCHAR(50) NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Empleados ADD COLUMN tipo_salario VARCHAR(20) DEFAULT 'dia'").catch(() => {});
             await sequelize.query("ALTER TABLE Materials ADD COLUMN orden INT DEFAULT 999").catch(() => {});
+            await sequelize.query("ALTER TABLE PrestamoRecicladors ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
+            await sequelize.query("ALTER TABLE PrestamoEmpleados ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
             await sequelize.sync();
             await seed();
             await seedEcology();

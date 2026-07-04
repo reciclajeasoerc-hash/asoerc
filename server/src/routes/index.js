@@ -90,6 +90,7 @@ router.delete('/recicladores/:id', recicladoresCtrl.eliminar);
 router.get('/recicladores/:reciclador_id/prestamos',  recicladoresCtrl.prestamos);
 router.post('/recicladores/:reciclador_id/prestamos', recicladoresCtrl.crearPrestamo);
 router.put('/recicladores/:reciclador_id/prestamos/:prestamo_id', recicladoresCtrl.marcarPrestamoPagado);
+router.post('/recicladores/:reciclador_id/prestamos/:prestamo_id/abono', recicladoresCtrl.abonarPrestamo);
 router.get('/recicladores/:id/precios',                  recicladoresCtrl.listarPrecios);
 router.post('/recicladores/:id/precios',                 recicladoresCtrl.guardarPrecio);
 router.delete('/recicladores/:id/precios/:material_id',  recicladoresCtrl.eliminarPrecio);
@@ -130,6 +131,7 @@ router.delete('/empleados/:id', empleadosCtrl.eliminar);
 router.get('/empleados/:id/prestamos',               empleadosCtrl.listarPrestamos);
 router.post('/empleados/:id/prestamos',              empleadosCtrl.crearPrestamo);
 router.put('/empleados/:id/prestamos/:prestamo_id',  empleadosCtrl.marcarPrestamoDescontado);
+router.post('/empleados/:id/prestamos/:prestamo_id/abono', empleadosCtrl.abonarPrestamo);
 router.get('/empleados/:id/dias-no-laborados',       empleadosCtrl.listarDiasNoLaborados);
 router.post('/empleados/:id/dias-no-laborados',      empleadosCtrl.crearDiasNoLaborados);
 

@@ -48,8 +48,9 @@ export default function Empleados() {
         .reduce((s, d) => s + parseFloat(d.dias || 0), 0);
     const diasPagados   = Math.max(0, diasPeriodo - diasNoLab);
     const sueldoBruto   = nForm.tipo === 'dia' ? diasPagados * valorDia : Math.max(0, salarioBase - diasNoLab * valorDia);
+    const saldoDe = p => parseFloat(p.monto || 0) - parseFloat(p.abonado || 0);
     const prestamosPend = prestamos.filter(p => !p.descontado);
-    const totalPrestamos = prestamosPend.reduce((s, p) => s + parseFloat(p.monto || 0), 0);
+    const totalPrestamos = prestamosPend.reduce((s, p) => s + saldoDe(p), 0);
     const netoPagar     = sueldoBruto - totalPrestamos;
 
     const registrarNomina = async () => {
@@ -111,6 +112,18 @@ export default function Empleados() {
     const togglePrestamo = async (p) => {
         try {
             await api.put(`/empleados/${selected.id}/prestamos/${p.id}`, { descontado: !p.descontado });
+            seleccionar(selected);
+        } catch (err) { setMsg(err.message); }
+    };
+
+    const abonarPrestamoEmp = async (p) => {
+        const restante = parseFloat(p.monto || 0) - parseFloat(p.abonado || 0);
+        const entrada = window.prompt(`Abono al préstamo\nSaldo pendiente: $${fmt(restante)}\n\n¿Cuánto abona?`, '');
+        if (entrada === null) return;
+        const monto = parseFloat(String(entrada).replace(/[^\d.]/g, ''));
+        if (!monto || monto <= 0) return setMsg('Monto de abono inválido');
+        try {
+            await api.post(`/empleados/${selected.id}/prestamos/${p.id}/abono`, { monto });
             seleccionar(selected);
         } catch (err) { setMsg(err.message); }
     };
@@ -221,11 +234,23 @@ export default function Empleados() {
                                     </div>
                                 )}
                                 {prestamos.map(p => (
-                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
-                                        <div><span style={{ fontWeight: 600 }}>${fmt(p.monto)}</span> <span style={{ color: '#888', fontSize: 12 }}>{p.descripcion}</span></div>
-                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                                        <div>
+                                            <div><span style={{ fontWeight: 600 }}>${fmt(p.monto)}</span> <span style={{ color: '#888', fontSize: 12 }}>{p.descripcion}</span></div>
+                                            {parseFloat(p.abonado || 0) > 0 && (
+                                                <div style={{ fontSize: 11, marginTop: 2 }}>
+                                                    <span style={{ color: '#059669' }}>Abonado ${fmt(p.abonado)}</span>
+                                                    {!p.descontado && <span style={{ color: '#dc2626', fontWeight: 700 }}> · Saldo ${fmt(saldoDe(p))}</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                             <span style={{ color: '#888', fontSize: 12 }}>{p.quincena}</span>
                                             <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: p.descontado ? '#d1fae5' : '#fee2e2', color: p.descontado ? '#059669' : '#dc2626' }}>{p.descontado ? 'Descontado' : 'Pendiente'}</span>
+                                            {!p.descontado && (
+                                                <button onClick={() => abonarPrestamoEmp(p)} title="Registrar un abono (pago parcial)"
+                                                    style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#2563eb' }}>💵 Abonar</button>
+                                            )}
                                             <button onClick={() => togglePrestamo(p)} title={p.descontado ? 'Marcar como pendiente' : 'Marcar como pagado / descontado'}
                                                 style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: p.descontado ? '1px solid #e5e7eb' : 'none', background: p.descontado ? '#f3f4f6' : '#1a5c2a', color: p.descontado ? '#6b7280' : '#fff' }}>
                                                 {p.descontado ? '↩' : '✅ Pagar'}

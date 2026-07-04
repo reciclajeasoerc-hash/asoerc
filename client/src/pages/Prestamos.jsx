@@ -142,6 +142,21 @@ export default function Prestamos() {
         } catch (err) { alert(err.message); }
     };
 
+    const saldoDe = p => parseFloat(p.monto || 0) - parseFloat(p.abonado || 0);
+
+    const abonar = async (p) => {
+        const restante = saldoDe(p);
+        const entrada = window.prompt(`Abono al préstamo de ${p.persona}\nSaldo pendiente: $${fmt(restante)}\n\n¿Cuánto abona? (déjalo igual al saldo para dejarlo pagado)`, '');
+        if (entrada === null) return;
+        const monto = parseFloat(String(entrada).replace(/[^\d.]/g, ''));
+        if (!monto || monto <= 0) return alert('Monto inválido');
+        try {
+            const base = p.tipo === 'reciclador' ? `/recicladores/${p.reciclador_id}` : `/empleados/${p.empleado_id}`;
+            await api.post(`${base}/prestamos/${p.id}/abono`, { monto });
+            cargar();
+        } catch (err) { alert(err.message); }
+    };
+
     const todos = [...prestamosRec, ...prestamosEmp];
     const pendientes = todos.filter(p => !p.pagado && !p.descontado);
     const pagados    = todos.filter(p => p.pagado || p.descontado);
@@ -149,8 +164,9 @@ export default function Prestamos() {
     const lista = tab === 'pendientes' ? pendientes : pagados;
     const filtrados = filtroTipo === 'todos' ? lista : lista.filter(p => p.tipo === filtroTipo);
 
-    const totalPendRec = prestamosRec.filter(p => !p.pagado && !p.descontado).reduce((s, p) => s + parseFloat(p.monto || 0), 0);
-    const totalPendEmp = prestamosEmp.filter(p => !p.pagado && !p.descontado).reduce((s, p) => s + parseFloat(p.monto || 0), 0);
+    // Totales por SALDO pendiente (monto − abonado)
+    const totalPendRec = prestamosRec.filter(p => !p.pagado && !p.descontado).reduce((s, p) => s + saldoDe(p), 0);
+    const totalPendEmp = prestamosEmp.filter(p => !p.pagado && !p.descontado).reduce((s, p) => s + saldoDe(p), 0);
 
     const Btn = ({ active, onClick, children }) => (
         <button onClick={onClick} style={{ padding: '7px 16px', background: active ? '#1a5c2a' : '#f5f5f5', color: active ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -226,7 +242,15 @@ export default function Prestamos() {
                                             {p.tipo === 'reciclador' ? '♻️ Reciclador' : '👷 Empleado'}
                                         </span>
                                     </td>
-                                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#dc2626' }}>${fmt(p.monto)}</td>
+                                    <td style={{ padding: '10px 14px' }}>
+                                        <div style={{ fontWeight: 700, color: '#111' }}>${fmt(p.monto)}</div>
+                                        {parseFloat(p.abonado || 0) > 0 && (
+                                            <div style={{ fontSize: 11, marginTop: 2 }}>
+                                                <span style={{ color: '#059669' }}>Abonado ${fmt(p.abonado)}</span>
+                                                {!(p.pagado || p.descontado) && <span style={{ color: '#dc2626', fontWeight: 700 }}> · Saldo ${fmt(saldoDe(p))}</span>}
+                                            </div>
+                                        )}
+                                    </td>
                                     <td style={{ padding: '10px 14px', color: '#666' }}>{p.fecha}</td>
                                     <td style={{ padding: '10px 14px', color: '#666' }}>{p.descripcion || '—'}</td>
                                     <td style={{ padding: '10px 14px' }}>
@@ -238,7 +262,10 @@ export default function Prestamos() {
                                     <td style={{ padding: '10px 14px' }}>
                                         {(p.pagado || p.descontado)
                                             ? <button onClick={() => marcarPagado(p, false)} style={{ padding: '4px 10px', background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>↩ Marcar pendiente</button>
-                                            : <button onClick={() => marcarPagado(p, true)} style={{ padding: '4px 10px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>✅ Marcar pagado</button>
+                                            : <div style={{ display: 'flex', gap: 6 }}>
+                                                <button onClick={() => abonar(p)} style={{ padding: '4px 10px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>💵 Abonar</button>
+                                                <button onClick={() => marcarPagado(p, true)} style={{ padding: '4px 10px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>✅ Pagado</button>
+                                              </div>
                                         }
                                     </td>
                                 </tr>

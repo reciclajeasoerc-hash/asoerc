@@ -133,6 +133,7 @@ const Empleado = sequelize.define('Empleado', {
 const PrestamoEmpleado = sequelize.define('PrestamoEmpleado', {
     empleado_id: { type: DataTypes.INTEGER, allowNull: false },
     monto:       { type: DataTypes.DECIMAL(12,2), allowNull: false },
+    abonado:     { type: DataTypes.DECIMAL(12,2), defaultValue: 0 }, // suma de abonos (pagos parciales)
     fecha:       { type: DataTypes.DATEONLY, allowNull: false },
     descripcion: { type: DataTypes.STRING },
     quincena:    { type: DataTypes.STRING },
@@ -152,6 +153,7 @@ const DiasNoLaborados = sequelize.define('DiasNoLaborados', {
 const PrestamoReciclador = sequelize.define('PrestamoReciclador', {
     reciclador_id: { type: DataTypes.INTEGER, allowNull: false },
     monto:         { type: DataTypes.DECIMAL(12,2), allowNull: false },
+    abonado:       { type: DataTypes.DECIMAL(12,2), defaultValue: 0 }, // suma de abonos (pagos parciales)
     fecha:         { type: DataTypes.DATEONLY, allowNull: false },
     descripcion:   { type: DataTypes.STRING },
     compra_id:     { type: DataTypes.INTEGER },

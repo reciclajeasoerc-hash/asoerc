@@ -70,6 +70,23 @@ exports.marcarPrestamoDescontado = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Abono (pago parcial) a un préstamo de empleado.
+exports.abonarPrestamo = async (req, res) => {
+    try {
+        const prestamo = await PrestamoEmpleado.findByPk(req.params.prestamo_id);
+        if (!prestamo) return res.status(404).json({ ok: false, msg: 'Préstamo no encontrado' });
+        if (prestamo.descontado) return res.status(400).json({ ok: false, msg: 'Este préstamo ya está saldado' });
+        const monto = parseFloat(req.body.monto);
+        if (!monto || monto <= 0) return res.status(400).json({ ok: false, msg: 'Monto de abono inválido' });
+        const restante = parseFloat(prestamo.monto) - parseFloat(prestamo.abonado || 0);
+        const abono = Math.min(monto, restante);
+        const nuevoAbonado = parseFloat(prestamo.abonado || 0) + abono;
+        const quedaSaldado = nuevoAbonado >= parseFloat(prestamo.monto) - 0.001;
+        await prestamo.update({ abonado: nuevoAbonado, descontado: quedaSaldado });
+        res.json({ ok: true, prestamo, abonado_ahora: abono, descontado: quedaSaldado });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
 // Días no laborados
 exports.listarDiasNoLaborados = async (req, res) => {
     try {
