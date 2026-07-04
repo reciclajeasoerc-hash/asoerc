@@ -2,10 +2,10 @@ const { Reciclador, Compra, PrestamoReciclador, Bodega, MaterialPrecioReciclador
 
 exports.listar = async (req, res) => {
     try {
-        const { bodega_id } = req.query;
-        const where = { activo: true };
-        if (bodega_id) where.bodega_id = bodega_id;
-        const recicladores = await Reciclador.findAll({ where, include: [{ model: Bodega, as: 'bodega' }], order: [['nombre', 'ASC']] });
+        // Los recicladores son COMPARTIDOS entre todas las bodegas: el mismo reciclador
+        // puede venderle a cualquier bodega, así que NO se filtra por bodega (evita que
+        // el mismo se tenga que repetir en cada bodega). La compra sí guarda su bodega.
+        const recicladores = await Reciclador.findAll({ where: { activo: true }, include: [{ model: Bodega, as: 'bodega' }], order: [['nombre', 'ASC']] });
         res.json({ ok: true, recicladores });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
@@ -23,6 +23,11 @@ exports.crear = async (req, res) => {
     try {
         const { nombre, cedula, telefono, whatsapp, bodega_id } = req.body;
         if (!nombre) return res.status(400).json({ ok: false, msg: 'Nombre requerido' });
+        // Si ya existe por cédula, no se duplica: ya está disponible en todas las bodegas.
+        if (cedula) {
+            const existe = await Reciclador.findOne({ where: { cedula } });
+            if (existe) return res.status(400).json({ ok: false, msg: `Ya existe el reciclador "${existe.nombre}" con la cédula ${cedula}. Ya puedes usarlo en cualquier bodega (no hay que crearlo otra vez).` });
+        }
         const r = await Reciclador.create({ nombre, cedula, telefono, whatsapp: whatsapp || telefono, bodega_id });
         res.json({ ok: true, reciclador: r });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
