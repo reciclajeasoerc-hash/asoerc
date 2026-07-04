@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import PickerBuscable from '../components/PickerBuscable';
 
 const fmt  = n => Number(n || 0).toLocaleString('es-CO');
 // Kilos sin ceros sobrantes: 1520.000 → 1520, 700.500 → 700.5
@@ -244,11 +245,13 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     <button onClick={() => setShowNuevoRec(!showNuevoRec)}
                                         style={{ fontSize: 11, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
                                 </div>
-                                <select value={reciclador_id} onChange={e => setRecicladorId(e.target.value)}
-                                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 15 }}>
-                                    <option value="">-- Selecciona --</option>
-                                    {recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                                </select>
+                                <PickerBuscable
+                                    items={recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec)}
+                                    value={reciclador_id}
+                                    onChange={setRecicladorId}
+                                    placeholder="Buscar reciclador por nombre..."
+                                    fontSize={15}
+                                />
                                 {formNuevoRec}
                             </div>
                             {esAdmin && (
@@ -473,10 +476,13 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     <button type="button" onClick={() => setShowNuevoRec(!showNuevoRec)}
                                         style={{ fontSize: 10, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
                                 </div>
-                                <select value={reciclador_id} onChange={e => setRecicladorId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                    <option value="">-- Selecciona --</option>
-                                    {recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                                </select>
+                                <PickerBuscable
+                                    items={recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec)}
+                                    value={reciclador_id}
+                                    onChange={setRecicladorId}
+                                    placeholder="Buscar reciclador por nombre..."
+                                    fontSize={13}
+                                />
                             </label>
                             {esAdmin && (
                                 <label>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import PickerBuscable from '../components/PickerBuscable';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 // Kilos sin ceros sobrantes: 1520.000 → 1520, 700.500 → 700.5
@@ -286,11 +287,13 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                                 + Nuevo
                                             </button>
                                         </div>
-                                        <select value={cliente_id} onChange={e => clienteChange(e.target.value)}
-                                            style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}>
-                                            <option value="">-- Selecciona cliente --</option>
-                                            {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                                        </select>
+                                        <PickerBuscable
+                                            items={clientes}
+                                            value={cliente_id}
+                                            onChange={clienteChange}
+                                            placeholder="Buscar cliente por nombre..."
+                                            fontSize={14}
+                                        />
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 8 }}>
@@ -444,11 +447,13 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     <button onClick={() => setShowNuevoCliente(!showNuevoCliente)}
                                         style={{ fontSize: 10, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>+ Nuevo</button>
                                 </div>
-                                <select value={cliente_id} onChange={e => clienteChange(e.target.value)}
-                                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                    <option value="">-- Selecciona --</option>
-                                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                                </select>
+                                <PickerBuscable
+                                    items={clientes}
+                                    value={cliente_id}
+                                    onChange={clienteChange}
+                                    placeholder="Buscar cliente por nombre..."
+                                    fontSize={13}
+                                />
                             </label>
                             <label>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Sede</div>

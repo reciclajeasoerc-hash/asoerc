@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import PickerBuscable from '../components/PickerBuscable';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
@@ -48,11 +49,13 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
                     </label>
                     <label>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{tipo === 'reciclador' ? 'Reciclador' : 'Empleado'}*</div>
-                        <select value={form.persona_id} onChange={e => setForm({ ...form, persona_id: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                            <option value="">-- Selecciona --</option>
-                            {personas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                        </select>
+                        <PickerBuscable
+                            items={personas}
+                            value={form.persona_id}
+                            onChange={id => setForm({ ...form, persona_id: id })}
+                            placeholder={`Buscar ${tipo === 'reciclador' ? 'reciclador' : 'empleado'}...`}
+                            fontSize={13}
+                        />
                     </label>
                     <label>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Monto ($)*</div>

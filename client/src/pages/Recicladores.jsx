@@ -8,6 +8,7 @@ export default function Recicladores() {
     const [bodegas, setBodegas] = useState([]);
     const [materiales, setMateriales] = useState([]);
     const [filtroBodega, setFiltroBodega] = useState('');
+    const [busqueda, setBusqueda] = useState('');
     const [selected, setSelected] = useState(null);
     const [prestamos, setPrestamos] = useState([]);
     const [precios, setPrecios] = useState([]);
@@ -123,8 +124,13 @@ export default function Recicladores() {
 
             <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: 20 }}>
                 <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 12, color: '#666' }}>Filtrar por bodega:</span>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
+                            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: .6, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+                            <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar por nombre o cédula..."
+                                style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
+                        </div>
+                        <span style={{ fontSize: 12, color: '#666' }}>Bodega:</span>
                         <select value={filtroBodega} onChange={e => setFiltroBodega(e.target.value)}
                             style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 12 }}>
                             <option value="">Todas</option>
@@ -140,7 +146,8 @@ export default function Recicladores() {
                             </tr>
                         </thead>
                         <tbody>
-                            {recicladores.filter(r => !filtroBodega || String(r.bodega_id) === filtroBodega).map(r => (
+                            {recicladores.filter(r => (!filtroBodega || String(r.bodega_id) === filtroBodega)
+                                && (!busqueda.trim() || `${r.nombre || ''} ${r.cedula || ''}`.toLowerCase().includes(busqueda.trim().toLowerCase()))).map(r => (
                                 <tr key={r.id} onClick={() => seleccionar(r)} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer', background: selected?.id === r.id ? '#f0faf0' : 'transparent' }}>
                                     <td style={{ padding: '10px 12px', fontWeight: 600 }}>{r.nombre}</td>
                                     <td style={{ padding: '10px 12px', color: '#666' }}>{r.cedula}</td>
