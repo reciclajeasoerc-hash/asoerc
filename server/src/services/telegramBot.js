@@ -713,11 +713,11 @@ async function procesarConIA(chatId, mensajeUsuario, toolsActivas = TOOLS) {
 }
 
 // ── Análisis de foto ──────────────────────────────────────────────────────
-async function analizarFoto(fileId) {
+async function analizarFoto(bot, fileId) {
     if (!process.env.OPENAI_API_KEY) return null;
     try {
         const fileInfo = await bot.getFile(fileId);
-        const url = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${fileInfo.file_path}`;
+        const url = `https://api.telegram.org/file/bot${bot.token}/${fileInfo.file_path}`;
         const resp  = await fetch(url);
         const buffer = Buffer.from(await resp.arrayBuffer());
         const base64 = buffer.toString('base64');
@@ -741,11 +741,11 @@ async function analizarFoto(fileId) {
 }
 
 // ── Transcripción audio ───────────────────────────────────────────────────
-async function transcribirAudio(fileId) {
+async function transcribirAudio(bot, fileId) {
     if (!process.env.OPENAI_API_KEY) return null;
     try {
         const fileInfo = await bot.getFile(fileId);
-        const url  = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${fileInfo.file_path}`;
+        const url  = `https://api.telegram.org/file/bot${bot.token}/${fileInfo.file_path}`;
         const resp = await fetch(url);
         const buffer = Buffer.from(await resp.arrayBuffer());
         const form = new FormData();
@@ -802,16 +802,9 @@ async function obtenerChat(chatId) {
 }
 
 // ── Bot ───────────────────────────────────────────────────────────────────
-let bot;
-
-function startBot() {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) { console.log('⚠️  TELEGRAM_BOT_TOKEN no configurado'); return; }
-
-    bot = new TelegramBot(token, { polling: true });
-    console.log('🤖 Bot IA ASOERC iniciado con herramientas completas');
-
-    bot.on('message', async (msg) => {
+// Maneja un mensaje entrante. Recibe la instancia de bot que lo recibió, para
+// soportar VARIOS bots (varios tokens) corriendo a la vez con las mismas funciones.
+async function manejarMensaje(bot, msg) {
         const chatId = msg.chat.id;
         try {
             // Verificar autorización y obtener rol
@@ -835,7 +828,7 @@ function startBot() {
                 const fileId = msg.photo[msg.photo.length - 1].file_id;
                 await bot.sendMessage(chatId, '🔍 Analizando foto...');
 
-                const resultado = await analizarFoto(fileId);
+                const resultado = await analizarFoto(bot, fileId);
                 if (!resultado) { await bot.sendMessage(chatId, '❌ No pude analizar la foto.'); return; }
 
                 const fotoUrl = await guardarFotoEnDisco(resultado.buffer, 'remision');
@@ -870,7 +863,7 @@ function startBot() {
             // ── Audio ─────────────────────────────────────────────────────
             else if (msg.voice || msg.audio) {
                 const fileId = msg.voice?.file_id || msg.audio?.file_id;
-                const tx = await transcribirAudio(fileId);
+                const tx = await transcribirAudio(bot, fileId);
                 if (!tx) { await bot.sendMessage(chatId, '❌ No pude transcribir el audio.'); return; }
                 await bot.sendMessage(chatId, `🎤 _"${tx}"_`, { parse_mode: 'Markdown' });
                 textoParaIA = tx;
@@ -917,9 +910,27 @@ function startBot() {
             console.error('Bot error:', err.message, err.stack);
             bot.sendMessage(chatId, `❌ Error: ${err.message}`).catch(() => {});
         }
-    });
+}
 
-    bot.on('polling_error', err => console.error('Telegram polling error:', err.message));
+// Inicia uno o VARIOS bots a la vez. Los tokens se leen de TELEGRAM_BOT_TOKEN
+// (uno solo, o varios separados por coma) y opcionalmente TELEGRAM_BOT_TOKEN_2.
+// Cada token = un bot distinto con las MISMAS funciones (útil para tener el bot
+// viejo y el nuevo funcionando juntos).
+// ⚠️ Regla de Telegram: un mismo token solo puede estar activo en UN lugar a la
+// vez. No uses el mismo token en local y en producción al tiempo (se pelean).
+function startBot() {
+    const tokens = [...String(process.env.TELEGRAM_BOT_TOKEN || '').split(','), process.env.TELEGRAM_BOT_TOKEN_2 || '']
+        .map(t => t.trim())
+        .filter(Boolean);
+    const unicos = [...new Set(tokens)];
+    if (!unicos.length) { console.log('⚠️  TELEGRAM_BOT_TOKEN no configurado'); return; }
+
+    unicos.forEach((token, i) => {
+        const bot = new TelegramBot(token, { polling: true });
+        bot.on('message', (msg) => manejarMensaje(bot, msg));
+        bot.on('polling_error', err => console.error(`Telegram polling error (bot #${i + 1}):`, err.message));
+        console.log(`🤖 Bot IA ASOERC #${i + 1} iniciado`);
+    });
 }
 
 module.exports = { startBot };
