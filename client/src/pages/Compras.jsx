@@ -13,6 +13,8 @@ const CAT_ICONS = {
     'Plásticos':     '♻️',
     'Papel y Cartón':'📦',
     'Vidrio':        '🍶',
+    'Madera':        '🪵',
+    'Otros':         '🔧',
     'Varios':        '🔧',
 };
 const CAT_COLORS = {
@@ -21,6 +23,8 @@ const CAT_COLORS = {
     'Plásticos':     { bg: '#ecfdf5', border: '#059669', text: '#065f46', active: '#059669' },
     'Papel y Cartón':{ bg: '#fff7ed', border: '#ea580c', text: '#9a3412', active: '#ea580c' },
     'Vidrio':        { bg: '#f5f3ff', border: '#7c3aed', text: '#4c1d95', active: '#7c3aed' },
+    'Madera':        { bg: '#fef3e2', border: '#a16207', text: '#713f12', active: '#a16207' },
+    'Otros':         { bg: '#f0f9ff', border: '#0284c7', text: '#0c4a6e', active: '#0284c7' },
     'Varios':        { bg: '#f0f9ff', border: '#0284c7', text: '#0c4a6e', active: '#0284c7' },
 };
 
@@ -690,24 +694,31 @@ export function Recibo({ compra, onClose }) {
                     </div>
                 </div>
 
-                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
+                <table style={{ width: '100%', fontSize: 10.5, borderCollapse: 'collapse', marginBottom: 14, tableLayout: 'fixed' }}>
+                    <colgroup>
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '37%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '17%' }} />
+                        <col style={{ width: '18%' }} />
+                    </colgroup>
                     <thead>
                         <tr style={{ borderBottom: '1px dashed #ccc' }}>
                             <th style={{ textAlign: 'left', padding: '4px 0', color: '#666', fontWeight: 600 }}>Cód.</th>
                             <th style={{ textAlign: 'left', padding: '4px 0', color: '#666', fontWeight: 600 }}>Material</th>
-                            <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>Kg</th>
-                            <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>$/kg</th>
-                            <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>Total</th>
+                            <th style={{ textAlign: 'right', padding: '4px 0 4px 4px', color: '#666', fontWeight: 600 }}>Kg</th>
+                            <th style={{ textAlign: 'right', padding: '4px 0 4px 6px', color: '#666', fontWeight: 600 }}>$/kg</th>
+                            <th style={{ textAlign: 'right', padding: '4px 0 4px 6px', color: '#666', fontWeight: 600 }}>Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         {(compra.items || []).map(item => (
                             <tr key={item.id} style={{ borderBottom: '1px dotted #eee' }}>
-                                <td style={{ padding: '5px 0', color: '#888', fontSize: 11 }}>{item.material?.codigo}</td>
-                                <td style={{ padding: '5px 0' }}>{item.material?.nombre}</td>
-                                <td style={{ textAlign: 'right', color: '#555' }}>{fmtKg(item.kilos)}</td>
-                                <td style={{ textAlign: 'right', color: '#555' }}>${fmt(item.precio_unitario)}</td>
-                                <td style={{ textAlign: 'right', fontWeight: 600 }}>${fmt(item.total)}</td>
+                                <td style={{ padding: '5px 0', color: '#999', fontSize: 9, wordBreak: 'break-word', lineHeight: 1.25 }}>{item.material?.codigo}</td>
+                                <td style={{ padding: '5px 4px 5px 0', lineHeight: 1.25 }}>{item.material?.nombre}</td>
+                                <td style={{ textAlign: 'right', color: '#555', whiteSpace: 'nowrap', paddingLeft: 4 }}>{fmtKg(item.kilos)}</td>
+                                <td style={{ textAlign: 'right', color: '#555', whiteSpace: 'nowrap', paddingLeft: 6 }}>${fmt(item.precio_unitario)}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap', paddingLeft: 6 }}>${fmt(item.total)}</td>
                             </tr>
                         ))}
                     </tbody>

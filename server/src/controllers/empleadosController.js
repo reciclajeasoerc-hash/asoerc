@@ -14,9 +14,9 @@ exports.listar = async (req, res) => {
 
 exports.crear = async (req, res) => {
     try {
-        const { nombre, cedula, telefono, bodega_id, cargo, salario } = req.body;
+        const { nombre, cedula, telefono, bodega_id, cargo, salario, tipo_salario } = req.body;
         if (!nombre) return res.status(400).json({ ok: false, msg: 'Nombre requerido' });
-        const e = await Empleado.create({ nombre, cedula, telefono, bodega_id, cargo, salario });
+        const e = await Empleado.create({ nombre, cedula, telefono, bodega_id, cargo, salario, tipo_salario });
         res.json({ ok: true, empleado: e });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
@@ -63,7 +63,9 @@ exports.crearPrestamo = async (req, res) => {
 
 exports.marcarPrestamoDescontado = async (req, res) => {
     try {
-        await PrestamoEmpleado.update({ descontado: true }, { where: { id: req.params.prestamo_id } });
+        // Permite marcar como descontado/pagado (true) o revertir a pendiente (false).
+        const descontado = req.body.descontado !== undefined ? !!req.body.descontado : true;
+        await PrestamoEmpleado.update({ descontado }, { where: { id: req.params.prestamo_id } });
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

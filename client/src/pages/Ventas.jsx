@@ -13,9 +13,11 @@ const CAT_COLORS = {
     'Plásticos':     { bg: '#ecfdf5', border: '#059669', text: '#065f46', active: '#059669' },
     'Papel y Cartón':{ bg: '#fff7ed', border: '#ea580c', text: '#9a3412', active: '#ea580c' },
     'Vidrio':        { bg: '#f5f3ff', border: '#7c3aed', text: '#4c1d95', active: '#7c3aed' },
+    'Madera':        { bg: '#fef3e2', border: '#a16207', text: '#713f12', active: '#a16207' },
+    'Otros':         { bg: '#f0f9ff', border: '#0284c7', text: '#0c4a6e', active: '#0284c7' },
     'Varios':        { bg: '#f0f9ff', border: '#0284c7', text: '#0c4a6e', active: '#0284c7' },
 };
-const CAT_ICONS = { 'Metales':'🔩','Electrónicos':'📱','Plásticos':'♻️','Papel y Cartón':'📦','Vidrio':'🍶','Varios':'🔧' };
+const CAT_ICONS = { 'Metales':'🔩','Electrónicos':'📱','Plásticos':'♻️','Papel y Cartón':'📦','Vidrio':'🍶','Madera':'🪵','Otros':'🔧','Varios':'🔧' };
 const ESTADO_COLOR = {
     orden:     { bg: '#fef3c7', color: '#d97706' },
     facturada: { bg: '#eff6ff', color: '#2563eb' },
@@ -223,6 +225,13 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                                 onChange={e => setCantidades(p => ({ ...p, [mat.id]: e.target.value }))}
                                                 onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
                                                 placeholder="Kg"
+                                                style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 16, minWidth: 0 }} />
+                                            <input type="number" step="1" min="0"
+                                                value={precios[mat.id] || ''}
+                                                onChange={e => setPrecios(p => ({ ...p, [mat.id]: e.target.value }))}
+                                                onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
+                                                placeholder={`$${fmt(precioDefault(mat))}`}
+                                                title="Precio de venta por kg (déjalo vacío para usar el precio por defecto)"
                                                 style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 16, minWidth: 0 }} />
                                             <button onClick={() => agregarItem(mat, cantidades[mat.id], precios[mat.id])}
                                                 style={{ padding: '8px 14px', background: c.active, color: '#fff', border: 'none', borderRadius: 6, fontSize: 18, cursor: 'pointer', fontWeight: 700 }}>✓</button>
@@ -534,6 +543,13 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                                     onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
                                                     placeholder="Kg"
                                                     style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 14, minWidth: 0 }} />
+                                                <input type="number" step="1" min="0"
+                                                    value={precios[mat.id] || ''}
+                                                    onChange={e => setPrecios(p => ({ ...p, [mat.id]: e.target.value }))}
+                                                    onKeyDown={e => { if (e.key === 'Enter') agregarItem(mat, cantidades[mat.id], precios[mat.id]); if (e.key === 'Escape') setMaterialActivo(null); }}
+                                                    placeholder={`$${fmt(precioDefault(mat))}`}
+                                                    title="Precio de venta por kg (déjalo vacío para usar el precio por defecto)"
+                                                    style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${c.border}`, fontSize: 14, minWidth: 0 }} />
                                                 <button onClick={() => agregarItem(mat, cantidades[mat.id], precios[mat.id])}
                                                     style={{ padding: '7px 12px', background: c.active, color: '#fff', border: 'none', borderRadius: 6, fontSize: 16, cursor: 'pointer', fontWeight: 700 }}>✓</button>
                                             </div>
@@ -650,19 +666,25 @@ export function ReciboVenta({ venta, onClose }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}><span style={{ color: '#666' }}>Cliente:</span><strong>{venta.cliente?.nombre}</strong></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span style={{ color: '#666' }}>Pago:</span><span>{venta.tipo_pago}</span></div>
                 </div>
-                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
+                <table style={{ width: '100%', fontSize: 10.5, borderCollapse: 'collapse', marginBottom: 14, tableLayout: 'fixed' }}>
+                    <colgroup>
+                        <col style={{ width: '46%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '20%' }} />
+                    </colgroup>
                     <thead><tr style={{ borderBottom: '1px dashed #ccc' }}>
                         <th style={{ textAlign: 'left', padding: '4px 0', color: '#666', fontWeight: 600 }}>Material</th>
-                        <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>Kg</th>
-                        <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>$/kg</th>
-                        <th style={{ textAlign: 'right', color: '#666', fontWeight: 600 }}>Total</th>
+                        <th style={{ textAlign: 'right', padding: '4px 0 4px 4px', color: '#666', fontWeight: 600 }}>Kg</th>
+                        <th style={{ textAlign: 'right', padding: '4px 0 4px 6px', color: '#666', fontWeight: 600 }}>$/kg</th>
+                        <th style={{ textAlign: 'right', padding: '4px 0 4px 6px', color: '#666', fontWeight: 600 }}>Total</th>
                     </tr></thead>
                     <tbody>{(venta.items || []).map((item, i) => (
                         <tr key={i} style={{ borderBottom: '1px dotted #eee' }}>
-                            <td style={{ padding: '5px 0' }}>{item.material?.nombre || item.material_nombre}</td>
-                            <td style={{ textAlign: 'right', color: '#555' }}>{fmtKg(item.kilos)}</td>
-                            <td style={{ textAlign: 'right', color: '#555' }}>${fmt(item.precio_unitario)}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 600 }}>${fmt(item.total)}</td>
+                            <td style={{ padding: '5px 4px 5px 0', lineHeight: 1.25 }}>{item.material?.nombre || item.material_nombre}</td>
+                            <td style={{ textAlign: 'right', color: '#555', whiteSpace: 'nowrap', paddingLeft: 4 }}>{fmtKg(item.kilos)}</td>
+                            <td style={{ textAlign: 'right', color: '#555', whiteSpace: 'nowrap', paddingLeft: 6 }}>${fmt(item.precio_unitario)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap', paddingLeft: 6 }}>${fmt(item.total)}</td>
                         </tr>
                     ))}</tbody>
                 </table>

@@ -132,6 +132,16 @@ export default function Prestamos() {
 
     useEffect(() => { cargar(); }, []);
 
+    const marcarPagado = async (p, pagado) => {
+        try {
+            if (p.tipo === 'reciclador')
+                await api.put(`/recicladores/${p.reciclador_id}/prestamos/${p.id}`, { pagado });
+            else
+                await api.put(`/empleados/${p.empleado_id}/prestamos/${p.id}`, { descontado: pagado });
+            cargar();
+        } catch (err) { alert(err.message); }
+    };
+
     const todos = [...prestamosRec, ...prestamosEmp];
     const pendientes = todos.filter(p => !p.pagado && !p.descontado);
     const pagados    = todos.filter(p => p.pagado || p.descontado);
@@ -202,7 +212,7 @@ export default function Prestamos() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                             <tr style={{ background: '#f0faf0' }}>
-                                {['Persona','Tipo','Monto','Fecha','Descripción','Estado'].map(h => (
+                                {['Persona','Tipo','Monto','Fecha','Descripción','Estado','Acción'].map(h => (
                                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>
                                 ))}
                             </tr>
@@ -223,6 +233,12 @@ export default function Prestamos() {
                                         {(p.pagado || p.descontado)
                                             ? <span style={{ background: '#d1fae5', color: '#059669', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>✅ Pagado</span>
                                             : <span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>⏳ Pendiente</span>
+                                        }
+                                    </td>
+                                    <td style={{ padding: '10px 14px' }}>
+                                        {(p.pagado || p.descontado)
+                                            ? <button onClick={() => marcarPagado(p, false)} style={{ padding: '4px 10px', background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>↩ Marcar pendiente</button>
+                                            : <button onClick={() => marcarPagado(p, true)} style={{ padding: '4px 10px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>✅ Marcar pagado</button>
                                         }
                                     </td>
                                 </tr>

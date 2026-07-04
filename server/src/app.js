@@ -12,7 +12,7 @@ const path      = require('path');
 const fs        = require('fs');
 const sequelize = require('./config/db');
 const { Op } = require('sequelize');
-const { Usuario, Bodega, Material, Cliente, ClienteSede, MaterialPrecioCliente } = require('./models');
+const { Usuario, Bodega, Material, Cliente, ClienteSede, MaterialPrecioCliente, Configuracion } = require('./models');
 const { startBot } = require('./services/telegramBot');
 const { iniciarVerificacion, verificarLicencia, estadoEndpoint } = require('./middlewares/licencia');
 
@@ -257,6 +257,65 @@ async function seedEcology() {
         console.log(`✅ Ecology Victoria: ${sedesAdded} sedes y ${preciosAdded} precios especiales cargados`);
 }
 
+async function seedOrdenMateriales() {
+    // Reorganiza los materiales por familia y orden según las listas del cliente (imágenes).
+    // Empareja por NOMBRE (no por código), así funciona aunque los códigos hayan cambiado en producción.
+    // Se ejecuta una sola vez (bandera en Configuracion). Para re-aplicar, sube VERSION_ORDEN.
+    const VERSION_ORDEN = '1';
+    const flag = await Configuracion.findOne({ where: { clave: 'orden_materiales_version' } });
+    if (flag && flag.valor === VERSION_ORDEN) return;
+
+    const norm = s => (s || '').toString().toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
+        .replace(/\s*\/\s*/g, ' / ')                       // unifica barras
+        .replace(/\s+/g, ' ').trim();
+
+    // Listas deseadas por familia, en el orden exacto de las imágenes
+    const FAMILIAS = {
+        'Metales':        ['acero','aluminio grueso','aluminio lata','antimonio','bronce','cable','chatarra','cobre rojo','colado','guaya','patio','perfil','plomo','radiador aluminio','radiador mixto'],
+        'Electrónicos':   ['bateria portatil / celular','celular','cpu completa','desarme aluminio','disco duro entero','fuente con cable','fuente sin cable','modem plastico','monitor','pantalla','portatil','power bank','radiografia','tarjeta dorada','tarjeta marron','tarjeta modem','tarjeta verde / azul','telefono fijo'],
+        'Plásticos':      ['acrilico','canasta','caneca','galon','galon cristal','gancho','pasta','pasta de cd','pet ambar','pet cristal','pet revuelto','pet soplado','pet verde','plastico color','plastico transparente','polipropileno','pvc','tina'],
+        'Papel y Cartón': ['archivo','caja manzana','carton','cores','periodico','propaganda','plegadiza','poliboard','tetrapack'],
+        'Vidrio':         ['botella cafe','botella verde','peter','vidrio','vineras'],
+        'Madera':         ['madera','retal de madera'],
+        'Otros':          ['aceite','bateria 22','bateria 24','bateria 27','bateria maletin','lonas','parafina','tierra'],
+    };
+
+    // Alias: nombre como puede estar en la BD (normalizado) -> nombre en la lista
+    const ALIAS = {
+        'plastico transp.': 'plastico transparente',
+        'plastico transp':  'plastico transparente',
+        'gualla':           'guaya',
+        'desarme':          'desarme aluminio',
+        'ganchos':          'gancho',
+        'ganchos ropa':     'gancho',
+        'gancho ropa':      'gancho',
+        'tarjeta verde y azul': 'tarjeta verde / azul',
+        'pet vere':         'pet verde',
+    };
+
+    const deseado = {};
+    for (const [categoria, lista] of Object.entries(FAMILIAS)) {
+        lista.forEach((nombre, i) => { deseado[norm(nombre)] = { categoria, orden: i + 1 }; });
+    }
+
+    const materiales = await Material.findAll();
+    let cambios = 0;
+    for (const m of materiales) {
+        let clave = norm(m.nombre);
+        if (!deseado[clave] && ALIAS[clave]) clave = norm(ALIAS[clave]);
+        const target = deseado[clave];
+        if (target && (m.categoria !== target.categoria || m.orden !== target.orden)) {
+            await m.update({ categoria: target.categoria, orden: target.orden });
+            cambios++;
+        }
+    }
+
+    if (flag) await flag.update({ valor: VERSION_ORDEN });
+    else await Configuracion.create({ clave: 'orden_materiales_version', valor: VERSION_ORDEN });
+    console.log(`✅ Orden de materiales aplicado (${cambios} materiales reorganizados)`);
+}
+
 const PORT = process.env.PORT || 3000;
 
 async function iniciar(intentos = 5) {
@@ -273,9 +332,12 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Bodegas ADD COLUMN logo_url VARCHAR(500) NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Compras ADD COLUMN numero_diario INT DEFAULT 0").catch(() => {});
             await sequelize.query("ALTER TABLE Usuarios ADD COLUMN telegram_chat_id VARCHAR(50) NULL").catch(() => {});
+            await sequelize.query("ALTER TABLE Empleados ADD COLUMN tipo_salario VARCHAR(20) DEFAULT 'dia'").catch(() => {});
+            await sequelize.query("ALTER TABLE Materials ADD COLUMN orden INT DEFAULT 999").catch(() => {});
             await sequelize.sync();
             await seed();
             await seedEcology();
+            await seedOrdenMateriales().catch(e => console.error('Orden materiales error:', e.message));
             app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
             try { startBot(); } catch(e) { console.error('Bot init error:', e.message); }
             iniciarVerificacion().catch(e => console.error('Licencia init error:', e.message));

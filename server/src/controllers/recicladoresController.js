@@ -120,3 +120,19 @@ exports.crearPrestamo = async (req, res) => {
         res.json({ ok: true, prestamo });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
+
+exports.marcarPrestamoPagado = async (req, res) => {
+    try {
+        const prestamo = await PrestamoReciclador.findByPk(req.params.prestamo_id);
+        if (!prestamo) return res.status(404).json({ ok: false, msg: 'Préstamo no encontrado' });
+        // Marcar como pagado (true) o revertir a pendiente (false).
+        const pagado = req.body.pagado !== undefined ? !!req.body.pagado : true;
+        if (pagado !== prestamo.pagado) {
+            await prestamo.update({ pagado });
+            // Pagar reduce el saldo pendiente del reciclador; revertir lo vuelve a sumar.
+            const delta = pagado ? -parseFloat(prestamo.monto) : parseFloat(prestamo.monto);
+            await Reciclador.increment('saldo_prestamo', { by: delta, where: { id: prestamo.reciclador_id } });
+        }
+        res.json({ ok: true, prestamo });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};

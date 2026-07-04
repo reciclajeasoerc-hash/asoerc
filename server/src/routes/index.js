@@ -89,6 +89,7 @@ router.put('/recicladores/:id',  recicladoresCtrl.actualizar);
 router.delete('/recicladores/:id', recicladoresCtrl.eliminar);
 router.get('/recicladores/:reciclador_id/prestamos',  recicladoresCtrl.prestamos);
 router.post('/recicladores/:reciclador_id/prestamos', recicladoresCtrl.crearPrestamo);
+router.put('/recicladores/:reciclador_id/prestamos/:prestamo_id', recicladoresCtrl.marcarPrestamoPagado);
 router.get('/recicladores/:id/precios',                  recicladoresCtrl.listarPrecios);
 router.post('/recicladores/:id/precios',                 recicladoresCtrl.guardarPrecio);
 router.delete('/recicladores/:id/precios/:material_id',  recicladoresCtrl.eliminarPrecio);

@@ -3,9 +3,13 @@ import { api } from '../api';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
+const CATEGORIAS = ['Metales', 'Electrónicos', 'Plásticos', 'Papel y Cartón', 'Vidrio', 'Madera', 'Otros'];
+const CAT_ICON = { 'Metales': '🔩', 'Electrónicos': '📱', 'Plásticos': '♻️', 'Papel y Cartón': '📦', 'Vidrio': '🍶', 'Madera': '🪵', 'Otros': '🔧', 'Varios': '🔧' };
+const VACIO = { codigo: '', nombre: '', precio_compra: '', unidad: 'kg', categoria: 'Otros', orden: '' };
+
 export default function Materiales() {
     const [materiales, setMateriales] = useState([]);
-    const [form, setForm] = useState({ codigo: '', nombre: '', precio_compra: '', unidad: 'kg' });
+    const [form, setForm] = useState(VACIO);
     const [editando, setEditando] = useState(null);
     const [msg, setMsg] = useState('');
 
@@ -21,14 +25,14 @@ export default function Materiales() {
             } else {
                 await api.post('/materiales', form);
             }
-            setForm({ codigo: '', nombre: '', precio_compra: '', unidad: 'kg' });
+            setForm(VACIO);
             setMsg(''); cargar();
         } catch (err) { setMsg(err.message); }
     };
 
     const editar = (m) => {
         setEditando(m.id);
-        setForm({ codigo: m.codigo, nombre: m.nombre, precio_compra: m.precio_compra, unidad: m.unidad });
+        setForm({ codigo: m.codigo, nombre: m.nombre, precio_compra: m.precio_compra, unidad: m.unidad, categoria: m.categoria || 'Otros', orden: m.orden ?? '' });
     };
 
     const eliminar = async (id) => {
@@ -57,12 +61,25 @@ export default function Materiales() {
                         <input type="number" value={form.precio_compra} onChange={e => setForm({ ...form, precio_compra: e.target.value })} min="0"
                             style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
                     </label>
+                    <label style={{ display: 'block', marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Familia</div>
+                        <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                            {CATEGORIAS.map(c => <option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}
+                        </select>
+                    </label>
+                    <label style={{ display: 'block', marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Orden dentro de la familia</div>
+                        <input type="number" value={form.orden} onChange={e => setForm({ ...form, orden: e.target.value })} min="0" placeholder="ej: 1, 2, 3…"
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
+                        <div style={{ fontSize: 11, color: '#999', marginTop: 3 }}>Menor número = aparece primero. Déjalo vacío para el final.</div>
+                    </label>
                     {msg && <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 8 }}>{msg}</div>}
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={guardar} style={{ flex: 1, padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
                             {editando ? 'Actualizar' : 'Guardar'}
                         </button>
-                        {editando && <button onClick={() => { setEditando(null); setForm({ codigo: '', nombre: '', precio_compra: '', unidad: 'kg' }); }} style={{ padding: '9px 14px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>✕</button>}
+                        {editando && <button onClick={() => { setEditando(null); setForm(VACIO); }} style={{ padding: '9px 14px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>✕</button>}
                     </div>
                 </div>
 
@@ -70,18 +87,21 @@ export default function Materiales() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                             <tr style={{ background: '#f0faf0' }}>
-                                {['Código','Nombre','Precio compra','Unidad',''].map(h => (
+                                {['Familia','#','Código','Nombre','Precio compra',''].map(h => (
                                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {materiales.map(m => (
-                                <tr key={m.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                            {materiales.map((m, i) => {
+                                const nuevaFamilia = i === 0 || materiales[i - 1].categoria !== m.categoria;
+                                return (
+                                <tr key={m.id} style={{ borderBottom: '1px solid #f5f5f5', borderTop: nuevaFamilia && i > 0 ? '2px solid #e0efe0' : undefined }}>
+                                    <td style={{ padding: '10px 14px', color: '#666', fontSize: 12 }}>{nuevaFamilia ? `${CAT_ICON[m.categoria] || '📋'} ${m.categoria || '—'}` : ''}</td>
+                                    <td style={{ padding: '10px 14px', color: '#aaa', fontSize: 12 }}>{m.orden === 999 ? '—' : m.orden}</td>
                                     <td style={{ padding: '10px 14px', color: '#666' }}>{m.codigo}</td>
                                     <td style={{ padding: '10px 14px', fontWeight: 600 }}>{m.nombre}</td>
                                     <td style={{ padding: '10px 14px', color: '#1a5c2a', fontWeight: 700 }}>${fmt(m.precio_compra)}</td>
-                                    <td style={{ padding: '10px 14px', color: '#888' }}>{m.unidad}</td>
                                     <td style={{ padding: '10px 14px' }}>
                                         <div style={{ display: 'flex', gap: 6 }}>
                                             <button onClick={() => editar(m)} style={{ padding: '4px 10px', background: '#e0f2e9', color: '#1a5c2a', border: 'none', borderRadius: 4, fontSize: 11 }}>Editar</button>
@@ -89,7 +109,8 @@ export default function Materiales() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

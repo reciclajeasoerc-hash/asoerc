@@ -27,6 +27,7 @@ const Material = sequelize.define('Material', {
     precio_compra: { type: DataTypes.DECIMAL(10,2), allowNull: false, defaultValue: 0 },
     unidad:        { type: DataTypes.STRING, defaultValue: 'kg' },
     categoria:     { type: DataTypes.STRING, defaultValue: 'Otros' },
+    orden:         { type: DataTypes.INTEGER, defaultValue: 999 }, // orden de aparición dentro de su familia
     activo:        { type: DataTypes.BOOLEAN, defaultValue: true }
 });
 
@@ -125,6 +126,7 @@ const Empleado = sequelize.define('Empleado', {
     bodega_id: { type: DataTypes.INTEGER },
     cargo:     { type: DataTypes.STRING },
     salario:   { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
+    tipo_salario: { type: DataTypes.STRING, defaultValue: 'dia' }, // 'dia' = jornal por día · 'completo' = sueldo total del periodo
     activo:    { type: DataTypes.BOOLEAN, defaultValue: true }
 });
 
