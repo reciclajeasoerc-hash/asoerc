@@ -44,6 +44,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const [bodegas,    setBodegas]    = useState([]);
     const [categorias, setCategorias] = useState([]);
     const [catActiva,  setCatActiva]  = useState('');
+    const [busquedaMat, setBusquedaMat] = useState('');
     const [ventasHoy,  setVentasHoy]  = useState([]);
 
     const [cliente_id, setClienteId] = useState('');
@@ -174,7 +175,9 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
         if (estado === 'pagada') onCajaChange?.(v?.bodega_id || bodega_id);
     };
 
-    const matsFiltrados = materiales.filter(m => m.categoria === catActiva && m.activo !== false);
+    const matsFiltrados = busquedaMat.trim()
+        ? materiales.filter(m => m.activo !== false && `${m.nombre || ''} ${m.codigo || ''}`.toLowerCase().includes(busquedaMat.trim().toLowerCase()))
+        : materiales.filter(m => m.categoria === catActiva && m.activo !== false);
     const total = items.reduce((s, i) => s + i.total, 0);
 
     if (reciboVenta) return (
@@ -186,8 +189,14 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
     // ── Bloque materiales (compartido) ────────────────────────────────────
     const BloqueCategoriasYMateriales = () => (
         <>
+            {/* Buscar material */}
+            <div style={{ position: 'relative', marginBottom: 8, flexShrink: 0 }}>
+                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: .6, fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+                <input value={busquedaMat} onChange={e => setBusquedaMat(e.target.value)} placeholder="Buscar material..."
+                    style={{ width: '100%', padding: '9px 10px 9px 34px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
             {/* Tabs categorías */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', paddingBottom: 4, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', paddingBottom: 4, flexShrink: 0, opacity: busquedaMat.trim() ? .5 : 1 }}>
                 {categorias.map(cat => {
                     const c = CAT_COLORS[cat] || CAT_COLORS['Varios'];
                     const activa = catActiva === cat;
@@ -509,7 +518,12 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                         <button onClick={cancelarOrden} style={{ padding: '5px 12px', background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
                     </div>
                 )}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', flexShrink: 0 }}>
+                <div style={{ position: 'relative', marginBottom: 10, flexShrink: 0 }}>
+                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: .6, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+                    <input value={busquedaMat} onChange={e => setBusquedaMat(e.target.value)} placeholder="Buscar material por nombre o código..."
+                        style={{ width: '100%', padding: '8px 10px 8px 32px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', flexShrink: 0, opacity: busquedaMat.trim() ? .5 : 1 }}>
                     {categorias.map(cat => {
                         const c = CAT_COLORS[cat] || CAT_COLORS['Varios'];
                         const activa = catActiva === cat;

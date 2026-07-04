@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { exportarCertificadoDisposicionFinal } from '../utils/exportar';
+import PickerBuscable from '../components/PickerBuscable';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 const primerDiaMes = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; };
@@ -132,10 +133,13 @@ function TabCertificados() {
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                     <label>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cliente*</div>
-                        <select value={cliente_id} onChange={e => setClienteId(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                            <option value="">-- Selecciona --</option>
-                            {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                        </select>
+                        <PickerBuscable
+                            items={clientes}
+                            value={cliente_id}
+                            onChange={setClienteId}
+                            placeholder="Buscar cliente..."
+                            fontSize={13}
+                        />
                     </label>
                     <label>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Período desde</div>

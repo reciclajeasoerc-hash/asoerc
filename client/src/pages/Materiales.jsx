@@ -11,6 +11,7 @@ export default function Materiales() {
     const [materiales, setMateriales] = useState([]);
     const [form, setForm] = useState(VACIO);
     const [editando, setEditando] = useState(null);
+    const [busqueda, setBusqueda] = useState('');
     const [msg, setMsg] = useState('');
 
     useEffect(() => { cargar(); }, []);
@@ -84,6 +85,11 @@ export default function Materiales() {
                 </div>
 
                 <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 22, top: '50%', transform: 'translateY(-50%)', opacity: .6, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+                        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar material por nombre o código..."
+                            style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
+                    </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                             <tr style={{ background: '#f0faf0' }}>
@@ -93,8 +99,8 @@ export default function Materiales() {
                             </tr>
                         </thead>
                         <tbody>
-                            {materiales.map((m, i) => {
-                                const nuevaFamilia = i === 0 || materiales[i - 1].categoria !== m.categoria;
+                            {(busqueda.trim() ? materiales.filter(m => `${m.nombre || ''} ${m.codigo || ''}`.toLowerCase().includes(busqueda.trim().toLowerCase())) : materiales).map((m, i, arr) => {
+                                const nuevaFamilia = i === 0 || arr[i - 1].categoria !== m.categoria;
                                 return (
                                 <tr key={m.id} style={{ borderBottom: '1px solid #f5f5f5', borderTop: nuevaFamilia && i > 0 ? '2px solid #e0efe0' : undefined }}>
                                     <td style={{ padding: '10px 14px', color: '#666', fontSize: 12 }}>{nuevaFamilia ? `${CAT_ICON[m.categoria] || '📋'} ${m.categoria || '—'}` : ''}</td>

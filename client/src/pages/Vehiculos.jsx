@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import PickerBuscable from '../components/PickerBuscable';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 const primerDiaMes = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; };
@@ -217,10 +218,14 @@ export default function Vehiculos() {
                 {!seleccionado && (
                     <div>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Vehículo</div>
-                        <select value={filtroVehiculo} onChange={e => setFiltroVehiculo(e.target.value)} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                            <option value="">Todos</option>
-                            {vehiculos.map(v => <option key={v.id} value={v.id}>{v.placa}</option>)}
-                        </select>
+                        <PickerBuscable
+                            items={vehiculos}
+                            value={filtroVehiculo}
+                            onChange={setFiltroVehiculo}
+                            getLabel={v => v.placa}
+                            placeholder="Buscar placa..."
+                            fontSize={13}
+                        />
                     </div>
                 )}
                 <div style={{ fontSize: 13, color: '#555', paddingBottom: 2 }}>

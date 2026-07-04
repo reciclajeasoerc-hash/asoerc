@@ -6,6 +6,7 @@ const hoy = () => new Date().toISOString().slice(0, 10);
 
 export default function Empleados() {
     const [empleados, setEmpleados] = useState([]);
+    const [busquedaEmp, setBusquedaEmp] = useState('');
     const [bodegas, setBodegas] = useState([]);
     const [selected, setSelected] = useState(null);
     const [tab, setTab] = useState('prestamos');
@@ -183,12 +184,17 @@ export default function Empleados() {
 
             <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: 20 }}>
                 <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', opacity: .6, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+                        <input value={busquedaEmp} onChange={e => setBusquedaEmp(e.target.value)} placeholder="Buscar empleado por nombre o cargo..."
+                            style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
+                    </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead><tr style={{ background: '#f0faf0' }}>
                             {['Nombre','Cargo','Bodega',''].map(h => <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
                         </tr></thead>
                         <tbody>
-                            {empleados.map(e => (
+                            {empleados.filter(e => !busquedaEmp.trim() || `${e.nombre || ''} ${e.cargo || ''} ${e.cedula || ''}`.toLowerCase().includes(busquedaEmp.trim().toLowerCase())).map(e => (
                                 <tr key={e.id} onClick={() => seleccionar(e)} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer', background: selected?.id === e.id ? '#f0faf0' : 'transparent' }}>
                                     <td style={{ padding: '10px 12px', fontWeight: 600 }}>{e.nombre}</td>
                                     <td style={{ padding: '10px 12px', color: '#666' }}>{e.cargo}</td>

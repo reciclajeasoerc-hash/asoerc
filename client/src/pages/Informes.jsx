@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { exportarInformeComprasExcel, exportarInformeComprasPDF, exportarCertificadoDisposicionFinal } from '../utils/exportar';
+import PickerBuscable from '../components/PickerBuscable';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -83,10 +84,13 @@ export default function Informes() {
                 {tab === 'certificado' && (
                     <label>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cliente*</div>
-                        <select value={cliente_id} onChange={e => setClienteId(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                            <option value="">-- Selecciona --</option>
-                            {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                        </select>
+                        <PickerBuscable
+                            items={clientes}
+                            value={cliente_id}
+                            onChange={setClienteId}
+                            placeholder="Buscar cliente..."
+                            fontSize={13}
+                        />
                     </label>
                 )}
                 <button onClick={tab === 'compras' ? cargarCompras : cargarCertificado} disabled={loading} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>

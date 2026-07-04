@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import PickerBuscable from '../components/PickerBuscable';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
@@ -91,10 +92,13 @@ export default function Empaques() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
                         <label>
                             <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Reciclador</div>
-                            <select value={form.reciclador_id} onChange={e => setForm({ ...form, reciclador_id: e.target.value, conductor: '' })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                <option value="">-- Ninguno --</option>
-                                {recicladores.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                            </select>
+                            <PickerBuscable
+                                items={recicladores}
+                                value={form.reciclador_id}
+                                onChange={id => setForm({ ...form, reciclador_id: id, conductor: '' })}
+                                placeholder="Buscar reciclador..."
+                                fontSize={13}
+                            />
                         </label>
                         <label>
                             <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>O conductor externo</div>
