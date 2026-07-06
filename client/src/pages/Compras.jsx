@@ -480,7 +480,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     {bodegas.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
                                 </select>
                             </label>
-                            <label>
+                            <div>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
                                     <span>Reciclador*</span>
                                     <button type="button" onClick={() => setShowNuevoRec(!showNuevoRec)}
@@ -493,7 +493,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     placeholder="Buscar reciclador por nombre..."
                                     fontSize={13}
                                 />
-                            </label>
+                            </div>
                             {esAdmin && (
                                 <label>
                                     <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Bodega*</div>

@@ -47,7 +47,7 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
                             ))}
                         </div>
                     </label>
-                    <label>
+                    <div>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{tipo === 'reciclador' ? 'Reciclador' : 'Empleado'}*</div>
                         <PickerBuscable
                             items={personas}
@@ -56,7 +56,7 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
                             placeholder={`Buscar ${tipo === 'reciclador' ? 'reciclador' : 'empleado'}...`}
                             fontSize={13}
                         />
-                    </label>
+                    </div>
                     <label>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Monto ($)*</div>
                         <input type="number" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })}

@@ -82,7 +82,7 @@ export default function Informes() {
                     </label>
                 )}
                 {tab === 'certificado' && (
-                    <label>
+                    <div>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cliente*</div>
                         <PickerBuscable
                             items={clientes}
@@ -91,7 +91,7 @@ export default function Informes() {
                             placeholder="Buscar cliente..."
                             fontSize={13}
                         />
-                    </label>
+                    </div>
                 )}
                 <button onClick={tab === 'compras' ? cargarCompras : cargarCertificado} disabled={loading} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
                     {loading ? 'Cargando...' : '🔍 Generar'}

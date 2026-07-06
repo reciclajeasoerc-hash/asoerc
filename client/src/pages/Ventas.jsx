@@ -450,7 +450,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)', flexShrink: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: '#1a5c2a' }}>📤 Nueva orden de venta</div>
                         <div style={{ display: 'grid', gridTemplateColumns: esAdmin ? '1fr 1fr 160px 110px 90px' : '1fr 1fr 110px 90px', gap: 10, alignItems: 'flex-end' }}>
-                            <label>
+                            <div>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
                                     <span>Cliente *</span>
                                     <button onClick={() => setShowNuevoCliente(!showNuevoCliente)}
@@ -463,7 +463,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     placeholder="Buscar cliente por nombre..."
                                     fontSize={13}
                                 />
-                            </label>
+                            </div>
                             <label>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Sede</div>
                                 <select value={sede_id} onChange={e => setSedeId(e.target.value)}

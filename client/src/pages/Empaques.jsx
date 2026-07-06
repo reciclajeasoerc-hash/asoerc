@@ -90,7 +90,7 @@ export default function Empaques() {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
-                        <label>
+                        <div>
                             <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Reciclador</div>
                             <PickerBuscable
                                 items={recicladores}
@@ -99,7 +99,7 @@ export default function Empaques() {
                                 placeholder="Buscar reciclador..."
                                 fontSize={13}
                             />
-                        </label>
+                        </div>
                         <label>
                             <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>O conductor externo</div>
                             <input value={form.conductor} onChange={e => setForm({ ...form, conductor: e.target.value, reciclador_id: '' })} placeholder="Nombre conductor" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />

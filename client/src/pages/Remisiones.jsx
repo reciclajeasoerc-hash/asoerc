@@ -131,7 +131,7 @@ function TabCertificados() {
             <div style={{ background: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
                 <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, color: '#1a5c2a' }}>📄 Generar Certificado de Disposición Final</h3>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <label>
+                    <div>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cliente*</div>
                         <PickerBuscable
                             items={clientes}
@@ -140,7 +140,7 @@ function TabCertificados() {
                             placeholder="Buscar cliente..."
                             fontSize={13}
                         />
-                    </label>
+                    </div>
                     <label>
                         <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Período desde</div>
                         <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />

@@ -52,8 +52,7 @@ export default function PickerBuscable({
                 style={inputStyle}
             />
             {(seleccionado || open) && !disabled && (
-                <span onMouseDown={e => e.preventDefault()}
-                    onClick={e => { e.preventDefault(); e.stopPropagation(); onChange(''); setQ(''); setOpen(false); }}
+                <span onClick={e => { e.preventDefault(); onChange(''); setQ(''); setOpen(false); }}
                     style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#999', fontSize: fontSize + 1, lineHeight: 1 }}>✕</span>
             )}
             {open && (
@@ -69,11 +68,9 @@ export default function PickerBuscable({
                         const activo = String(getId(it)) === String(value);
                         return (
                             <div key={getId(it)}
-                                onMouseDown={e => e.preventDefault()}
-                                onClick={e => { e.preventDefault(); e.stopPropagation(); elegir(it); }}
-                                style={{ padding: '9px 12px', cursor: 'pointer', fontSize, background: activo ? '#f0faf0' : '#fff', color: '#222', borderBottom: '1px solid #f5f5f5' }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#f0faf0'}
-                                onMouseLeave={e => e.currentTarget.style.background = activo ? '#f0faf0' : '#fff'}>
+                                role="button"
+                                onClick={e => { e.preventDefault(); elegir(it); }}
+                                style={{ padding: '11px 12px', cursor: 'pointer', fontSize, background: activo ? '#f0faf0' : '#fff', color: '#222', borderBottom: '1px solid #f5f5f5', userSelect: 'none' }}>
                                 {getLabel(it)}
                             </div>
                         );
