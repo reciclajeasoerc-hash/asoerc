@@ -115,7 +115,7 @@ function App() {
     useEffect(() => {
         fetch('/api/licencia/estado')
             .then(r => r.json())
-            .then(d => setLicencia({ valida: d.valida === true, pagoUrl: d.pagoUrl || '', cargando: false }))
+            .then(d => setLicencia({ valida: d.valida !== false, pagoUrl: d.pagoUrl || '', cargando: false }))
             .catch(() => setLicencia({ valida: true, pagoUrl: '', cargando: false }));
 
         fetch('/api/setup/estado')

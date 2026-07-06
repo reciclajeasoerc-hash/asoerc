@@ -43,7 +43,13 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' })); // 10mb para fotos
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { ok: false, msg: 'Demasiadas peticiones' } }));
+app.use('/api', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5000, // la app hace muchas llamadas legítimas (p.ej. Préstamos carga por persona); límite alto para app interna
+    skip: req => req.originalUrl.startsWith('/api/health') || req.originalUrl.startsWith('/api/licencia'), // nunca limitar salud ni chequeo de licencia
+    standardHeaders: true, legacyHeaders: false,
+    message: { ok: false, msg: 'Demasiadas peticiones' }
+}));
 app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false, message: { ok: false, msg: 'Demasiados intentos de login' } }));
 
 // Crear carpeta uploads si no existe (Railway tiene filesystem efímero)
