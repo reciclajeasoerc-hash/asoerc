@@ -87,14 +87,30 @@ exports.finalizar = async (req, res) => {
         if (!compra) return res.status(404).json({ ok: false, msg: 'Compra no encontrada' });
         if (compra.estado === 'finalizada') return res.status(400).json({ ok: false, msg: 'Ya finalizada' });
 
-        // Descontar préstamos pendientes del reciclador
+        // Descontar préstamos pendientes del reciclador.
+        // IMPORTANTE: se descuenta solo el SALDO restante (monto − abonado), respetando los
+        // abonos ya registrados, y como máximo hasta lo que vale la compra (no se puede
+        // descontar más de lo que se le va a pagar). Los más viejos se pagan primero.
         const prestamos = await PrestamoReciclador.findAll({
-            where: { reciclador_id: compra.reciclador_id, pagado: false }
+            where: { reciclador_id: compra.reciclador_id, pagado: false },
+            order: [['fecha', 'ASC'], ['id', 'ASC']]
         });
         let descuento = 0;
+        let disponible = parseFloat(compra.total); // tope: solo se descuenta hasta el total de la compra
         for (const p of prestamos) {
-            descuento += parseFloat(p.monto);
-            await p.update({ pagado: true, compra_id: compra.id });
+            const restante = parseFloat(p.monto) - parseFloat(p.abonado || 0);
+            if (restante <= 0) { await p.update({ pagado: true, compra_id: compra.id }); continue; }
+            if (disponible <= 0) break; // no queda plata en esta compra para seguir descontando
+            const aDescontar = Math.min(restante, disponible);
+            const nuevoAbonado = parseFloat(p.abonado || 0) + aDescontar;
+            const quedaPagado = nuevoAbonado >= parseFloat(p.monto) - 0.001;
+            await p.update({
+                abonado: nuevoAbonado,
+                pagado: quedaPagado,
+                compra_id: quedaPagado ? compra.id : p.compra_id
+            });
+            descuento += aDescontar;
+            disponible -= aDescontar;
         }
         const neto = Math.max(0, parseFloat(compra.total) - descuento);
         const numeroDiario = await Compra.count({ where: { fecha: compra.fecha, bodega_id: compra.bodega_id, estado: 'finalizada' } }) + 1;
