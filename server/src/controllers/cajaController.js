@@ -31,6 +31,23 @@ exports.agregarMovimiento = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Fija la BASE del día (saldo_inicial) de una caja abierta: el efectivo con el que
+// arranca la bodega ese día. Cada administradora la registra según lo que se le entrega,
+// en vez de arrastrar automáticamente el saldo del día anterior.
+exports.actualizarBase = async (req, res) => {
+    try {
+        const caja = await Caja.findByPk(req.params.id);
+        if (!caja) return res.status(404).json({ ok: false, msg: 'Caja no encontrada' });
+        if (caja.estado === 'cerrada') return res.status(400).json({ ok: false, msg: 'La caja está cerrada' });
+        const base = parseFloat(req.body.saldo_inicial);
+        if (isNaN(base) || base < 0) return res.status(400).json({ ok: false, msg: 'Base inválida' });
+        await caja.update({ saldo_inicial: base });
+        await recalcularCaja(caja.id);
+        const full = await Caja.findByPk(caja.id, { include: [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }] });
+        res.json({ ok: true, caja: full });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
 exports.cerrar = async (req, res) => {
     try {
         const caja = await Caja.findByPk(req.params.id);

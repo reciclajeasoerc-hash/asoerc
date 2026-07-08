@@ -42,6 +42,7 @@ export default function Caja() {
 
     const [montoApertura, setMontoApertura] = useState('');
     const [loadingApertura, setLoadingApertura] = useState(false);
+    const [aperturaHecha, setAperturaHecha] = useState(false);
     const aperturaRef = useRef(null);
 
     const [tipo, setTipo]           = useState('ingreso');
@@ -91,21 +92,37 @@ export default function Caja() {
         const bid = bId ? String(bId) : bodega_id;
         if (bId && String(bId) !== bodega_id) setBodegaId(String(bId));
         const d = await api.get(`/caja?bodega_id=${bid}`).catch(() => null);
-        if (d) setCaja(d.caja);
+        if (d) { setCaja(d.caja); setAperturaHecha(false); }
     };
 
     const necesitaApertura = caja?.estado === 'abierta'
         && (caja?.saldo_inicial ?? 0) === 0
-        && !(caja?.movimientos?.length);
+        && !(caja?.movimientos?.length)
+        && !aperturaHecha;
 
+    // Registra la BASE del día (saldo inicial), no un movimiento de ingreso.
     const registrarApertura = async () => {
         const valor = parseFloat(montoApertura) || 0;
         setLoadingApertura(true);
         try {
-            const d = await api.post(`/caja/${caja.id}/movimientos`, { tipo: 'ingreso', concepto: 'Apertura de caja', monto: valor, referencia: '' });
-            setCaja(d.caja); setMontoApertura('');
+            const d = await api.put(`/caja/${caja.id}/base`, { saldo_inicial: valor });
+            setCaja(d.caja); setMontoApertura(''); setAperturaHecha(true);
         } catch (e) { alert(e.msg || e.message); }
         finally { setLoadingApertura(false); }
+    };
+
+    // Editar/corregir la base del día en cualquier momento mientras la caja esté abierta.
+    const editarBase = async () => {
+        if (!caja || caja.estado === 'cerrada') return;
+        const actual = parseFloat(caja.saldo_inicial || 0);
+        const entrada = window.prompt(`Base del día — efectivo con el que arranca ${bodegaNombre || 'la caja'} hoy:`, actual ? String(actual) : '');
+        if (entrada === null) return;
+        const valor = parseFloat(String(entrada).replace(/[^\d.]/g, ''));
+        if (isNaN(valor) || valor < 0) return alert('Base inválida');
+        try {
+            const d = await api.put(`/caja/${caja.id}/base`, { saldo_inicial: valor });
+            setCaja(d.caja);
+        } catch (e) { alert(e.msg || e.message); }
     };
 
     const seleccionarConcepto = (c) => {
@@ -160,13 +177,19 @@ export default function Caja() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: compact ? 8 : 10 }}>
                     {[
-                        { label: 'Saldo inicial', v: caja?.saldo_inicial, c: '#6b7280' },
+                        { label: 'Base del día', v: caja?.saldo_inicial, c: '#6b7280', editable: true },
                         { label: 'Ingresos',      v: caja?.total_ingresos, c: '#059669' },
                         { label: 'Salidas',       v: caja?.total_egresos,  c: '#dc2626' },
                         { label: 'Saldo actual',  v: caja?.saldo_final,    c: '#1a5c2a' },
-                    ].map(({ label, v, c }) => (
-                        <div key={label} style={{ background: '#f9fafb', borderRadius: 10, padding: compact ? '10px 12px' : '12px 14px' }}>
-                            <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: .3 }}>{label}</div>
+                    ].map(({ label, v, c, editable }) => (
+                        <div key={label} style={{ background: '#f9fafb', borderRadius: 10, padding: compact ? '10px 12px' : '12px 14px', position: 'relative' }}>
+                            <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: .3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {label}
+                                {editable && caja?.estado === 'abierta' && (
+                                    <button onClick={editarBase} title="Editar la base del día"
+                                        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}>✏️</button>
+                                )}
+                            </div>
                             <div style={{ fontSize: compact ? 16 : 17, fontWeight: 800, color: c }}>{fmtCOP(v)}</div>
                         </div>
                     ))}
