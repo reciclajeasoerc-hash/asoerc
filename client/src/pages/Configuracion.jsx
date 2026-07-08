@@ -22,6 +22,10 @@ export default function Configuracion() {
     const [limpiando, setLimpiando]   = useState(false);
     const [msgLimpiar, setMsgLimpiar] = useState(null);
 
+    const [auditando, setAuditando]   = useState(false);
+    const [auditReporte, setAuditReporte] = useState(null); // resultado del dry-run
+    const [msgAudit, setMsgAudit]     = useState(null);
+
     const fileRef = useRef();
 
     useEffect(() => {
@@ -109,6 +113,32 @@ export default function Configuracion() {
         } catch (err) {
             setMsgLimpiar({ ok: false, texto: err.message });
         } finally { setLimpiando(false); }
+    }
+
+    const fmt = n => Number(n || 0).toLocaleString('es-CO');
+
+    async function revisarPrestamos() {
+        setAuditando(true); setMsgAudit(null); setAuditReporte(null);
+        try {
+            const d = await api.post('/setup/auditar-prestamos', {}); // dry-run: solo revisa
+            setAuditReporte(d);
+            if (d.saldos_inconsistentes === 0 && d.abonos_corregidos === 0)
+                setMsgAudit({ ok: true, texto: '✅ Todo en orden. No hay saldos ni abonos inconsistentes.' });
+        } catch (err) {
+            setMsgAudit({ ok: false, texto: err.message });
+        } finally { setAuditando(false); }
+    }
+
+    async function repararPrestamos() {
+        if (!window.confirm('Se corregirán los saldos de préstamo de los recicladores listados. Es seguro (recalcula el saldo real a partir de los abonos). ¿Continuar?')) return;
+        setAuditando(true); setMsgAudit(null);
+        try {
+            const d = await api.post('/setup/auditar-prestamos?aplicar=1', { aplicar: true });
+            setAuditReporte(null);
+            setMsgAudit({ ok: true, texto: d.msg || 'Saldos corregidos.' });
+        } catch (err) {
+            setMsgAudit({ ok: false, texto: err.message });
+        } finally { setAuditando(false); }
     }
 
     const logoActual = logoPreview || empresa.logo_url;
@@ -261,6 +291,43 @@ export default function Configuracion() {
                     </button>
                 </form>
             </div>
+
+            {/* ── Auditoría de préstamos (solo superadmin) ── */}
+            {user?.rol === 'superadmin' && (
+                <div style={{ ...s.card, border: '1px solid #bfdbfe' }}>
+                    <h3 style={{ ...s.cardTitle, color: '#2563eb' }}>🔍 Auditar saldos de préstamos</h3>
+                    <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
+                        Revisa que el <strong>saldo de préstamo</strong> de cada reciclador coincida con sus abonos y préstamos pendientes.
+                        Corrige saldos que quedaron <strong>negativos o inflados</strong>. Primero muestra lo que encontró; <strong>no cambia nada</strong> hasta que confirmes.
+                    </p>
+                    {msgAudit && <div style={msgAudit.ok ? s.ok : s.err}>{msgAudit.texto}</div>}
+
+                    {auditReporte && auditReporte.saldos_inconsistentes > 0 && (
+                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 12, marginBottom: 14 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e40af', marginBottom: 8 }}>
+                                {auditReporte.saldos_inconsistentes} saldo(s) a corregir{auditReporte.abonos_corregidos ? ` · ${auditReporte.abonos_corregidos} abono(s)` : ''}:
+                            </div>
+                            <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                                {auditReporte.problemas.map(p => (
+                                    <div key={p.reciclador_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '5px 0', borderBottom: '1px solid #dbeafe' }}>
+                                        <span style={{ fontWeight: 600 }}>{p.nombre}</span>
+                                        <span style={{ color: '#666' }}>
+                                            ${fmt(p.saldo_actual)} → <strong style={{ color: '#059669' }}>${fmt(p.saldo_correcto)}</strong>
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            <button type="button" onClick={repararPrestamos} disabled={auditando} style={{ ...s.btn, background: '#2563eb', marginTop: 12 }}>
+                                {auditando ? 'Corrigiendo...' : '✅ Corregir estos saldos'}
+                            </button>
+                        </div>
+                    )}
+
+                    <button type="button" onClick={revisarPrestamos} disabled={auditando} style={{ ...s.btn, background: auditReporte ? '#6b7280' : '#2563eb' }}>
+                        {auditando ? 'Revisando...' : (auditReporte ? '🔄 Revisar de nuevo' : '🔍 Revisar saldos')}
+                    </button>
+                </div>
+            )}
 
             {/* ── Zona de peligro (solo superadmin) ── */}
             {user?.rol === 'superadmin' && (

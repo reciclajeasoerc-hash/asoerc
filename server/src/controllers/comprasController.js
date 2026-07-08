@@ -104,11 +104,7 @@ exports.finalizar = async (req, res) => {
             const aDescontar = Math.min(restante, disponible);
             const nuevoAbonado = parseFloat(p.abonado || 0) + aDescontar;
             const quedaPagado = nuevoAbonado >= parseFloat(p.monto) - 0.001;
-            await p.update({
-                abonado: nuevoAbonado,
-                pagado: quedaPagado,
-                compra_id: quedaPagado ? compra.id : p.compra_id
-            });
+            await p.update({ abonado: nuevoAbonado, pagado: quedaPagado, compra_id: compra.id });
             descuento += aDescontar;
             disponible -= aDescontar;
         }

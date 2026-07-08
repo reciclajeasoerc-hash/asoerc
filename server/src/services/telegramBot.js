@@ -528,13 +528,36 @@ async function ejecutarHerramienta(nombre, args, chatId) {
                 await CompraItem.create({ compra_id: compra.id, material_id: item.material_id, kilos: item.kilos, precio_unitario: item.precio_unitario, total: sub });
                 totalCompra += sub;
             }
-            await compra.update({ total: totalCompra, neto: totalCompra, estado: 'finalizada' });
+            // Descontar préstamos pendientes del reciclador (igual que en la web): solo el
+            // saldo restante (monto − abonado), con tope en el total de la compra.
+            const prestamos = await PrestamoReciclador.findAll({
+                where: { reciclador_id: args.reciclador_id, pagado: false },
+                order: [['fecha', 'ASC'], ['id', 'ASC']]
+            });
+            let descuento = 0;
+            let disponible = totalCompra;
+            for (const p of prestamos) {
+                const restante = parseFloat(p.monto) - parseFloat(p.abonado || 0);
+                if (restante <= 0) { await p.update({ pagado: true, compra_id: compra.id }); continue; }
+                if (disponible <= 0) break;
+                const aDescontar = Math.min(restante, disponible);
+                const nuevoAbonado = parseFloat(p.abonado || 0) + aDescontar;
+                const quedaPagado = nuevoAbonado >= parseFloat(p.monto) - 0.001;
+                await p.update({ abonado: nuevoAbonado, pagado: quedaPagado, compra_id: compra.id });
+                descuento += aDescontar;
+                disponible -= aDescontar;
+            }
+            const netoCompra = Math.max(0, totalCompra - descuento);
+            await compra.update({ total: totalCompra, neto: netoCompra, descuento_prestamo: descuento, estado: 'finalizada' });
+            if (descuento > 0) await Reciclador.decrement('saldo_prestamo', { by: descuento, where: { id: args.reciclador_id } });
 
             const caja = await obtenerOCrearCaja(bodega.id, hoy);
             const hora = new Date().toTimeString().slice(0, 8);
-            await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.id}`, monto: totalCompra, hora });
-            const nuevoEgresos = parseFloat(caja.total_egresos) + totalCompra;
-            await caja.update({ total_egresos: nuevoEgresos, saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) - nuevoEgresos });
+            if (netoCompra > 0) {
+                await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.id}`, monto: netoCompra, hora });
+                const nuevoEgresos = parseFloat(caja.total_egresos) + netoCompra;
+                await caja.update({ total_egresos: nuevoEgresos, saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) - nuevoEgresos });
+            }
 
             try {
                 const full = await Compra.findByPk(compra.id, { include: [{ model: CompraItem, as: 'items', include: [{ model: Material, as: 'material' }] }, { model: Reciclador, as: 'reciclador' }] });
@@ -549,7 +572,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             }
 
             ultimaOp.set(chatId, { tipo: 'compra', id: compra.id });
-            return JSON.stringify({ ok: true, compra_id: compra.id, total: totalCompra, registrado_en_caja: true });
+            return JSON.stringify({ ok: true, compra_id: compra.id, total: totalCompra, descuento_prestamo: descuento, neto: netoCompra, registrado_en_caja: netoCompra > 0 });
         }
 
         // ── Cancelar ──────────────────────────────────────────────────────
@@ -586,6 +609,20 @@ async function ejecutarHerramienta(nombre, args, chatId) {
                         await caja.update({ total_egresos: parseFloat(caja.total_egresos) - m, saldo_final: parseFloat(caja.saldo_final) + m });
                         await mov.destroy();
                     }
+                }
+                // Restaurar los préstamos que esta compra descontó (revertir abonos y saldo)
+                const descPrestamo = parseFloat(compra.descuento_prestamo || 0);
+                if (descPrestamo > 0) {
+                    let porRestaurar = descPrestamo;
+                    const tocados = await PrestamoReciclador.findAll({ where: { compra_id: op.id }, order: [['fecha', 'ASC'], ['id', 'ASC']] });
+                    for (const p of tocados) {
+                        const yaAbonado = parseFloat(p.abonado || 0);
+                        const devolver = Math.min(yaAbonado, porRestaurar);
+                        await p.update({ abonado: yaAbonado - devolver, pagado: false, compra_id: null });
+                        porRestaurar -= devolver;
+                        if (porRestaurar <= 0.001) break;
+                    }
+                    await Reciclador.increment('saldo_prestamo', { by: descPrestamo, where: { id: compra.reciclador_id } });
                 }
                 await CompraItem.destroy({ where: { compra_id: op.id } });
                 await compra.destroy();

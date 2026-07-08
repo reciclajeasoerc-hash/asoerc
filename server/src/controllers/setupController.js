@@ -76,6 +76,63 @@ exports.limpiarOperaciones = async (req, res) => {
     }
 };
 
+// Audita (y opcionalmente repara) los saldos de préstamo de recicladores.
+// El bug anterior descontaba el monto completo del préstamo al finalizar una compra,
+// ignorando los abonos, lo que dejaba saldo_prestamo negativo o inflado ("fantasma").
+// saldo correcto = Σ sobre préstamos PENDIENTES de max(0, monto − abonado).
+// Con ?aplicar=1 (o body.aplicar) corrige; sin eso, solo devuelve el reporte (dry-run).
+exports.auditarPrestamos = async (req, res) => {
+    try {
+        const aplicar = req.query.aplicar === '1' || req.body?.aplicar === true;
+        const recicladores = await Reciclador.findAll({ where: { activo: true } });
+        const problemas = [];
+        let abonosCorregidos = 0;
+
+        for (const r of recicladores) {
+            const prestamos = await PrestamoReciclador.findAll({ where: { reciclador_id: r.id } });
+
+            // 1) Corregir abonos que quedaron por encima del monto (abonado > monto)
+            for (const p of prestamos) {
+                const monto = parseFloat(p.monto);
+                const abonado = parseFloat(p.abonado || 0);
+                if (abonado > monto + 0.001) {
+                    if (aplicar) await p.update({ abonado: monto, pagado: true });
+                    abonosCorregidos++;
+                }
+            }
+
+            // 2) Recalcular el saldo correcto sobre préstamos pendientes
+            const saldoCorrecto = prestamos
+                .filter(p => !p.pagado)
+                .reduce((s, p) => s + Math.max(0, parseFloat(p.monto) - Math.min(parseFloat(p.abonado || 0), parseFloat(p.monto))), 0);
+            const saldoActual = parseFloat(r.saldo_prestamo || 0);
+
+            if (Math.abs(saldoActual - saldoCorrecto) > 0.5) {
+                problemas.push({
+                    reciclador_id: r.id, nombre: r.nombre,
+                    saldo_actual: saldoActual, saldo_correcto: saldoCorrecto,
+                    diferencia: +(saldoCorrecto - saldoActual).toFixed(2)
+                });
+                if (aplicar) await r.update({ saldo_prestamo: saldoCorrecto });
+            }
+        }
+
+        res.json({
+            ok: true,
+            aplicado: aplicar,
+            revisados: recicladores.length,
+            saldos_inconsistentes: problemas.length,
+            abonos_corregidos: abonosCorregidos,
+            problemas,
+            msg: aplicar
+                ? `Reparados ${problemas.length} saldo(s) y ${abonosCorregidos} abono(s).`
+                : `Se encontraron ${problemas.length} saldo(s) inconsistentes y ${abonosCorregidos} abono(s) por corregir. Nada se ha modificado.`
+        });
+    } catch (err) {
+        res.status(500).json({ ok: false, msg: err.message });
+    }
+};
+
 exports.reset = async (req, res) => {
     const secret = req.body?.secret || req.query?.secret;
     const envSecret = process.env.RESET_SECRET;
