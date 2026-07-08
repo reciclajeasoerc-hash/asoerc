@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useAuth } from '../App';
 import { exportarCertificadoDisposicionFinal } from '../utils/exportar';
 import PickerBuscable from '../components/PickerBuscable';
 
@@ -212,6 +213,7 @@ function TabCertificados() {
 
 // ── Página principal ──────────────────────────────────────────────────────
 export default function Remisiones() {
+    const { user } = useAuth();
     const [tab, setTab] = useState('fotos');
     const [remisiones, setRemisiones] = useState([]);
     const [bodegas, setBodegas] = useState([]);
@@ -224,8 +226,13 @@ export default function Remisiones() {
     const [selected, setSelected] = useState(null);
     const [busqueda, setBusqueda] = useState('');
 
+    // Bodega por defecto: la del usuario logueado (los superadmin también tienen una),
+    // y solo si no tiene, la primera de la lista. Evita que las remisiones caigan en
+    // otra bodega por elegir "la primera" automáticamente.
+    const bodegaPorDefecto = (lista) => user?.bodega_id || lista?.[0]?.id || '';
+
     useEffect(() => {
-        api.get('/bodegas').then(d => { setBodegas(d.bodegas || []); if (d.bodegas?.[0]) setForm(f => ({ ...f, bodega_id: d.bodegas[0].id })); });
+        api.get('/bodegas').then(d => { setBodegas(d.bodegas || []); setForm(f => ({ ...f, bodega_id: bodegaPorDefecto(d.bodegas) })); });
         cargar();
     }, []);
 
@@ -248,7 +255,7 @@ export default function Remisiones() {
             Object.entries(form).forEach(([k, v]) => fd.append(k, v));
             if (foto) fd.append('foto', foto);
             await api.upload('/remisiones', fd);
-            setForm({ conductor: '', vehiculo: '', bodega_id: bodegas[0]?.id || '', fecha: hoy(), observaciones: '' });
+            setForm({ conductor: '', vehiculo: '', bodega_id: bodegaPorDefecto(bodegas), fecha: hoy(), observaciones: '' });
             setFoto(null); setPreview(null); setShowForm(false); setMsg(''); cargar();
         } catch (err) { setMsg(err.message); }
         finally { setLoading(false); }

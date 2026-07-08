@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useAuth } from '../App';
 import PickerBuscable from '../components/PickerBuscable';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
 export default function Empaques() {
+    const { user } = useAuth();
     const [empaques, setEmpaques] = useState([]);
     const [recicladores, setRecicladores] = useState([]);
     const [bodegas, setBodegas] = useState([]);
@@ -17,10 +19,13 @@ export default function Empaques() {
     const [loading, setLoading] = useState(false);
     const [filtro, setFiltro] = useState('');
 
+    // Bodega por defecto = la del usuario (evita que caiga en otra bodega por elegir "la primera")
+    const bodegaPorDefecto = (lista) => user?.bodega_id || lista?.[0]?.id || '';
+
     useEffect(() => {
         Promise.all([
             api.get('/recicladores').then(d => setRecicladores(d.recicladores || [])),
-            api.get('/bodegas').then(d => { setBodegas(d.bodegas || []); if (d.bodegas[0]) setForm(f => ({ ...f, bodega_id: d.bodegas[0].id })); })
+            api.get('/bodegas').then(d => { setBodegas(d.bodegas || []); setForm(f => ({ ...f, bodega_id: bodegaPorDefecto(d.bodegas) })); })
         ]);
         cargar();
     }, []);
@@ -45,7 +50,7 @@ export default function Empaques() {
                 cantidad_devuelta:  form.tipo === 'devolucion' ? cantidad : 0,
             };
             await api.post('/empaques', body);
-            setForm({ reciclador_id: '', conductor: '', tipo: 'entrega', cantidad: '', bodega_id: bodegas[0]?.id || '', fecha: hoy(), observaciones: '' });
+            setForm({ reciclador_id: '', conductor: '', tipo: 'entrega', cantidad: '', bodega_id: bodegaPorDefecto(bodegas), fecha: hoy(), observaciones: '' });
             setShowForm(false); setMsg(''); cargar();
         } catch (err) { setMsg(err.message); }
         finally { setLoading(false); }
