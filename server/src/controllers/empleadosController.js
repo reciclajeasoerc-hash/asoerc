@@ -12,10 +12,20 @@ exports.listar = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Normaliza campos vacíos que rompen columnas numéricas: '' → 0 (salario) o null (bodega/cédula).
+function limpiarEmpleado(body) {
+    const datos = { ...body };
+    if ('salario' in datos)   datos.salario   = (datos.salario === '' || datos.salario == null) ? 0 : datos.salario;
+    if ('bodega_id' in datos) datos.bodega_id = (datos.bodega_id === '' || datos.bodega_id == null) ? null : datos.bodega_id;
+    if (datos.cedula === '')   datos.cedula = null;
+    if (datos.telefono === '') datos.telefono = null;
+    return datos;
+}
+
 exports.crear = async (req, res) => {
     try {
-        const { nombre, cedula, telefono, bodega_id, cargo, salario, tipo_salario } = req.body;
-        if (!nombre) return res.status(400).json({ ok: false, msg: 'Nombre requerido' });
+        if (!req.body.nombre) return res.status(400).json({ ok: false, msg: 'Nombre requerido' });
+        const { nombre, cedula, telefono, bodega_id, cargo, salario, tipo_salario } = limpiarEmpleado(req.body);
         const e = await Empleado.create({ nombre, cedula, telefono, bodega_id, cargo, salario, tipo_salario });
         res.json({ ok: true, empleado: e });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
@@ -25,7 +35,7 @@ exports.actualizar = async (req, res) => {
     try {
         const e = await Empleado.findByPk(req.params.id);
         if (!e) return res.status(404).json({ ok: false, msg: 'No encontrado' });
-        await e.update(req.body);
+        await e.update(limpiarEmpleado(req.body));
         res.json({ ok: true, empleado: e });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
