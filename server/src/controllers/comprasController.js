@@ -1,4 +1,4 @@
-const { Compra, CompraItem, Reciclador, Material, Bodega, PrestamoReciclador, Caja, MovimientoCaja, MaterialPrecioReciclador } = require('../models');
+const { sequelize, Compra, CompraItem, Reciclador, Material, Bodega, PrestamoReciclador, Caja, MovimientoCaja, MaterialPrecioReciclador } = require('../models');
 const { Op } = require('sequelize');
 const whatsappService = require('../services/whatsappService');
 
@@ -82,10 +82,13 @@ exports.quitarItem = async (req, res) => {
 };
 
 exports.finalizar = async (req, res) => {
+    // TODO en una TRANSACCIÓN: préstamos, saldo del reciclador y caja se actualizan
+    // juntos o no se actualiza nada. Así nunca queda la plata a medias si algo falla.
+    const t = await sequelize.transaction();
     try {
-        const compra = await Compra.findByPk(req.params.id, { include });
-        if (!compra) return res.status(404).json({ ok: false, msg: 'Compra no encontrada' });
-        if (compra.estado === 'finalizada') return res.status(400).json({ ok: false, msg: 'Ya finalizada' });
+        const compra = await Compra.findByPk(req.params.id, { include, transaction: t });
+        if (!compra) { await t.rollback(); return res.status(404).json({ ok: false, msg: 'Compra no encontrada' }); }
+        if (compra.estado === 'finalizada') { await t.rollback(); return res.status(400).json({ ok: false, msg: 'Ya finalizada' }); }
 
         // Descontar préstamos pendientes del reciclador.
         // IMPORTANTE: se descuenta solo el SALDO restante (monto − abonado), respetando los
@@ -93,50 +96,59 @@ exports.finalizar = async (req, res) => {
         // descontar más de lo que se le va a pagar). Los más viejos se pagan primero.
         const prestamos = await PrestamoReciclador.findAll({
             where: { reciclador_id: compra.reciclador_id, pagado: false },
-            order: [['fecha', 'ASC'], ['id', 'ASC']]
+            order: [['fecha', 'ASC'], ['id', 'ASC']],
+            transaction: t
         });
         let descuento = 0;
         let disponible = parseFloat(compra.total); // tope: solo se descuenta hasta el total de la compra
         for (const p of prestamos) {
             const restante = parseFloat(p.monto) - parseFloat(p.abonado || 0);
-            if (restante <= 0) { await p.update({ pagado: true, compra_id: compra.id }); continue; }
+            if (restante <= 0) { await p.update({ pagado: true, compra_id: compra.id }, { transaction: t }); continue; }
             if (disponible <= 0) break; // no queda plata en esta compra para seguir descontando
             const aDescontar = Math.min(restante, disponible);
             const nuevoAbonado = parseFloat(p.abonado || 0) + aDescontar;
             const quedaPagado = nuevoAbonado >= parseFloat(p.monto) - 0.001;
-            await p.update({ abonado: nuevoAbonado, pagado: quedaPagado, compra_id: compra.id });
+            await p.update({ abonado: nuevoAbonado, pagado: quedaPagado, compra_id: compra.id }, { transaction: t });
             descuento += aDescontar;
             disponible -= aDescontar;
         }
         const neto = Math.max(0, parseFloat(compra.total) - descuento);
-        const numeroDiario = await Compra.count({ where: { fecha: compra.fecha, bodega_id: compra.bodega_id, estado: 'finalizada' } }) + 1;
-        await compra.update({ estado: 'finalizada', descuento_prestamo: descuento, neto, numero_diario: numeroDiario });
+        const numeroDiario = await Compra.count({ where: { fecha: compra.fecha, bodega_id: compra.bodega_id, estado: 'finalizada' }, transaction: t }) + 1;
+        await compra.update({ estado: 'finalizada', descuento_prestamo: descuento, neto, numero_diario: numeroDiario }, { transaction: t });
 
         // Actualizar saldo_prestamo del reciclador
         if (descuento > 0) {
-            await Reciclador.decrement('saldo_prestamo', { by: descuento, where: { id: compra.reciclador_id } });
+            await Reciclador.decrement('saldo_prestamo', { by: descuento, where: { id: compra.reciclador_id }, transaction: t });
         }
 
         // Registrar egreso en caja automáticamente
         if (neto > 0) {
             const fechaHoy = compra.fecha;
-            let caja = await Caja.findOne({ where: { bodega_id: compra.bodega_id, fecha: fechaHoy } });
+            let caja = await Caja.findOne({ where: { bodega_id: compra.bodega_id, fecha: fechaHoy }, transaction: t });
             if (!caja) {
-                const anterior = await Caja.findOne({ where: { bodega_id: compra.bodega_id }, order: [['fecha', 'DESC']] });
-                caja = await Caja.create({ bodega_id: compra.bodega_id, fecha: fechaHoy, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 });
+                const anterior = await Caja.findOne({ where: { bodega_id: compra.bodega_id }, order: [['fecha', 'DESC']], transaction: t });
+                caja = await Caja.create({ bodega_id: compra.bodega_id, fecha: fechaHoy, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 }, { transaction: t });
             }
             const hora = new Date().toTimeString().slice(0, 8);
-            await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora, referencia: `compra:${compra.id}` });
-            await caja.update({ total_egresos: parseFloat(caja.total_egresos) + neto, saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) - (parseFloat(caja.total_egresos) + neto) });
+            await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora, referencia: `compra:${compra.id}` }, { transaction: t });
+            await caja.update({ total_egresos: parseFloat(caja.total_egresos) + neto, saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) - (parseFloat(caja.total_egresos) + neto) }, { transaction: t });
         }
 
-        // Enviar por WhatsApp
-        const enviado = await whatsappService.enviarCompra(compra);
-        if (enviado) await compra.update({ whatsapp_enviado: true });
+        await t.commit(); // ← a partir de aquí ya está todo guardado en firme
+
+        // Enviar por WhatsApp (FUERA de la transacción: es un envío externo, no debe
+        // revertir la compra si WhatsApp falla).
+        try {
+            const enviado = await whatsappService.enviarCompra(compra);
+            if (enviado) await compra.update({ whatsapp_enviado: true });
+        } catch (_) { /* si WhatsApp falla, la compra igual quedó bien guardada */ }
 
         const full = await Compra.findByPk(compra.id, { include });
         res.json({ ok: true, compra: full });
-    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+    } catch (err) {
+        await t.rollback();
+        res.status(500).json({ ok: false, msg: err.message });
+    }
 };
 
 exports.eliminar = async (req, res) => {

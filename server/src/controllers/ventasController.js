@@ -1,4 +1,4 @@
-const { Venta, VentaItem, Cliente, ClienteSede, Material, MaterialPrecioCliente, Bodega, Caja, MovimientoCaja } = require('../models');
+const { sequelize, Venta, VentaItem, Cliente, ClienteSede, Material, MaterialPrecioCliente, Bodega, Caja, MovimientoCaja } = require('../models');
 
 const include = [
     { model: Cliente, as: 'cliente', include: [{ model: MaterialPrecioCliente, as: 'precios', include: [{ model: Material, as: 'material' }] }] },
@@ -7,19 +7,19 @@ const include = [
     { model: VentaItem, as: 'items', include: [{ model: Material, as: 'material' }] }
 ];
 
-async function registrarEnCaja(bodega_id, fecha, total, concepto, referencia = '') {
+async function registrarEnCaja(bodega_id, fecha, total, concepto, referencia = '', t = null) {
     if (!total || total <= 0) return;
-    let caja = await Caja.findOne({ where: { bodega_id, fecha } });
+    let caja = await Caja.findOne({ where: { bodega_id, fecha }, transaction: t });
     if (!caja) {
-        const anterior = await Caja.findOne({ where: { bodega_id }, order: [['fecha', 'DESC']] });
-        caja = await Caja.create({ bodega_id, fecha, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 });
+        const anterior = await Caja.findOne({ where: { bodega_id }, order: [['fecha', 'DESC']], transaction: t });
+        caja = await Caja.create({ bodega_id, fecha, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 }, { transaction: t });
     }
     const hora = new Date().toTimeString().slice(0, 8);
-    await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora, referencia });
+    await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora, referencia }, { transaction: t });
     await caja.update({
         total_ingresos: parseFloat(caja.total_ingresos) + total,
         saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) + total - parseFloat(caja.total_egresos)
-    });
+    }, { transaction: t });
 }
 
 exports.listar = async (req, res) => {
@@ -45,61 +45,73 @@ exports.obtener = async (req, res) => {
 };
 
 exports.crear = async (req, res) => {
-    try {
-        const { cliente_id, sede_id, bodega_id, fecha, items, tipo_pago, observaciones } = req.body;
-        if (!cliente_id || !bodega_id || !items?.length)
-            return res.status(400).json({ ok: false, msg: 'Cliente, bodega e items requeridos' });
+    const { cliente_id, sede_id, bodega_id, fecha, items, tipo_pago, observaciones } = req.body;
+    if (!cliente_id || !bodega_id || !items?.length)
+        return res.status(400).json({ ok: false, msg: 'Cliente, bodega e items requeridos' });
 
-        const cliente = await Cliente.findByPk(cliente_id, { include: [{ model: MaterialPrecioCliente, as: 'precios' }] });
+    // Venta + ítems + caja en una TRANSACCIÓN: todo o nada.
+    const t = await sequelize.transaction();
+    try {
+        const cliente = await Cliente.findByPk(cliente_id, { include: [{ model: MaterialPrecioCliente, as: 'precios' }], transaction: t });
         let total = 0;
         const ventaData = await Venta.create({
             cliente_id, sede_id, bodega_id,
             fecha: fecha || new Date().toISOString().slice(0, 10),
             tipo_pago: tipo_pago || 'pendiente', observaciones, estado: 'orden'
-        });
+        }, { transaction: t });
 
         for (const item of items) {
-            const material = await Material.findByPk(item.material_id);
+            const material = await Material.findByPk(item.material_id, { transaction: t });
             // Precio especial del cliente o precio base del material
             const precioEspecial = cliente.precios?.find(p => p.material_id === item.material_id);
             const precio_unitario = precioEspecial ? parseFloat(precioEspecial.precio) : parseFloat(material.precio_compra);
             const subtotal = parseFloat(item.kilos) * precio_unitario;
             total += subtotal;
-            await VentaItem.create({ venta_id: ventaData.id, material_id: item.material_id, kilos: item.kilos, precio_unitario, total: subtotal });
+            await VentaItem.create({ venta_id: ventaData.id, material_id: item.material_id, kilos: item.kilos, precio_unitario, total: subtotal }, { transaction: t });
         }
-        await ventaData.update({ total });
+        await ventaData.update({ total }, { transaction: t });
 
         // Registrar en caja si el pago ya fue recibido
         if (tipo_pago && tipo_pago !== 'pendiente') {
             const fechaVenta = fecha || new Date().toISOString().slice(0, 10);
-            await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`, `venta:${ventaData.id}`);
-            await ventaData.update({ estado: 'pagada' });
+            await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`, `venta:${ventaData.id}`, t);
+            await ventaData.update({ estado: 'pagada' }, { transaction: t });
         }
 
+        await t.commit();
         const full = await Venta.findByPk(ventaData.id, { include });
         res.json({ ok: true, venta: full });
-    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+    } catch (err) {
+        await t.rollback();
+        res.status(500).json({ ok: false, msg: err.message });
+    }
 };
 
 exports.actualizarEstado = async (req, res) => {
+    const t = await sequelize.transaction();
     try {
         const { estado, tipo_pago } = req.body;
-        const venta = await Venta.findByPk(req.params.id, { include });
-        if (!venta) return res.status(404).json({ ok: false, msg: 'No encontrada' });
+        const venta = await Venta.findByPk(req.params.id, { include, transaction: t });
+        if (!venta) { await t.rollback(); return res.status(404).json({ ok: false, msg: 'No encontrada' }); }
+        const estadoAnterior = venta.estado; // capturar ANTES de actualizar (si no, el chequeo de abajo siempre falla)
         const update = {};
         if (estado) update.estado = estado;
         if (tipo_pago) update.tipo_pago = tipo_pago;
-        await venta.update(update);
+        await venta.update(update, { transaction: t });
 
-        // Si marcan como pagada y aún no estaba pagada → registrar en caja
-        if (estado === 'pagada' && venta.estado !== 'pagada') {
+        // Si marcan como pagada y aún no estaba pagada → registrar el ingreso en caja (una sola vez)
+        if (estado === 'pagada' && estadoAnterior !== 'pagada') {
             const tp = tipo_pago || venta.tipo_pago;
             await registrarEnCaja(venta.bodega_id, venta.fecha, parseFloat(venta.total),
-                `Venta #${venta.numero || venta.id} - ${venta.cliente?.nombre} (${tp})`, `venta:${venta.id}`);
+                `Venta #${venta.numero || venta.id} - ${venta.cliente?.nombre} (${tp})`, `venta:${venta.id}`, t);
         }
 
+        await t.commit();
         res.json({ ok: true, venta });
-    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+    } catch (err) {
+        await t.rollback();
+        res.status(500).json({ ok: false, msg: err.message });
+    }
 };
 
 exports.eliminar = async (req, res) => {
