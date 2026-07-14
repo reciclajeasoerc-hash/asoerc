@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import PickerBuscable from '../components/PickerBuscable';
+import { useBodegaActiva } from '../bodega';
 
 const fmt  = n => Number(n || 0).toLocaleString('es-CO');
 // Kilos sin ceros sobrantes: 1520.000 → 1520, 700.500 → 700.5
@@ -43,6 +44,9 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const isMobile = useMobile();
     const { user } = useAuth();
     const esAdmin = ['superadmin', 'admin'].includes(user?.rol);
+    // Bodega para filtrar "compras de hoy" y el resumen del día.
+    const filtroBodega = useBodegaActiva(user);
+    const bodegaLista  = propBodegaId ? String(propBodegaId) : filtroBodega;
     const [recicladores, setRecicladores] = useState([]);
     const [bodegas, setBodegas] = useState([]);
     const [filtroBodegaRec, setFiltroBodegaRec] = useState('');
@@ -100,11 +104,16 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     }, []);
 
     const cargarHoy = async () => {
-        const d = await api.get(`/compras?fecha=${hoy()}&estado=finalizada`).catch(() => null);
+        const q = bodegaLista ? `&bodega_id=${bodegaLista}` : '';
+        const d = await api.get(`/compras?fecha=${hoy()}&estado=finalizada${q}`).catch(() => null);
         if (d) setComprasHoy(d.items || []);
-        const r = await api.get(`/compras/resumen-dia?fecha=${hoy()}`).catch(() => null);
+        const r = await api.get(`/compras/resumen-dia?fecha=${hoy()}${q}`).catch(() => null);
         if (r) setResumen(r);
     };
+
+    // Recargar cuando cambia la bodega seleccionada; nueva compra sale por defecto en esa bodega.
+    useEffect(() => { cargarHoy(); }, [bodegaLista]);
+    useEffect(() => { if (!propBodegaId && filtroBodega) setBodegaId(filtroBodega); }, [filtroBodega]);
 
     const matsFiltrados = busquedaMat.trim()
         ? materiales.filter(m => m.activo !== false && `${m.nombre || ''} ${m.codigo || ''}`.toLowerCase().includes(busquedaMat.trim().toLowerCase()))

@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useAuth } from '../App';
+import { useBodegaActiva } from '../bodega';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 const fmtKg = n => Number(n || 0).toFixed(2) + ' kg';
 
 export default function Dashboard() {
+    const { user } = useAuth();
+    const filtro = useBodegaActiva(user); // bodega elegida en la barra lateral ('' = todas)
     const [data, setData] = useState(null);
     const [bodegas, setBodegas] = useState([]);
-    const [bodega_id, setBodegaId] = useState('');
+    const [bodega_id, setBodegaId] = useState(filtro);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => { api.get('/bodegas').then(d => setBodegas(d.bodegas || [])).catch(() => {}); }, []);
+    useEffect(() => { setBodegaId(filtro); }, [filtro]); // el selector de la barra manda
 
     useEffect(() => {
         setLoading(true);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import { useBodegaActiva } from '../bodega';
 import Ventas, { ReciboVenta } from './Ventas';
 import Compras, { Recibo as ReciboCompra } from './Compras';
 import { exportarCajaExcel, exportarCajaPDF } from '../utils/exportar';
@@ -34,6 +35,7 @@ function useMobile() {
 
 export default function Caja() {
     const { user } = useAuth();
+    const filtroBodega = useBodegaActiva(user); // bodega elegida en la barra lateral
     const isMobile = useMobile();
     const [caja, setCaja]         = useState(null);
     const [bodegas, setBodegas]   = useState([]);
@@ -76,12 +78,16 @@ export default function Caja() {
         if (user?.rol === 'superadmin') {
             api.get('/bodegas').then(d => {
                 setBodegas(d.bodegas || []);
-                if (d.bodegas[0]) setBodegaId(String(d.bodegas[0].id));
+                const inicial = filtroBodega || (d.bodegas[0] ? String(d.bodegas[0].id) : '');
+                if (inicial) setBodegaId(inicial);
             });
         } else {
             setBodegaId(String(user?.bodega_id || ''));
         }
     }, []);
+
+    // Cuando el superadmin cambia la bodega en la barra lateral, la caja cambia también.
+    useEffect(() => { if (user?.rol === 'superadmin' && filtroBodega) setBodegaId(filtroBodega); }, [filtroBodega]);
 
     useEffect(() => { if (bodega_id) cargar(); }, [bodega_id]);
     useEffect(() => {

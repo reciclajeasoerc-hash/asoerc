@@ -4,10 +4,9 @@ const include = [{ model: Bodega, as: 'bodega' }];
 
 exports.listar = async (req, res) => {
     try {
-        const { bodega_id } = req.query;
-        const where = { activo: true };
-        if (bodega_id) where.bodega_id = bodega_id;
-        const empleados = await Empleado.findAll({ where, include, order: [['nombre', 'ASC']] });
+        // Los empleados son COMPARTIDOS entre todas las bodegas (igual que recicladores y
+        // clientes): se ven en cualquier bodega, no se filtran por bodega.
+        const empleados = await Empleado.findAll({ where: { activo: true }, include, order: [['nombre', 'ASC']] });
         res.json({ ok: true, empleados });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

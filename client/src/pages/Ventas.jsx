@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import PickerBuscable from '../components/PickerBuscable';
+import { useBodegaActiva } from '../bodega';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 // Kilos sin ceros sobrantes: 1520.000 → 1520, 700.500 → 700.5
@@ -39,6 +40,10 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const isMobile = useMobile();
     const { user } = useAuth();
     const esAdmin = ['superadmin', 'admin'].includes(user?.rol);
+    // Bodega para FILTRAR la lista "de hoy": si está embebido en Caja usa esa bodega;
+    // si no, la que el superadmin eligió en la barra ('' = todas).
+    const filtroBodega = useBodegaActiva(user);
+    const bodegaLista  = propBodegaId ? String(propBodegaId) : filtroBodega;
     const [clientes,   setClientes]   = useState([]);
     const [materiales, setMateriales] = useState([]);
     const [bodegas,    setBodegas]    = useState([]);
@@ -98,8 +103,15 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
         return () => clearInterval(t);
     }, []);
 
-    const cargarHoy = () =>
-        api.get(`/ventas?fecha=${hoy()}`).then(d => setVentasHoy(d.items || [])).catch(() => {});
+    const cargarHoy = () => {
+        const q = bodegaLista ? `&bodega_id=${bodegaLista}` : '';
+        return api.get(`/ventas?fecha=${hoy()}${q}`).then(d => setVentasHoy(d.items || [])).catch(() => {});
+    };
+
+    // Recargar la lista cuando cambia la bodega seleccionada, y que la nueva orden
+    // salga por defecto en esa bodega.
+    useEffect(() => { cargarHoy(); }, [bodegaLista]);
+    useEffect(() => { if (!propBodegaId && filtroBodega) setBodegaId(filtroBodega); }, [filtroBodega]);
 
     const clienteSeleccionado = clientes.find(c => String(c.id) === String(cliente_id));
 
