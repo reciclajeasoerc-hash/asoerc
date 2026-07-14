@@ -81,6 +81,16 @@ export default function Empleados() {
         setShowEmp(true);
     };
 
+    const eliminarEmpleado = async (e) => {
+        if (!window.confirm(`¿Eliminar al empleado "${e.nombre}"?\n\nSe quita de la lista. Su historial (préstamos, nómina, días) se conserva por seguridad.`)) return;
+        try {
+            await api.delete(`/empleados/${e.id}`);
+            if (selected?.id === e.id) setSelected(null);
+            const actualizados = await api.get('/empleados').then(d => d.empleados).catch(() => empleados.filter(x => x.id !== e.id));
+            setEmpleados(actualizados);
+        } catch (err) { setMsg(err.message); }
+    };
+
     const guardarEmpleado = async () => {
         if (!form.nombre) return setMsg('Nombre requerido');
         try {
@@ -203,6 +213,7 @@ export default function Empleados() {
                                         <div style={{ display: 'flex', gap: 6 }}>
                                             <button onClick={ev => { ev.stopPropagation(); seleccionar(e); }} style={{ padding: '4px 10px', background: '#e0f2e9', color: '#1a5c2a', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Ver</button>
                                             <button onClick={ev => { ev.stopPropagation(); editarEmpleado(e); }} style={{ padding: '4px 10px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
+                                            <button onClick={ev => { ev.stopPropagation(); eliminarEmpleado(e); }} style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Eliminar</button>
                                         </div>
                                     </td>
                                 </tr>
