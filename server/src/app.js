@@ -46,11 +46,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api', rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5000, // la app hace muchas llamadas legítimas (p.ej. Préstamos carga por persona); límite alto para app interna
-    skip: req => req.originalUrl.startsWith('/api/health') || req.originalUrl.startsWith('/api/licencia'), // nunca limitar salud ni chequeo de licencia
+    skip: req => req.originalUrl.startsWith('/api/health') || req.originalUrl.startsWith('/api/licencia') || req.originalUrl.startsWith('/api/auth/login'), // nunca limitar salud, licencia ni login
     standardHeaders: true, legacyHeaders: false,
     message: { ok: false, msg: 'Demasiadas peticiones' }
 }));
-app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false, message: { ok: false, msg: 'Demasiados intentos de login' } }));
+// El login tiene su propio límite (solo cuenta intentos FALLIDOS). max alto porque varios usuarios comparten la misma IP de la oficina.
+app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 50, skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false, message: { ok: false, msg: 'Demasiados intentos de login. Espera unos minutos.' } }));
 
 // Crear carpeta uploads si no existe (Railway tiene filesystem efímero)
 const uploadsDir = path.join(__dirname, '../uploads');

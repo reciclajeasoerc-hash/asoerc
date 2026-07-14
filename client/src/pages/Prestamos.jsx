@@ -95,41 +95,17 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
 
 export default function Prestamos() {
     const [tab, setTab] = useState('pendientes');
-    const [recicladores, setRecicladores] = useState([]);
-    const [empleados, setEmpleados] = useState([]);
     const [prestamosRec, setPrestamosRec] = useState([]);
     const [prestamosEmp, setPrestamosEmp] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [filtroTipo, setFiltroTipo] = useState('todos');
 
+    // Una sola petición trae TODOS los préstamos (antes era una por persona → saturaba)
     const cargar = async () => {
         try {
-            const [recs, emps] = await Promise.all([
-                api.get('/recicladores'),
-                api.get('/empleados')
-            ]);
-            const todosRec = recs.recicladores || [];
-            const todosEmp = emps.empleados || [];
-            setRecicladores(todosRec);
-            setEmpleados(todosEmp);
-
-            // Cargar préstamos de cada reciclador
-            const promesasRec = todosRec.map(r =>
-                api.get(`/recicladores/${r.id}/prestamos`)
-                    .then(d => (d.prestamos || []).map(p => ({ ...p, tipo: 'reciclador', persona: r.nombre })))
-                    .catch(() => [])
-            );
-            const promesasEmp = todosEmp.map(e =>
-                api.get(`/empleados/${e.id}/prestamos`)
-                    .then(d => (d.prestamos || []).map(p => ({ ...p, tipo: 'empleado', persona: e.nombre })))
-                    .catch(() => [])
-            );
-            const [resRec, resEmp] = await Promise.all([
-                Promise.all(promesasRec),
-                Promise.all(promesasEmp)
-            ]);
-            setPrestamosRec(resRec.flat());
-            setPrestamosEmp(resEmp.flat());
+            const d = await api.get('/prestamos');
+            setPrestamosRec(d.recicladores || []);
+            setPrestamosEmp(d.empleados || []);
         } catch (err) { console.error(err); }
     };
 

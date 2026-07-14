@@ -24,7 +24,7 @@ const empaquesCtrl   = require('../controllers/empaquesController');
 const informesCtrl   = require('../controllers/informesController');
 const usuariosCtrl   = require('../controllers/usuariosController');
 const vehiculosCtrl  = require('../controllers/vehiculosController');
-const { Bodega, Material, Reciclador } = require('../models');
+const { Bodega, Material, Reciclador, PrestamoReciclador, PrestamoEmpleado, Empleado } = require('../models');
 
 // Setup inicial (sin autenticación)
 router.get('/setup/estado',  setupCtrl.estado);
@@ -94,6 +94,21 @@ router.get('/recicladores/:reciclador_id/prestamos',  recicladoresCtrl.prestamos
 router.post('/recicladores/:reciclador_id/prestamos', recicladoresCtrl.crearPrestamo);
 router.put('/recicladores/:reciclador_id/prestamos/:prestamo_id', recicladoresCtrl.marcarPrestamoPagado);
 router.post('/recicladores/:reciclador_id/prestamos/:prestamo_id/abono', recicladoresCtrl.abonarPrestamo);
+
+// Todos los préstamos en UNA sola petición (evita N+1: antes se pedían uno por persona)
+router.get('/prestamos', async (req, res) => {
+    try {
+        const [recs, emps] = await Promise.all([
+            PrestamoReciclador.findAll({ include: [{ model: Reciclador, as: 'reciclador' }], order: [['fecha', 'DESC']] }),
+            PrestamoEmpleado.findAll({ include: [{ model: Empleado, as: 'empleado' }], order: [['fecha', 'DESC']] }),
+        ]);
+        res.json({
+            ok: true,
+            recicladores: recs.map(p => ({ ...p.toJSON(), tipo: 'reciclador', persona: p.reciclador?.nombre || '—' })),
+            empleados:    emps.map(p => ({ ...p.toJSON(), tipo: 'empleado',   persona: p.empleado?.nombre   || '—' })),
+        });
+    } catch (e) { res.status(500).json({ ok: false, msg: e.message }); }
+});
 router.get('/recicladores/:id/precios',                  recicladoresCtrl.listarPrecios);
 router.post('/recicladores/:id/precios',                 recicladoresCtrl.guardarPrecio);
 router.delete('/recicladores/:id/precios/:material_id',  recicladoresCtrl.eliminarPrecio);
