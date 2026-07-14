@@ -1,7 +1,9 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs   = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const {
+    sequelize,
     Reciclador, PrestamoReciclador,
     Material, Compra, CompraItem, Bodega,
     Cliente, Venta, VentaItem, MaterialPrecioCliente,
@@ -909,6 +911,15 @@ async function manejarMensaje(bot, msg) {
             // ── Texto ─────────────────────────────────────────────────────
             else if (msg.text) {
                 textoParaIA = msg.text;
+                if (textoParaIA === '/backup' || textoParaIA === '/respaldo') {
+                    if (!['superadmin', 'admin'].includes(rol)) { await bot.sendMessage(chatId, '⛔ Solo un administrador puede generar respaldos.'); return; }
+                    await bot.sendMessage(chatId, '🗄️ Generando respaldo, un momento...');
+                    try {
+                        const { nombre, buffer, kb } = await generarBackup();
+                        await bot.sendDocument(chatId, buffer, { caption: `🗄️ Respaldo manual ASOERC · ${kb} KB · guárdalo en lugar seguro` }, { filename: nombre, contentType: 'application/gzip' });
+                    } catch (e) { await bot.sendMessage(chatId, '❌ Error generando respaldo: ' + e.message); }
+                    return;
+                }
                 if (textoParaIA === '/start' || textoParaIA === '/ayuda') {
                     historiales.delete(chatId);
                     fotosPendientes.delete(chatId);
@@ -949,6 +960,69 @@ async function manejarMensaje(bot, msg) {
         }
 }
 
+// ── Respaldo (backup) diario de la base de datos ───────────────────────────
+const bots = []; // instancias activas, para enviar el respaldo por Telegram
+
+// Genera un volcado COMPLETO de la BD (todas las tablas) comprimido en .gz
+async function generarBackup() {
+    const dump = { _meta: { sistema: 'ASOERC', generado: new Date().toISOString() } };
+    for (const [nombre, modelo] of Object.entries(sequelize.models)) {
+        try { dump[nombre] = await modelo.findAll({ raw: true }); }
+        catch (e) { dump[nombre] = { _error: e.message }; }
+    }
+    const gz = zlib.gzipSync(Buffer.from(JSON.stringify(dump), 'utf8'));
+    const fecha = new Date().toISOString().slice(0, 10);
+    return { nombre: `backup-asoerc-${fecha}.json.gz`, buffer: gz, kb: Math.round(gz.length / 1024) };
+}
+
+// A qué chats de Telegram se manda el respaldo (BACKUP_CHAT_ID, o superadmins/admins vinculados)
+async function chatsParaBackup() {
+    if (process.env.BACKUP_CHAT_ID)
+        return String(process.env.BACKUP_CHAT_ID).split(',').map(s => s.trim()).filter(Boolean);
+    try {
+        const admins = await Usuario.findAll({ where: { telegram_chat_id: { [Op.ne]: null }, activo: true } });
+        const ids = admins.filter(u => ['superadmin', 'admin'].includes(u.rol)).map(u => u.telegram_chat_id);
+        if (ids.length) return ids;
+        const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
+        if (conf?.valor) return JSON.parse(conf.valor).map(c => String(c.chat_id));
+    } catch (e) { console.error('chatsParaBackup:', e.message); }
+    return [];
+}
+
+async function enviarBackupDiario() {
+    if (!bots.length) return;
+    try {
+        const { nombre, buffer, kb } = await generarBackup();
+        const chats = await chatsParaBackup();
+        if (!chats.length) {
+            console.warn('⚠️  Respaldo generado pero sin chat destino. Define BACKUP_CHAT_ID o vincula un superadmin en Telegram.');
+            return;
+        }
+        const caption = `🗄️ Respaldo diario ASOERC · ${new Date().toLocaleDateString('es-CO')} · ${kb} KB\nGuárdalo. Para restaurar, envíalo a soporte (AI Company CO).`;
+        for (const chatId of chats) {
+            await bots[0].sendDocument(chatId, buffer, { caption }, { filename: nombre, contentType: 'application/gzip' })
+                .catch(e => console.error(`Backup -> ${chatId}:`, e.message));
+        }
+        console.log(`✅ Respaldo diario enviado a ${chats.length} chat(s) (${kb} KB)`);
+    } catch (e) { console.error('enviarBackupDiario:', e.message); }
+}
+
+// Programa el respaldo todos los días a las 01:00 hora Colombia (06:00 UTC)
+function programarBackupDiario() {
+    const MS_DIA = 24 * 60 * 60 * 1000;
+    const msHastaProxima = () => {
+        const ahora = new Date();
+        const prox = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate(), 6, 0, 0));
+        if (prox <= ahora) prox.setUTCDate(prox.getUTCDate() + 1);
+        return prox - ahora;
+    };
+    setTimeout(function run() {
+        enviarBackupDiario();
+        setInterval(enviarBackupDiario, MS_DIA);
+    }, msHastaProxima());
+    console.log(`🗄️  Respaldo diario programado (próximo en ~${Math.round(msHastaProxima() / 3600000)}h)`);
+}
+
 // Inicia uno o VARIOS bots a la vez. Los tokens se leen de TELEGRAM_BOT_TOKEN
 // (uno solo, o varios separados por coma) y opcionalmente TELEGRAM_BOT_TOKEN_2.
 // Cada token = un bot distinto con las MISMAS funciones (útil para tener el bot
@@ -966,8 +1040,11 @@ function startBot() {
         const bot = new TelegramBot(token, { polling: true });
         bot.on('message', (msg) => manejarMensaje(bot, msg));
         bot.on('polling_error', err => console.error(`Telegram polling error (bot #${i + 1}):`, err.message));
+        bots.push(bot);
         console.log(`🤖 Bot IA ASOERC #${i + 1} iniciado`);
     });
+
+    programarBackupDiario(); // respaldo diario de la BD por Telegram
 }
 
-module.exports = { startBot };
+module.exports = { startBot, enviarBackupDiario };
