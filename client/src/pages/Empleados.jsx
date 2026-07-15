@@ -224,12 +224,16 @@ export default function Empleados() {
 
                 {selected && (
                     <div style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, alignItems: 'flex-start', gap: 8 }}>
                             <div>
                                 <h3 style={{ fontWeight: 700 }}>{selected.nombre}</h3>
                                 <div style={{ fontSize: 13, color: '#666' }}>{selected.cargo} • {selected.bodega?.nombre}</div>
                             </div>
-                            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#888' }}>✕</button>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                                <button onClick={() => editarEmpleado(selected)} style={{ padding: '6px 12px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏️ Editar</button>
+                                <button onClick={() => eliminarEmpleado(selected)} style={{ padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑️ Eliminar</button>
+                                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#888' }}>✕</button>
+                            </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                             <Btn active={tab === 'prestamos'} onClick={() => setTab('prestamos')}>💰 Préstamos</Btn>
