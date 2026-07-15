@@ -43,7 +43,9 @@ function useMobile() {
 export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const isMobile = useMobile();
     const { user } = useAuth();
-    const esAdmin = ['superadmin', 'admin'].includes(user?.rol);
+    // Solo el superadmin (dueña) puede elegir/cambiar la bodega. Los demás perfiles
+    // (admin de sede, cajera, vendedora, operario) quedan FIJOS a su propia bodega.
+    const esSuper = user?.rol === 'superadmin';
     // Bodega para filtrar "compras de hoy" y el resumen del día.
     const filtroBodega = useBodegaActiva(user);
     const bodegaLista  = propBodegaId ? String(propBodegaId) : filtroBodega;
@@ -121,7 +123,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     const abrirCuenta = async () => {
         if (!reciclador_id) return setMsg('Selecciona un reciclador');
-        if (esAdmin && !bodega_id) return setMsg('Selecciona una bodega');
+        if (esSuper && !bodega_id) return setMsg('Selecciona una bodega');
         setLoading(true);
         try {
             const d = await api.post('/compras', { reciclador_id, bodega_id, fecha });
@@ -266,7 +268,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                 />
                                 {formNuevoRec}
                             </div>
-                            {esAdmin && (
+                            {esSuper && (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                                     <div>
                                         <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>Bodega *</div>
@@ -481,7 +483,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                 {!compraActiva ? (
                     <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
                         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#1a5c2a' }}>♻️ Abrir cuenta de compra</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: esAdmin ? '120px 1fr 1fr 140px 90px' : '120px 1fr 90px', gap: 10, alignItems: 'flex-end' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: esSuper ? '120px 1fr 1fr 140px 90px' : '120px 1fr 90px', gap: 10, alignItems: 'flex-end' }}>
                             <label>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Sede</div>
                                 <select value={filtroBodegaRec} onChange={e => setFiltroBodegaRec(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
@@ -503,7 +505,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     fontSize={13}
                                 />
                             </div>
-                            {esAdmin && (
+                            {esSuper && (
                                 <label>
                                     <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Bodega*</div>
                                     <select value={bodega_id} onChange={e => setBodegaId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
@@ -511,7 +513,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     </select>
                                 </label>
                             )}
-                            {esAdmin && (
+                            {esSuper && (
                                 <label>
                                     <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Fecha</div>
                                     <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />

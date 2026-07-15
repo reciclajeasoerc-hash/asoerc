@@ -39,7 +39,9 @@ function useMobile() {
 export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const isMobile = useMobile();
     const { user } = useAuth();
-    const esAdmin = ['superadmin', 'admin'].includes(user?.rol);
+    // Solo el superadmin (dueña) puede elegir/cambiar la bodega. Los demás perfiles
+    // (admin de sede, cajera, vendedora, operario) quedan FIJOS a su propia bodega.
+    const esSuper = user?.rol === 'superadmin';
     // Bodega para FILTRAR la lista "de hoy": si está embebido en Caja usa esa bodega;
     // si no, la que el superadmin eligió en la barra ('' = todas).
     const filtroBodega = useBodegaActiva(user);
@@ -117,7 +119,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     const abrirOrden = () => {
         if (!cliente_id) return setMsg('Selecciona un cliente');
-        if (esAdmin && !bodega_id) return setMsg('Selecciona una bodega');
+        if (esSuper && !bodega_id) return setMsg('Selecciona una bodega');
         setOrdenAbierta(true); setMsg('');
     };
     const cancelarOrden = () => {
@@ -461,7 +463,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                 {!ordenAbierta ? (
                     <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)', flexShrink: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: '#1a5c2a' }}>📤 Nueva orden de venta</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: esAdmin ? '1fr 1fr 160px 110px 90px' : '1fr 1fr 110px 90px', gap: 10, alignItems: 'flex-end' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: esSuper ? '1fr 1fr 160px 110px 90px' : '1fr 1fr 110px 90px', gap: 10, alignItems: 'flex-end' }}>
                             <div>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
                                     <span>Cliente *</span>
@@ -484,7 +486,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     {sedes.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                                 </select>
                             </label>
-                            {esAdmin && (
+                            {esSuper && (
                                 <label>
                                     <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Bodega *</div>
                                     <select value={bodega_id} onChange={e => setBodegaId(e.target.value)}
