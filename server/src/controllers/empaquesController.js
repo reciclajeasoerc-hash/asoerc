@@ -25,7 +25,7 @@ exports.registrar = async (req, res) => {
         const saldo     = entregada - devuelta;
         const e = await Empaque.create({
             tipo_actor, reciclador_id, conductor, bodega_id, observaciones,
-            fecha: fecha || new Date().toISOString().slice(0, 10),
+            fecha: fecha || require("../utils/fecha").hoy(),
             cantidad_entregada: entregada, cantidad_devuelta: devuelta, saldo
         });
         res.json({ ok: true, empaque: e });

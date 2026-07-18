@@ -64,7 +64,7 @@ exports.crearPrestamo = async (req, res) => {
         if (!monto) return res.status(400).json({ ok: false, msg: 'Monto requerido' });
         const p = await PrestamoEmpleado.create({
             empleado_id: req.params.id, monto, descripcion, quincena,
-            fecha: fecha || new Date().toISOString().slice(0, 10)
+            fecha: fecha || require("../utils/fecha").hoy()
         });
         res.json({ ok: true, prestamo: p });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }

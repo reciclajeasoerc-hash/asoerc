@@ -4,7 +4,7 @@ const { Op } = require('sequelize');
 exports.dashboard = async (req, res) => {
     try {
         const { bodega_id } = req.query;
-        const hoy = new Date().toISOString().slice(0, 10);
+        const hoy = require("../utils/fecha").hoy();
         const whereCompra = { fecha: hoy, estado: 'finalizada' };
         const whereVenta  = { fecha: hoy };
         if (bodega_id) { whereCompra.bodega_id = bodega_id; whereVenta.bodega_id = bodega_id; }

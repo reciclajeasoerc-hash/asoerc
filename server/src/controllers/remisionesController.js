@@ -39,7 +39,7 @@ exports.crear = async (req, res) => {
         let total_kilos = 0;
         const remision = await Remision.create({
             conductor, cliente_id, sede_id, bodega_id, foto_url,
-            fecha: fecha || new Date().toISOString().slice(0, 10),
+            fecha: fecha || require("../utils/fecha").hoy(),
             hora_llegada, vehiculo, observaciones, total_kilos
         });
         if (items) {

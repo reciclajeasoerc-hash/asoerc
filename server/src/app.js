@@ -359,12 +359,17 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Materials ADD COLUMN orden INT DEFAULT 999").catch(() => {});
             await sequelize.query("ALTER TABLE PrestamoRecicladors ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
             await sequelize.query("ALTER TABLE PrestamoEmpleados ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
+            // Índice único: una sola caja por bodega y día (evita cajas duplicadas por concurrencia)
+            await sequelize.query("ALTER TABLE Cajas ADD UNIQUE INDEX uniq_caja_dia (bodega_id, fecha)").catch(() => {});
+            // Tabla de respaldos automáticos
+            await sequelize.query("CREATE TABLE IF NOT EXISTS respaldos (fecha DATE PRIMARY KEY, contenido LONGTEXT, created_at DATETIME)").catch(() => {});
             await sequelize.sync();
             await seed();
             await seedEcology();
             await seedOrdenMateriales().catch(e => console.error('Orden materiales error:', e.message));
             app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
             try { startBot(); } catch(e) { console.error('Bot init error:', e.message); }
+            try { require('./services/backup').initBackup(); } catch(e) { console.error('Backup init error:', e.message); }
             iniciarVerificacion().catch(e => console.error('Licencia init error:', e.message));
             return;
         } catch (err) {

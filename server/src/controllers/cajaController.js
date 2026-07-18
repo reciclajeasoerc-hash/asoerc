@@ -3,7 +3,7 @@ const { Caja, MovimientoCaja, Bodega } = require('../models');
 exports.obtenerOAbrir = async (req, res) => {
     try {
         const { bodega_id } = req.query;
-        const fecha = new Date().toISOString().slice(0, 10);
+        const fecha = require("../utils/fecha").hoy();
         let caja = await Caja.findOne({ where: { bodega_id, fecha }, include: [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }] });
         if (!caja) {
             // Tomar saldo final del día anterior como saldo inicial

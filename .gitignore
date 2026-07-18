@@ -4,3 +4,9 @@ client/node_modules/
 server/.env
 server/uploads/
 *.log
+
+# Archivos grandes / videos sueltos (no van al repo)
+*.insv
+*.mp4
+*.mov
+VID_*

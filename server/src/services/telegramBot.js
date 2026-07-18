@@ -320,7 +320,7 @@ async function obtenerOCrearCaja(bodega_id, hoy) {
 }
 
 async function ejecutarHerramienta(nombre, args, chatId) {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = require("../utils/fecha").hoy();
     console.log(`🔧 [${nombre}]`, JSON.stringify(args));
 
     switch (nombre) {
@@ -971,7 +971,7 @@ async function generarBackup() {
         catch (e) { dump[nombre] = { _error: e.message }; }
     }
     const gz = zlib.gzipSync(Buffer.from(JSON.stringify(dump), 'utf8'));
-    const fecha = new Date().toISOString().slice(0, 10);
+    const fecha = require("../utils/fecha").hoy();
     return { nombre: `backup-asoerc-${fecha}.json.gz`, buffer: gz, kb: Math.round(gz.length / 1024) };
 }
 

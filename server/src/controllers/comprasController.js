@@ -1,6 +1,8 @@
 const { sequelize, Compra, CompraItem, Reciclador, Material, Bodega, PrestamoReciclador, Caja, MovimientoCaja, MaterialPrecioReciclador } = require('../models');
 const { Op } = require('sequelize');
 const whatsappService = require('../services/whatsappService');
+const { hoy } = require('../utils/fecha');
+const { recalcularCaja, obtenerCajaDia } = require('../utils/caja');
 
 const include = [
     { model: Reciclador, as: 'reciclador' },
@@ -38,7 +40,7 @@ exports.crear = async (req, res) => {
         if (!reciclador_id || !bodega_id) return res.status(400).json({ ok: false, msg: 'Reciclador y bodega requeridos' });
         const compra = await Compra.create({
             reciclador_id, bodega_id,
-            fecha: fecha || new Date().toISOString().slice(0, 10),
+            fecha: fecha || hoy(),
             observaciones, estado: 'borrador'
         });
         const full = await Compra.findByPk(compra.id, { include });
@@ -58,14 +60,16 @@ exports.agregarItem = async (req, res) => {
         const precio_unitario = precioEsp ? parseFloat(precioEsp.precio) : parseFloat(material.precio_compra);
         const total = parseFloat(kilos) * precio_unitario;
 
-        // Si ya existe ese material en la compra, actualizar
-        const existente = await CompraItem.findOne({ where: { compra_id: compra.id, material_id } });
-        if (existente) {
-            const nuevosKilos = parseFloat(existente.kilos) + parseFloat(kilos);
-            await existente.update({ kilos: nuevosKilos, total: nuevosKilos * precio_unitario });
-        } else {
-            await CompraItem.create({ compra_id: compra.id, material_id, kilos, precio_unitario, total });
-        }
+        // Acumular kilos de forma SEGURA ante concurrencia (transacción con bloqueo de fila).
+        await sequelize.transaction(async (t) => {
+            const existente = await CompraItem.findOne({ where: { compra_id: compra.id, material_id }, lock: t.LOCK.UPDATE, transaction: t });
+            if (existente) {
+                const nuevosKilos = parseFloat(existente.kilos) + parseFloat(kilos);
+                await existente.update({ kilos: nuevosKilos, total: nuevosKilos * precio_unitario }, { transaction: t });
+            } else {
+                await CompraItem.create({ compra_id: compra.id, material_id, kilos, precio_unitario, total }, { transaction: t });
+            }
+        });
         await recalcularTotal(compra.id);
         const full = await Compra.findByPk(compra.id, { include });
         res.json({ ok: true, compra: full });
@@ -86,7 +90,9 @@ exports.finalizar = async (req, res) => {
     // juntos o no se actualiza nada. Así nunca queda la plata a medias si algo falla.
     const t = await sequelize.transaction();
     try {
-        const compra = await Compra.findByPk(req.params.id, { include, transaction: t });
+        // Bloqueo de fila: dos finalizaciones simultáneas de la MISMA compra se serializan
+        // → la segunda ve 'finalizada' y no vuelve a registrar el egreso (evita pagar doble).
+        const compra = await Compra.findByPk(req.params.id, { include, lock: t.LOCK.UPDATE, transaction: t });
         if (!compra) { await t.rollback(); return res.status(404).json({ ok: false, msg: 'Compra no encontrada' }); }
         if (compra.estado === 'finalizada') { await t.rollback(); return res.status(400).json({ ok: false, msg: 'Ya finalizada' }); }
 
@@ -129,9 +135,12 @@ exports.finalizar = async (req, res) => {
                 const anterior = await Caja.findOne({ where: { bodega_id: compra.bodega_id }, order: [['fecha', 'DESC']], transaction: t });
                 caja = await Caja.create({ bodega_id: compra.bodega_id, fecha: fechaHoy, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 }, { transaction: t });
             }
-            const hora = new Date().toTimeString().slice(0, 8);
+            const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
             await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora, referencia: `compra:${compra.id}` }, { transaction: t });
-            await caja.update({ total_egresos: parseFloat(caja.total_egresos) + neto, saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) - (parseFloat(caja.total_egresos) + neto) }, { transaction: t });
+            // Ajuste ATÓMICO de la caja (no lee-modifica-escribe → no se pierden egresos simultáneos)
+            await sequelize.query(
+                'UPDATE Cajas SET total_egresos = total_egresos + ?, saldo_final = saldo_inicial + total_ingresos - total_egresos WHERE id = ?',
+                { replacements: [neto, caja.id], transaction: t });
         }
 
         await t.commit(); // ← a partir de aquí ya está todo guardado en firme
@@ -165,8 +174,8 @@ exports.eliminar = async (req, res) => {
 exports.resumenDia = async (req, res) => {
     try {
         const { fecha, bodega_id } = req.query;
-        const hoy = fecha || new Date().toISOString().slice(0, 10);
-        const where = { fecha: hoy, estado: 'finalizada' };
+        const fechaConsulta = fecha || hoy();
+        const where = { fecha: fechaConsulta, estado: 'finalizada' };
         if (bodega_id) where.bodega_id = bodega_id;
         const compras = await Compra.findAll({ where, include });
         const totalKilos = compras.reduce((s, c) => s + c.items.reduce((a, i) => a + parseFloat(i.kilos), 0), 0);

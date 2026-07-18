@@ -119,7 +119,7 @@ exports.crearPrestamo = async (req, res) => {
         const { monto, fecha, descripcion } = req.body;
         if (!monto) return res.status(400).json({ ok: false, msg: 'Monto requerido' });
         const prestamo = await PrestamoReciclador.create({
-            reciclador_id, monto, fecha: fecha || new Date().toISOString().slice(0, 10), descripcion
+            reciclador_id, monto, fecha: fecha || require("../utils/fecha").hoy(), descripcion
         });
         await Reciclador.increment('saldo_prestamo', { by: parseFloat(monto), where: { id: reciclador_id } });
         res.json({ ok: true, prestamo });

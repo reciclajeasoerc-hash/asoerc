@@ -14,12 +14,12 @@ async function registrarEnCaja(bodega_id, fecha, total, concepto, referencia = '
         const anterior = await Caja.findOne({ where: { bodega_id }, order: [['fecha', 'DESC']], transaction: t });
         caja = await Caja.create({ bodega_id, fecha, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 }, { transaction: t });
     }
-    const hora = new Date().toTimeString().slice(0, 8);
+    const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
     await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora, referencia }, { transaction: t });
-    await caja.update({
-        total_ingresos: parseFloat(caja.total_ingresos) + total,
-        saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) + total - parseFloat(caja.total_egresos)
-    }, { transaction: t });
+    // Ajuste ATÓMICO de la caja (no lee-modifica-escribe → no se pierden ingresos simultáneos)
+    await sequelize.query(
+        'UPDATE Cajas SET total_ingresos = total_ingresos + ?, saldo_final = saldo_inicial + total_ingresos - total_egresos WHERE id = ?',
+        { replacements: [total, caja.id], transaction: t });
 }
 
 exports.listar = async (req, res) => {
@@ -56,7 +56,7 @@ exports.crear = async (req, res) => {
         let total = 0;
         const ventaData = await Venta.create({
             cliente_id, sede_id, bodega_id,
-            fecha: fecha || new Date().toISOString().slice(0, 10),
+            fecha: fecha || require("../utils/fecha").hoy(),
             tipo_pago: tipo_pago || 'pendiente', observaciones, estado: 'orden'
         }, { transaction: t });
 
@@ -73,7 +73,7 @@ exports.crear = async (req, res) => {
 
         // Registrar en caja si el pago ya fue recibido
         if (tipo_pago && tipo_pago !== 'pendiente') {
-            const fechaVenta = fecha || new Date().toISOString().slice(0, 10);
+            const fechaVenta = fecha || require("../utils/fecha").hoy();
             await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`, `venta:${ventaData.id}`, t);
             await ventaData.update({ estado: 'pagada' }, { transaction: t });
         }
