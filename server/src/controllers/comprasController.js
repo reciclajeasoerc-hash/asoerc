@@ -129,12 +129,9 @@ exports.finalizar = async (req, res) => {
 
         // Registrar egreso en caja automáticamente
         if (neto > 0) {
-            const fechaHoy = compra.fecha;
-            let caja = await Caja.findOne({ where: { bodega_id: compra.bodega_id, fecha: fechaHoy }, transaction: t });
-            if (!caja) {
-                const anterior = await Caja.findOne({ where: { bodega_id: compra.bodega_id }, order: [['fecha', 'DESC']], transaction: t });
-                caja = await Caja.create({ bodega_id: compra.bodega_id, fecha: fechaHoy, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 }, { transaction: t });
-            }
+            // Caja del día resiliente ante concurrencia (findOrCreate + índice único: no duplica ni falla
+            // si dos compras la crean a la vez). Se obtiene FUERA de la transacción para que quede en firme.
+            const caja = await obtenerCajaDia(compra.bodega_id, compra.fecha);
             const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
             await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora, referencia: `compra:${compra.id}` }, { transaction: t });
             // Ajuste ATÓMICO de la caja (no lee-modifica-escribe → no se pierden egresos simultáneos)

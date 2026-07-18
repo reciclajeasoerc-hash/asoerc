@@ -1,4 +1,5 @@
 const { sequelize, Venta, VentaItem, Cliente, ClienteSede, Material, MaterialPrecioCliente, Bodega, Caja, MovimientoCaja } = require('../models');
+const { obtenerCajaDia } = require('../utils/caja');
 
 const include = [
     { model: Cliente, as: 'cliente', include: [{ model: MaterialPrecioCliente, as: 'precios', include: [{ model: Material, as: 'material' }] }] },
@@ -9,11 +10,8 @@ const include = [
 
 async function registrarEnCaja(bodega_id, fecha, total, concepto, referencia = '', t = null) {
     if (!total || total <= 0) return;
-    let caja = await Caja.findOne({ where: { bodega_id, fecha }, transaction: t });
-    if (!caja) {
-        const anterior = await Caja.findOne({ where: { bodega_id }, order: [['fecha', 'DESC']], transaction: t });
-        caja = await Caja.create({ bodega_id, fecha, saldo_inicial: anterior ? parseFloat(anterior.saldo_final) : 0 }, { transaction: t });
-    }
+    // Caja del día resiliente ante concurrencia (findOrCreate + índice único: no duplica ni falla).
+    const caja = await obtenerCajaDia(bodega_id, fecha);
     const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
     await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora, referencia }, { transaction: t });
     // Ajuste ATÓMICO de la caja (no lee-modifica-escribe → no se pierden ingresos simultáneos)
