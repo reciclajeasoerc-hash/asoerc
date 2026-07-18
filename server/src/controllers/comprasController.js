@@ -85,7 +85,7 @@ exports.quitarItem = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
-exports.finalizar = async (req, res) => {
+exports.finalizar = async (req, res, _intento = 0) => {
     // TODO en una TRANSACCIÓN: préstamos, saldo del reciclador y caja se actualizan
     // juntos o no se actualiza nada. Así nunca queda la plata a medias si algo falla.
     const t = await sequelize.transaction();
@@ -153,6 +153,13 @@ exports.finalizar = async (req, res) => {
         res.json({ ok: true, compra: full });
     } catch (err) {
         await t.rollback();
+        // Bajo mucha concurrencia MySQL puede dar deadlock (1213) o lock timeout (1205):
+        // se reintenta la finalización unas veces antes de rendirse.
+        const errno = err.original?.errno || err.parent?.errno;
+        if ((errno === 1213 || errno === 1205) && _intento < 4) {
+            await new Promise(r => setTimeout(r, 120 * (_intento + 1)));
+            return exports.finalizar(req, res, _intento + 1);
+        }
         res.status(500).json({ ok: false, msg: err.message });
     }
 };
