@@ -2,7 +2,7 @@ const { sequelize, Compra, CompraItem, Reciclador, Material, Bodega, PrestamoRec
 const { Op } = require('sequelize');
 const whatsappService = require('../services/whatsappService');
 const { hoy } = require('../utils/fecha');
-const { recalcularCaja, obtenerCajaDia } = require('../utils/caja');
+const { recalcularCaja, obtenerCajaDia, sumarEnCaja } = require('../utils/caja');
 
 const include = [
     { model: Reciclador, as: 'reciclador' },
@@ -138,8 +138,8 @@ exports.finalizar = async (req, res, _intento = 0) => {
         }
 
         await t.commit(); // ← a partir de aquí ya está todo guardado en firme
-        // Recalcular totales de la caja fuera de la transacción (suma sus movimientos → se auto-corrige, sin trabar)
-        if (cajaIdRecalcular) await recalcularCaja(cajaIdRecalcular);
+        // Sumar el egreso a la caja de forma atómica y O(1), fuera de la transacción (rápido, sin trabar)
+        if (cajaIdRecalcular) await sumarEnCaja(cajaIdRecalcular, 'egreso', neto);
 
         // Enviar por WhatsApp (FUERA de la transacción: es un envío externo, no debe
         // revertir la compra si WhatsApp falla).

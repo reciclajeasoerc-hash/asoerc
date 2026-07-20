@@ -37,4 +37,15 @@ async function obtenerCajaDia(bodega_id, fecha) {
     return await Caja.findOne({ where: { bodega_id, fecha } });
 }
 
-module.exports = { recalcularCaja, obtenerCajaDia };
+// Suma UN monto a la caja de forma ATÓMICA y O(1) (un solo UPDATE de una fila, con la fila
+// bloqueada solo ese instante). Es lo que se usa en el camino caliente (tras el commit):
+// rápido y a prueba de carreras aunque haya 50 a la vez.
+async function sumarEnCaja(caja_id, tipo, monto) {
+    const campo = tipo === 'ingreso' ? 'total_ingresos' : 'total_egresos';
+    await sequelize.query(
+        `UPDATE Cajas SET ${campo} = ${campo} + ?, saldo_final = saldo_inicial + total_ingresos - total_egresos WHERE id = ?`,
+        { replacements: [monto, caja_id] }
+    );
+}
+
+module.exports = { recalcularCaja, obtenerCajaDia, sumarEnCaja };

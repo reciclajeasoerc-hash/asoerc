@@ -1,5 +1,5 @@
 const { sequelize, Venta, VentaItem, Cliente, ClienteSede, Material, MaterialPrecioCliente, Bodega, Caja, MovimientoCaja } = require('../models');
-const { obtenerCajaDia, recalcularCaja } = require('../utils/caja');
+const { obtenerCajaDia, recalcularCaja, sumarEnCaja } = require('../utils/caja');
 
 const include = [
     { model: Cliente, as: 'cliente', include: [{ model: MaterialPrecioCliente, as: 'precios', include: [{ model: Material, as: 'material' }] }] },
@@ -76,7 +76,7 @@ exports.crear = async (req, res) => {
         }
 
         await t.commit();
-        if (cajaId) await recalcularCaja(cajaId);
+        if (cajaId) await sumarEnCaja(cajaId, 'ingreso', total);
         const full = await Venta.findByPk(ventaData.id, { include });
         res.json({ ok: true, venta: full });
     } catch (err) {
@@ -106,7 +106,7 @@ exports.actualizarEstado = async (req, res) => {
         }
 
         await t.commit();
-        if (cajaId) await recalcularCaja(cajaId);
+        if (cajaId) await sumarEnCaja(cajaId, 'ingreso', parseFloat(venta.total));
         res.json({ ok: true, venta });
     } catch (err) {
         await t.rollback();
