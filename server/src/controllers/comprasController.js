@@ -86,6 +86,13 @@ exports.quitarItem = async (req, res) => {
 };
 
 exports.finalizar = async (req, res, _intento = 0) => {
+    // La caja del día se obtiene ANTES de abrir la transacción, para no retener dos conexiones
+    // a la vez (evita agotar el pool y trabar bajo mucha concurrencia).
+    const pre = await Compra.findByPk(req.params.id, { attributes: ['bodega_id', 'fecha', 'estado'] });
+    if (!pre) return res.status(404).json({ ok: false, msg: 'Compra no encontrada' });
+    if (pre.estado === 'finalizada') return res.status(400).json({ ok: false, msg: 'Ya finalizada' });
+    const caja = await obtenerCajaDia(pre.bodega_id, pre.fecha);
+
     // TODO en una TRANSACCIÓN: préstamos, saldo del reciclador y caja se actualizan
     // juntos o no se actualiza nada. Así nunca queda la plata a medias si algo falla.
     const t = await sequelize.transaction();
@@ -128,18 +135,17 @@ exports.finalizar = async (req, res, _intento = 0) => {
         }
 
         // Registrar egreso en caja: solo se CREA el movimiento (un INSERT nunca choca ni se pierde).
-        // Los totales de la caja se recalculan DESPUÉS del commit (mínima contención, a prueba de carreras).
-        let cajaIdRecalcular = null;
+        // El total de la caja se suma atómicamente DESPUÉS del commit.
+        let hayEgreso = false;
         if (neto > 0) {
-            const caja = await obtenerCajaDia(compra.bodega_id, compra.fecha);
             const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
             await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora, referencia: `compra:${compra.id}` }, { transaction: t });
-            cajaIdRecalcular = caja.id;
+            hayEgreso = true;
         }
 
         await t.commit(); // ← a partir de aquí ya está todo guardado en firme
         // Sumar el egreso a la caja de forma atómica y O(1), fuera de la transacción (rápido, sin trabar)
-        if (cajaIdRecalcular) await sumarEnCaja(cajaIdRecalcular, 'egreso', neto);
+        if (hayEgreso) await sumarEnCaja(caja.id, 'egreso', neto);
 
         // Enviar por WhatsApp (FUERA de la transacción: es un envío externo, no debe
         // revertir la compra si WhatsApp falla).

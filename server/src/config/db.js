@@ -6,7 +6,7 @@ const sequelize = dbUrl
     ? new Sequelize(dbUrl, {
         dialect: 'mysql',
         logging: false,
-        pool: { max: 15, min: 1, acquire: 30000, idle: 10000 },
+        pool: { max: 20, min: 1, acquire: 30000, idle: 10000 },
         dialectOptions: { ssl: false }
     })
     : new Sequelize(
@@ -18,7 +18,7 @@ const sequelize = dbUrl
             port: parseInt(process.env.DB_PORT) || 3306,
             dialect: 'mysql',
             logging: false,
-            pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
+            pool: { max: 20, min: 0, acquire: 30000, idle: 10000 }
         }
     );
 
