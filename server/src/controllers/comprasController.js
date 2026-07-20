@@ -127,20 +127,19 @@ exports.finalizar = async (req, res, _intento = 0) => {
             await Reciclador.decrement('saldo_prestamo', { by: descuento, where: { id: compra.reciclador_id }, transaction: t });
         }
 
-        // Registrar egreso en caja automáticamente
+        // Registrar egreso en caja: solo se CREA el movimiento (un INSERT nunca choca ni se pierde).
+        // Los totales de la caja se recalculan DESPUÉS del commit (mínima contención, a prueba de carreras).
+        let cajaIdRecalcular = null;
         if (neto > 0) {
-            // Caja del día resiliente ante concurrencia (findOrCreate + índice único: no duplica ni falla
-            // si dos compras la crean a la vez). Se obtiene FUERA de la transacción para que quede en firme.
             const caja = await obtenerCajaDia(compra.bodega_id, compra.fecha);
             const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
             await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.numero || compra.id} - ${compra.reciclador?.nombre}`, monto: neto, hora, referencia: `compra:${compra.id}` }, { transaction: t });
-            // Ajuste ATÓMICO de la caja (no lee-modifica-escribe → no se pierden egresos simultáneos)
-            await sequelize.query(
-                'UPDATE Cajas SET total_egresos = total_egresos + ?, saldo_final = saldo_inicial + total_ingresos - total_egresos WHERE id = ?',
-                { replacements: [neto, caja.id], transaction: t });
+            cajaIdRecalcular = caja.id;
         }
 
         await t.commit(); // ← a partir de aquí ya está todo guardado en firme
+        // Recalcular totales de la caja fuera de la transacción (suma sus movimientos → se auto-corrige, sin trabar)
+        if (cajaIdRecalcular) await recalcularCaja(cajaIdRecalcular);
 
         // Enviar por WhatsApp (FUERA de la transacción: es un envío externo, no debe
         // revertir la compra si WhatsApp falla).

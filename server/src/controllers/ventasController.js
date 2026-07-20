@@ -1,5 +1,5 @@
 const { sequelize, Venta, VentaItem, Cliente, ClienteSede, Material, MaterialPrecioCliente, Bodega, Caja, MovimientoCaja } = require('../models');
-const { obtenerCajaDia } = require('../utils/caja');
+const { obtenerCajaDia, recalcularCaja } = require('../utils/caja');
 
 const include = [
     { model: Cliente, as: 'cliente', include: [{ model: MaterialPrecioCliente, as: 'precios', include: [{ model: Material, as: 'material' }] }] },
@@ -9,15 +9,13 @@ const include = [
 ];
 
 async function registrarEnCaja(bodega_id, fecha, total, concepto, referencia = '', t = null) {
-    if (!total || total <= 0) return;
-    // Caja del día resiliente ante concurrencia (findOrCreate + índice único: no duplica ni falla).
+    if (!total || total <= 0) return null;
+    // Solo se CREA el movimiento (un INSERT nunca choca ni se pierde). Los totales de la caja
+    // los recalcula el que llama, DESPUÉS del commit (mínima contención, a prueba de carreras).
     const caja = await obtenerCajaDia(bodega_id, fecha);
     const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
     await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto, monto: total, hora, referencia }, { transaction: t });
-    // Ajuste ATÓMICO de la caja (no lee-modifica-escribe → no se pierden ingresos simultáneos)
-    await sequelize.query(
-        'UPDATE Cajas SET total_ingresos = total_ingresos + ?, saldo_final = saldo_inicial + total_ingresos - total_egresos WHERE id = ?',
-        { replacements: [total, caja.id], transaction: t });
+    return caja.id;
 }
 
 exports.listar = async (req, res) => {
@@ -70,13 +68,15 @@ exports.crear = async (req, res) => {
         await ventaData.update({ total }, { transaction: t });
 
         // Registrar en caja si el pago ya fue recibido
+        let cajaId = null;
         if (tipo_pago && tipo_pago !== 'pendiente') {
             const fechaVenta = fecha || require("../utils/fecha").hoy();
-            await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`, `venta:${ventaData.id}`, t);
+            cajaId = await registrarEnCaja(bodega_id, fechaVenta, total, `Venta #${ventaData.numero || ventaData.id} - ${cliente?.nombre}`, `venta:${ventaData.id}`, t);
             await ventaData.update({ estado: 'pagada' }, { transaction: t });
         }
 
         await t.commit();
+        if (cajaId) await recalcularCaja(cajaId);
         const full = await Venta.findByPk(ventaData.id, { include });
         res.json({ ok: true, venta: full });
     } catch (err) {
@@ -98,13 +98,15 @@ exports.actualizarEstado = async (req, res) => {
         await venta.update(update, { transaction: t });
 
         // Si marcan como pagada y aún no estaba pagada → registrar el ingreso en caja (una sola vez)
+        let cajaId = null;
         if (estado === 'pagada' && estadoAnterior !== 'pagada') {
             const tp = tipo_pago || venta.tipo_pago;
-            await registrarEnCaja(venta.bodega_id, venta.fecha, parseFloat(venta.total),
+            cajaId = await registrarEnCaja(venta.bodega_id, venta.fecha, parseFloat(venta.total),
                 `Venta #${venta.numero || venta.id} - ${venta.cliente?.nombre} (${tp})`, `venta:${venta.id}`, t);
         }
 
         await t.commit();
+        if (cajaId) await recalcularCaja(cajaId);
         res.json({ ok: true, venta });
     } catch (err) {
         await t.rollback();
