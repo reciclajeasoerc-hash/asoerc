@@ -173,10 +173,41 @@ exports.eliminar = async (req, res) => {
     try {
         const compra = await Compra.findByPk(req.params.id);
         if (!compra) return res.status(404).json({ ok: false, msg: 'Compra no encontrada' });
-        if (compra.estado === 'finalizada') return res.status(400).json({ ok: false, msg: 'No se puede eliminar una compra finalizada' });
-        await CompraItem.destroy({ where: { compra_id: compra.id } });
-        await compra.destroy();
-        res.json({ ok: true });
+
+        // Un BORRADOR lo puede borrar cualquiera (aún no movió plata).
+        if (compra.estado !== 'finalizada') {
+            await CompraItem.destroy({ where: { compra_id: compra.id } });
+            await compra.destroy();
+            return res.json({ ok: true });
+        }
+
+        // FINALIZADA: solo administrador o super administrador (ya movió caja/préstamos).
+        const rol = req.user?.rol;
+        if (rol !== 'admin' && rol !== 'superadmin')
+            return res.status(403).json({ ok: false, msg: 'Solo un administrador o super administrador puede eliminar una compra ya finalizada.' });
+
+        // Si descontó préstamos, no se puede revertir automáticamente sin arriesgar el saldo del
+        // reciclador → se avisa para ajustarlo a mano (evita corromper la plata de los préstamos).
+        if (parseFloat(compra.descuento_prestamo || 0) > 0) {
+            const fmt = n => '$' + Number(n).toLocaleString('es-CO');
+            return res.status(400).json({ ok: false, msg: `Esta compra descontó préstamo (${fmt(compra.descuento_prestamo)}) del reciclador. Ajusta primero su préstamo y vuelve a intentar.` });
+        }
+
+        // Revertir de forma segura: borrar el egreso de caja, desvincular préstamos, borrar ítems y la compra.
+        const movs = await MovimientoCaja.findAll({ where: { referencia: `compra:${compra.id}` } });
+        const cajaIds = [...new Set(movs.map(m => m.caja_id))];
+        const t = await sequelize.transaction();
+        try {
+            await MovimientoCaja.destroy({ where: { referencia: `compra:${compra.id}` }, transaction: t });
+            await PrestamoReciclador.update({ compra_id: null }, { where: { compra_id: compra.id }, transaction: t });
+            await CompraItem.destroy({ where: { compra_id: compra.id }, transaction: t });
+            await compra.destroy({ transaction: t });
+            await t.commit();
+        } catch (e) { await t.rollback(); throw e; }
+        // Recalcular la(s) caja(s) afectada(s) desde sus movimientos (queda exacta).
+        for (const cid of cajaIds) await recalcularCaja(cid);
+
+        res.json({ ok: true, revertido: true });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 

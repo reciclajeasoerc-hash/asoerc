@@ -213,7 +213,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     if (mostrarRecibo) return (
         <div style={{ padding: isMobile ? 16 : 24 }}>
-            <Recibo compra={mostrarRecibo} onClose={() => setMostrarRecibo(null)} />
+            <Recibo compra={mostrarRecibo} onClose={() => setMostrarRecibo(null)} onEliminado={() => { setMostrarRecibo(null); cargarHoy(); }} />
         </div>
     );
 
@@ -661,15 +661,30 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 }
 
 /* ── Recibo ──────────────────────────────────────────────────────────────── */
-export function Recibo({ compra, onClose }) {
+export function Recibo({ compra, onClose, onEliminado }) {
     // Logo embebido en base64 para que SIEMPRE se imprima (sin depender de red/caché)
     const [logo, setLogo] = useState('/logo.png');
+    const [borrando, setBorrando] = useState(false);
+    const { user } = useAuth();
+    const puedeEliminar = (user?.rol === 'admin' || user?.rol === 'superadmin');
     useEffect(() => {
         fetch('/logo.png')
             .then(r => r.blob())
             .then(b => { const fr = new FileReader(); fr.onload = () => setLogo(fr.result); fr.readAsDataURL(b); })
             .catch(() => {});
     }, []);
+
+    async function eliminarCompra() {
+        if (!window.confirm(`¿ELIMINAR esta compra de ${compra.reciclador?.nombre} por $${fmt(compra.neto)}?\n\nSe revertirá el egreso de la caja. Úsalo solo para corregir un registro duplicado o equivocado.\nEsta acción NO se puede deshacer.`)) return;
+        setBorrando(true);
+        try {
+            await api.delete(`/compras/${compra.id}`);
+            onEliminado?.(compra.id);
+        } catch (e) {
+            alert(e?.message || 'No se pudo eliminar la compra.');
+            setBorrando(false);
+        }
+    }
     return (
         <div>
             <style>{`
@@ -700,6 +715,9 @@ export function Recibo({ compra, onClose }) {
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                 <button onClick={() => window.print()} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir recibo</button>
                 <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>← Volver</button>
+                {puedeEliminar && (
+                    <button onClick={eliminarCompra} disabled={borrando} title="Eliminar compra (solo administrador)" style={{ padding: '9px 16px', background: borrando ? '#fca5a5' : '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: borrando ? 'default' : 'pointer', marginLeft: 'auto' }}>{borrando ? 'Eliminando…' : '🗑️ Eliminar'}</button>
+                )}
             </div>
 
             <div className="recibo-contenido" style={{ background: '#fff', borderRadius: 10, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 460, fontFamily: 'monospace' }}>
