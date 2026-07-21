@@ -12,6 +12,9 @@ const {
 } = require('../models');
 const { Op } = require('sequelize');
 const whatsappService = require('./whatsappService');
+// Helpers de caja SEGUROS ante concurrencia (mismos que usa la web): evitan que dos
+// registros a la vez se pisen la plata. Antes el bot hacía leer-modificar-escribir.
+const { obtenerCajaDia, sumarEnCaja, recalcularCaja } = require('../utils/caja');
 
 // ── Estado por chat ───────────────────────────────────────────────────────
 const historiales     = new Map();
@@ -305,18 +308,10 @@ const TOOLS = [
 // ── Implementación de herramientas ────────────────────────────────────────
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
+// Usa el helper compartido: busca la caja del día y si no existe la crea con INSERT IGNORE
+// (índice único bodega+fecha) → nunca duplica la caja aunque lleguen dos registros a la vez.
 async function obtenerOCrearCaja(bodega_id, hoy) {
-    let caja = await Caja.findOne({ where: { bodega_id, fecha: hoy } });
-    if (!caja) {
-        const anterior = await Caja.findOne({ where: { bodega_id }, order: [['fecha', 'DESC']] });
-        caja = await Caja.create({
-            bodega_id, fecha: hoy,
-            saldo_inicial:  anterior ? parseFloat(anterior.saldo_final) : 0,
-            total_ingresos: 0, total_egresos: 0,
-            saldo_final:    anterior ? parseFloat(anterior.saldo_final) : 0
-        });
-    }
-    return caja;
+    return obtenerCajaDia(bodega_id, hoy);
 }
 
 async function ejecutarHerramienta(nombre, args, chatId) {
@@ -500,9 +495,8 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             if (esPagada) {
                 const caja = await obtenerOCrearCaja(bodega.id, hoy);
                 const hora = new Date().toTimeString().slice(0, 8);
-                await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto: `Venta #${venta.id}`, monto: args.total, hora });
-                const nuevoIngresos = parseFloat(caja.total_ingresos) + args.total;
-                await caja.update({ total_ingresos: nuevoIngresos, saldo_final: parseFloat(caja.saldo_inicial) + nuevoIngresos - parseFloat(caja.total_egresos) });
+                await MovimientoCaja.create({ caja_id: caja.id, tipo: 'ingreso', concepto: `Venta #${venta.id}`, monto: args.total, hora, referencia: `venta:${venta.id}` });
+                await sumarEnCaja(caja.id, 'ingreso', args.total);   // suma atómica O(1), a prueba de carreras
             }
 
             const fotoPendiente = fotosPendientes.get(chatId);
@@ -556,9 +550,8 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             const caja = await obtenerOCrearCaja(bodega.id, hoy);
             const hora = new Date().toTimeString().slice(0, 8);
             if (netoCompra > 0) {
-                await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.id}`, monto: netoCompra, hora });
-                const nuevoEgresos = parseFloat(caja.total_egresos) + netoCompra;
-                await caja.update({ total_egresos: nuevoEgresos, saldo_final: parseFloat(caja.saldo_inicial) + parseFloat(caja.total_ingresos) - nuevoEgresos });
+                await MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto: `Compra #${compra.id}`, monto: netoCompra, hora, referencia: `compra:${compra.id}` });
+                await sumarEnCaja(caja.id, 'egreso', netoCompra);   // resta atómica O(1), a prueba de carreras
             }
 
             try {
@@ -589,11 +582,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
                 if (!venta) return JSON.stringify({ ok: false, mensaje: 'Venta no encontrada.' });
                 if (caja) {
                     const mov = await MovimientoCaja.findOne({ where: { caja_id: caja.id, concepto: `Venta #${op.id}` } });
-                    if (mov) {
-                        const m = parseFloat(mov.monto);
-                        await caja.update({ total_ingresos: parseFloat(caja.total_ingresos) - m, saldo_final: parseFloat(caja.saldo_final) - m });
-                        await mov.destroy();
-                    }
+                    if (mov) { await mov.destroy(); await recalcularCaja(caja.id); }
                 }
                 await VentaItem.destroy({ where: { venta_id: op.id } });
                 await venta.destroy();
@@ -606,11 +595,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
                 if (!compra) return JSON.stringify({ ok: false, mensaje: 'Compra no encontrada.' });
                 if (caja) {
                     const mov = await MovimientoCaja.findOne({ where: { caja_id: caja.id, concepto: `Compra #${op.id}` } });
-                    if (mov) {
-                        const m = parseFloat(mov.monto);
-                        await caja.update({ total_egresos: parseFloat(caja.total_egresos) - m, saldo_final: parseFloat(caja.saldo_final) + m });
-                        await mov.destroy();
-                    }
+                    if (mov) { await mov.destroy(); await recalcularCaja(caja.id); }
                 }
                 // Restaurar los préstamos que esta compra descontó (revertir abonos y saldo)
                 const descPrestamo = parseFloat(compra.descuento_prestamo || 0);
@@ -718,7 +703,7 @@ async function procesarConIA(chatId, mensajeUsuario, toolsActivas = TOOLS) {
         const resp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gpt-4o', messages, tools: toolsActivas, tool_choice: 'auto', max_tokens: 1000 })
+            body: JSON.stringify({ model: 'gpt-4o-mini', messages, tools: toolsActivas, tool_choice: 'auto', max_tokens: 1000 })
         });
         const data = await resp.json();
         if (data.error) throw new Error(data.error.message);
@@ -840,11 +825,33 @@ async function obtenerChat(chatId) {
     } catch { return { autorizado: true, rol: 'admin', nombre: null }; }
 }
 
+// ── Anti-reproceso persistente + cola serial por chat ─────────────────────────
+// Candado en BD: si Telegram reentrega un mensaje viejo (reinicio/redeploy) NO se
+// vuelve a registrar la operación. La tabla se crea al arrancar el bot.
+async function yaRegistrado(chatId, messageId) {
+    if (!messageId) return false;
+    try {
+        await sequelize.query('INSERT INTO mensajes_procesados (clave, created_at) VALUES (?, NOW())', { replacements: [`${chatId}:${messageId}`] });
+        return false;
+    } catch { return true; }   // choca la PK → ese mensaje ya se había procesado
+}
+// Cola serial POR CHAT: los mensajes de un MISMO usuario se atienden uno por uno (evita
+// carreras si manda dos seguidos), pero chats distintos siguen en paralelo (no frena a todos).
+const colasChat = new Map();
+function encolar(chatId, fn) {
+    const prev = colasChat.get(chatId) || Promise.resolve();
+    const next = prev.then(fn, fn);
+    colasChat.set(chatId, next);
+    next.finally(() => { if (colasChat.get(chatId) === next) colasChat.delete(chatId); });
+    return next;
+}
+
 // ── Bot ───────────────────────────────────────────────────────────────────
 // Maneja un mensaje entrante. Recibe la instancia de bot que lo recibió, para
 // soportar VARIOS bots (varios tokens) corriendo a la vez con las mismas funciones.
 async function manejarMensaje(bot, msg) {
         const chatId = msg.chat.id;
+        if (await yaRegistrado(chatId, msg.message_id)) return;   // ya procesado (reentrega/redeploy)
         try {
             // Verificar autorización y obtener rol
             const { autorizado, rol, nombre } = await obtenerChat(chatId);
@@ -1036,9 +1043,15 @@ function startBot() {
     const unicos = [...new Set(tokens)];
     if (!unicos.length) { console.log('⚠️  TELEGRAM_BOT_TOKEN no configurado'); return; }
 
+    // Tabla del candado anti-reproceso (persistente, sobrevive a redeploys) + limpieza de viejos.
+    sequelize.query('CREATE TABLE IF NOT EXISTS mensajes_procesados (clave VARCHAR(80) PRIMARY KEY, created_at DATETIME)')
+        .then(() => sequelize.query('DELETE FROM mensajes_procesados WHERE created_at < DATE_SUB(NOW(), INTERVAL 60 DAY)'))
+        .catch(() => {});
+
     unicos.forEach((token, i) => {
         const bot = new TelegramBot(token, { polling: true });
-        bot.on('message', (msg) => manejarMensaje(bot, msg));
+        // Cada mensaje pasa por la cola serial de SU chat (evita carreras del mismo usuario).
+        bot.on('message', (msg) => encolar(msg.chat.id, () => manejarMensaje(bot, msg)));
         bot.on('polling_error', err => console.error(`Telegram polling error (bot #${i + 1}):`, err.message));
         bots.push(bot);
         console.log(`🤖 Bot IA ASOERC #${i + 1} iniciado`);
