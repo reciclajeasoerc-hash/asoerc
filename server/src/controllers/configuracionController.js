@@ -1,5 +1,11 @@
 const { Configuracion, Bodega, Usuario } = require('../models');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+
+// El logo se guarda como data:URI (base64) DENTRO de la base de datos → sobrevive a los
+// redeploys de Railway (el disco es efímero y borra /uploads). Si un registro viejo todavía
+// tiene un nombre de archivo, se sirve por /uploads como respaldo.
+const resolverLogo = (v) => !v ? null : (v.startsWith('data:') ? v : `/uploads/${v}`);
 
 async function obtener(req, res) {
     try {
@@ -17,7 +23,7 @@ async function obtener(req, res) {
         res.json({
             ok: true,
             nombre,
-            logo_url: map['empresa_logo'] ? `/uploads/${map['empresa_logo']}` : null
+            logo_url: resolverLogo(map['empresa_logo'])
         });
     } catch (e) {
         res.json({ ok: true, nombre: 'ASOERC', logo_url: null });
@@ -33,7 +39,18 @@ async function actualizar(req, res) {
             if (bodega) await bodega.update({ nombre: req.body.nombre });
         }
         if (req.file) {
-            await Configuracion.upsert({ clave: 'empresa_logo', valor: req.file.filename });
+            // Convertir el archivo subido a data:URI (base64) y guardarlo en la BD (persistente).
+            let dataUri;
+            try {
+                const buf = fs.readFileSync(req.file.path);
+                dataUri = `data:${req.file.mimetype || 'image/png'};base64,${buf.toString('base64')}`;
+            } catch (e) {
+                // Si por algo no se pudo leer, caer al nombre de archivo (comportamiento viejo).
+                dataUri = req.file.filename;
+            }
+            await Configuracion.upsert({ clave: 'empresa_logo', valor: dataUri });
+            // El archivo temporal en /uploads ya no hace falta (el logo vive en la BD).
+            try { fs.unlinkSync(req.file.path); } catch { /* no pasa nada si no existe */ }
         }
         if (req.body.limpiar_logo === 'true') {
             await Configuracion.destroy({ where: { clave: 'empresa_logo' } });
@@ -46,7 +63,7 @@ async function actualizar(req, res) {
         res.json({
             ok: true,
             nombre: map['empresa_nombre'] || 'ASOERC',
-            logo_url: map['empresa_logo'] ? `/uploads/${map['empresa_logo']}` : null
+            logo_url: resolverLogo(map['empresa_logo'])
         });
     } catch (e) {
         res.status(500).json({ ok: false, msg: e.message });

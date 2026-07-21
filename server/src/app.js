@@ -361,6 +361,9 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE PrestamoEmpleados ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
             // Índice único: una sola caja por bodega y día (evita cajas duplicadas por concurrencia)
             await sequelize.query("ALTER TABLE Cajas ADD UNIQUE INDEX uniq_caja_dia (bodega_id, fecha)").catch(() => {});
+            // El logo de la empresa se guarda como base64 (data:URI) en configuracion.valor →
+            // debe ser MEDIUMTEXT para que quepa (TEXT normal se queda corto y sobrevive a redeploys).
+            await sequelize.query("ALTER TABLE configuracion MODIFY COLUMN valor MEDIUMTEXT").catch(() => {});
             // Tabla de respaldos automáticos
             await sequelize.query("CREATE TABLE IF NOT EXISTS respaldos (fecha DATE PRIMARY KEY, contenido LONGTEXT, created_at DATETIME)").catch(() => {});
             await sequelize.sync();
