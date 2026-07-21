@@ -169,19 +169,25 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
         setCompraActiva(d.compra);
     };
 
-    const finalizar = async () => {
+    const finalizar = async (confirmarDuplicado = false) => {
         if (!compraActiva?.items?.length) return setMsg('Agrega al menos un material');
         setLoading(true);
         try {
-            const d = await api.post(`/compras/${compraActiva.id}/finalizar`, {});
+            const d = await api.post(`/compras/${compraActiva.id}/finalizar`, confirmarDuplicado ? { confirmar_duplicado: true } : {});
+            // El servidor detectó una posible compra repetida: preguntar antes de registrar.
+            if (d && d.duplicado) {
+                setLoading(false);
+                if (window.confirm(d.msg)) finalizar(true);
+                return;
+            }
             setMostrarRecibo(d.compra);
             setCompraActiva(null);
             setCantidades({});
             setMsg('');
             cargarHoy();
             onCajaChange?.(bodega_id);
-        } catch (err) { setMsg(err.message); }
-        finally { setLoading(false); }
+            setLoading(false);
+        } catch (err) { setMsg(err.message); setLoading(false); }
     };
 
     const cancelar = async () => {
@@ -369,7 +375,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                             </div>
                             {msg && <div style={{ color: '#dc2626', fontSize: 12, padding: '0 16px 8px' }}>{msg}</div>}
                             <div style={{ padding: '0 12px 12px' }}>
-                                <button onClick={finalizar} disabled={loading}
+                                <button onClick={() => finalizar()} disabled={loading}
                                     style={{ width: '100%', padding: '14px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
                                     {loading ? 'Procesando...' : '✅ Finalizar y Generar Recibo'}
                                 </button>
@@ -635,7 +641,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                         <span style={{ fontSize: 24, fontWeight: 800, color: '#1a5c2a' }}>${fmt(totalCarrito)}</span>
                     </div>
                     {msg && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{msg}</div>}
-                    <button onClick={finalizar} disabled={loading || !compraActiva?.items?.length}
+                    <button onClick={() => finalizar()} disabled={loading || !compraActiva?.items?.length}
                         style={{ width: '100%', padding: '14px', background: compraActiva?.items?.length ? '#1a5c2a' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: compraActiva?.items?.length ? 'pointer' : 'default' }}>
                         {loading ? 'Procesando...' : '✅ Finalizar y Generar Recibo'}
                     </button>

@@ -88,9 +88,24 @@ exports.quitarItem = async (req, res) => {
 exports.finalizar = async (req, res, _intento = 0) => {
     // La caja del día se obtiene ANTES de abrir la transacción, para no retener dos conexiones
     // a la vez (evita agotar el pool y trabar bajo mucha concurrencia).
-    const pre = await Compra.findByPk(req.params.id, { attributes: ['bodega_id', 'fecha', 'estado'] });
+    const pre = await Compra.findByPk(req.params.id, { attributes: ['id', 'bodega_id', 'fecha', 'estado', 'reciclador_id', 'total'] });
     if (!pre) return res.status(404).json({ ok: false, msg: 'Compra no encontrada' });
     if (pre.estado === 'finalizada') return res.status(400).json({ ok: false, msg: 'Ya finalizada' });
+
+    // Aviso de posible DUPLICADO: si ya hay una compra finalizada hoy del MISMO reciclador por el
+    // MISMO total, se avisa y NO se registra hasta que el usuario confirme (evita registrar dos veces
+    // la misma carga). Se salta con confirmar_duplicado: true.
+    if (!req.body?.confirmar_duplicado) {
+        const dup = await Compra.findOne({
+            where: { id: { [Op.ne]: pre.id }, reciclador_id: pre.reciclador_id, fecha: pre.fecha, estado: 'finalizada', total: pre.total },
+            include: [{ model: Reciclador, as: 'reciclador', attributes: ['nombre'] }]
+        });
+        if (dup) {
+            const fmtc = n => '$' + Number(n).toLocaleString('es-CO');
+            return res.json({ ok: false, duplicado: true, msg: `⚠️ Ya tienes una compra de ${dup.reciclador?.nombre || 'este reciclador'} HOY por ${fmtc(pre.total)} (recibo #${dup.numero_diario || dup.id}).\n\n¿Es una carga distinta y quieres registrarla igual, o fue un error?` });
+        }
+    }
+
     const caja = await obtenerCajaDia(pre.bodega_id, pre.fecha);
 
     // TODO en una TRANSACCIÓN: préstamos, saldo del reciclador y caja se actualizan
