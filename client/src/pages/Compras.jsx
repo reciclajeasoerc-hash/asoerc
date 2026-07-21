@@ -197,6 +197,18 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
         setCompraActiva(null); setCantidades({});
     };
 
+    // Solo administrador o super administrador pueden borrar una compra ya finalizada.
+    const puedeEliminar = user?.rol === 'admin' || user?.rol === 'superadmin';
+    const borrarCompra = async (c, e) => {
+        e?.stopPropagation();   // no abrir el recibo al tocar la X
+        if (!window.confirm(`¿ELIMINAR la compra de ${c.reciclador?.nombre} por $${fmt(c.neto)}?\n\nSe revertirá el egreso de la caja. Úsalo solo para corregir un registro duplicado o equivocado.\nNo se puede deshacer.`)) return;
+        try {
+            await api.delete(`/compras/${c.id}`);
+            cargarHoy();
+            onCajaChange?.(bodega_id);
+        } catch (err) { alert(err.message || 'No se pudo eliminar la compra.'); }
+    };
+
     const totalCarrito = compraActiva?.items?.reduce((s, i) => s + parseFloat(i.total), 0) || 0;
     const c = materialActivo ? (CAT_COLORS[materialActivo.categoria] || CAT_COLORS['Varios']) : null;
 
@@ -432,7 +444,12 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         {parseFloat(c.descuento_prestamo) > 0 && (
                                             <div style={{ fontSize: 11, color: '#dc2626' }}>-${fmt(c.descuento_prestamo)} préstamo</div>
                                         )}
-                                        <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>Ver recibo →</div>
+                                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', marginTop: 4 }}>
+                                            <span style={{ fontSize: 11, color: '#888' }}>Ver recibo →</span>
+                                            {puedeEliminar && (
+                                                <span onClick={(e) => borrarCompra(c, e)} title="Eliminar compra (admin)" style={{ cursor: 'pointer', color: '#dc2626', fontWeight: 700, fontSize: 12, background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, padding: '2px 8px' }}>✕ Eliminar</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -656,6 +673,9 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ fontWeight: 700, color: '#1a5c2a' }}>${fmt(c.neto)}</span>
                                     <span title="Imprimir recibo" style={{ fontSize: 13 }}>🖨️</span>
+                                    {puedeEliminar && (
+                                        <span onClick={(e) => borrarCompra(c, e)} title="Eliminar compra (admin)" style={{ cursor: 'pointer', color: '#dc2626', fontWeight: 800, fontSize: 15, lineHeight: 1, padding: '0 4px' }}>✕</span>
+                                    )}
                                 </span>
                             </div>
                         ))}
