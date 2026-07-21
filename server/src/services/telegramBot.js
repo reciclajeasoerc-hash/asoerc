@@ -36,7 +36,8 @@ Tienes acceso total al sistema: ventas, compras, caja, recicladores, clientes, e
 ═══ REGLAS CRÍTICAS ═══
 1. USA SOLO los datos que el usuario diga explícitamente. Nunca rellenes con inferencias de fotos.
 2. CONFIRMACIÓN antes de registrar ventas o compras: muestra resumen y espera "sí"/"confirma"/"dale".
-3. Si el usuario dice "cancela"/"borra eso"/"estaba mal" → llama cancelar_ultima_operacion.
+3. Si el usuario dice "cancela"/"borra eso"/"estaba mal" → llama cancelar_ultima_operacion (deshace la ÚLTIMA operación de este chat).
+   Para borrar una compra ESPECÍFICA ya finalizada (ej. "borra la compra #7 de Cristian") → eliminar_compra. Solo admin/superadmin pueden; CONFIRMA el reciclador y el total antes de borrar.
 4. tipo_pago por defecto: "efectivo". Toda venta efectivo/transferencia va a caja automáticamente.
 5. Toda remisión es de COMPRA o de VENTA. Pregunta cuál antes de guardar.
 6. Si un material no existe, pregunta el precio y créalo con crear_material.
@@ -243,6 +244,20 @@ const TOOLS = [
             name: 'cancelar_ultima_operacion',
             description: 'Cancela y borra la última venta o compra registrada. Úsalo cuando el usuario diga que algo estuvo mal.',
             parameters: { type: 'object', properties: {} }
+        }
+    },
+    {
+        type: 'function', function: {
+            name: 'eliminar_compra',
+            description: 'Elimina una compra YA finalizada (para corregir un registro duplicado o equivocado). SOLO administrador o super administrador. Identifica la compra por su número de recibo del día (numero_diario) y/o el nombre del reciclador. Revierte el egreso de la caja. Antes de borrar, CONFIRMA con el usuario cuál es (muestra reciclador y total).',
+            parameters: {
+                type: 'object',
+                properties: {
+                    numero_diario: { type: 'integer', description: 'Número de recibo del día (el # que se ve en la lista de compras de hoy)' },
+                    reciclador_nombre: { type: 'string', description: 'Nombre del reciclador (para ubicar la compra si no dan el número)' },
+                    compra_id: { type: 'integer', description: 'ID interno de la compra, si se conoce' }
+                }
+            }
         }
     },
     // ── Caja y resúmenes ──────────────────────────────────────────────────
@@ -617,6 +632,45 @@ async function ejecutarHerramienta(nombre, args, chatId) {
                 return JSON.stringify({ ok: true, mensaje: `✅ Compra #${op.id} cancelada y revertida de caja.` });
             }
             return JSON.stringify({ ok: false, mensaje: 'Tipo desconocido.' });
+        }
+
+        // ── Eliminar una compra finalizada (solo admin/superadmin) ────────────
+        case 'eliminar_compra': {
+            const { rol } = await obtenerChat(chatId);
+            if (rol !== 'admin' && rol !== 'superadmin')
+                return JSON.stringify({ ok: false, error: 'Solo un administrador o super administrador puede eliminar una compra.' });
+
+            // Ubicar la compra (por id, o por reciclador/número del día).
+            let compra = null;
+            if (args.compra_id) {
+                compra = await Compra.findByPk(args.compra_id, { include: [{ model: Reciclador, as: 'reciclador' }] });
+            } else {
+                let candidatas = await Compra.findAll({ where: { fecha: hoy, estado: 'finalizada' }, include: [{ model: Reciclador, as: 'reciclador' }], order: [['numero_diario', 'ASC']] });
+                if (args.reciclador_nombre) { const n = args.reciclador_nombre.toLowerCase(); candidatas = candidatas.filter(c => (c.reciclador?.nombre || '').toLowerCase().includes(n)); }
+                if (args.numero_diario)     candidatas = candidatas.filter(c => Number(c.numero_diario) === Number(args.numero_diario));
+                if (candidatas.length === 0) return JSON.stringify({ ok: false, error: 'No encontré esa compra finalizada de hoy.' });
+                if (candidatas.length > 1)   return JSON.stringify({ ok: false, varias: true, mensaje: 'Hay varias compras que coinciden. ¿Cuál (número de recibo)?', compras: candidatas.map(c => ({ numero_diario: c.numero_diario, reciclador: c.reciclador?.nombre, total: parseFloat(c.total) })) });
+                compra = candidatas[0];
+            }
+            if (!compra) return JSON.stringify({ ok: false, error: 'Compra no encontrada.' });
+            if (compra.estado !== 'finalizada') return JSON.stringify({ ok: false, error: 'Esa compra no está finalizada.' });
+            if (parseFloat(compra.descuento_prestamo || 0) > 0)
+                return JSON.stringify({ ok: false, error: `Esa compra descontó préstamo (${fmt(compra.descuento_prestamo)}). Ajusta el préstamo del reciclador a mano antes de borrarla.` });
+
+            const recNombre = compra.reciclador?.nombre || (await Reciclador.findByPk(compra.reciclador_id))?.nombre || '';
+            const totalBorrado = parseFloat(compra.neto);
+            const numMostrar = compra.numero_diario || compra.id;
+            // Movimientos de caja de esa compra (nuevos con referencia, viejos por concepto).
+            const movs = await MovimientoCaja.findAll({ where: { [Op.or]: [{ referencia: `compra:${compra.id}` }, { concepto: `Compra #${compra.id}` }] } });
+            const cajaIds = [...new Set(movs.map(m => m.caja_id))];
+            await sequelize.transaction(async (t) => {
+                await MovimientoCaja.destroy({ where: { [Op.or]: [{ referencia: `compra:${compra.id}` }, { concepto: `Compra #${compra.id}` }] }, transaction: t });
+                await PrestamoReciclador.update({ compra_id: null }, { where: { compra_id: compra.id }, transaction: t });
+                await CompraItem.destroy({ where: { compra_id: compra.id }, transaction: t });
+                await compra.destroy({ transaction: t });
+            });
+            for (const cid of cajaIds) await recalcularCaja(cid);
+            return JSON.stringify({ ok: true, mensaje: `✅ Compra #${numMostrar} de ${recNombre} por ${fmt(totalBorrado)} eliminada y revertida de la caja.` });
         }
 
         // ── Caja y resúmenes ──────────────────────────────────────────────
