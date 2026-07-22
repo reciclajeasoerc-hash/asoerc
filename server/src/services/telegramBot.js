@@ -981,6 +981,14 @@ async function manejarMensaje(bot, msg) {
                     } catch (e) { await bot.sendMessage(chatId, '❌ Error generando respaldo: ' + e.message); }
                     return;
                 }
+                if (textoParaIA === '/reporte' || textoParaIA === '/caja' || textoParaIA === '/reportecaja') {
+                    if (!['superadmin', 'admin'].includes(rol)) { await bot.sendMessage(chatId, '⛔ Solo un administrador puede ver el reporte de caja.'); return; }
+                    try {
+                        const { msg: reporte } = await construirReporteCajaTexto();
+                        await bot.sendMessage(chatId, reporte, { parse_mode: 'Markdown' });
+                    } catch (e) { await bot.sendMessage(chatId, '❌ Error generando el reporte: ' + e.message); }
+                    return;
+                }
                 if (textoParaIA === '/start' || textoParaIA === '/ayuda') {
                     historiales.delete(chatId);
                     fotosPendientes.delete(chatId);
@@ -1037,6 +1045,54 @@ async function generarBackup() {
 }
 
 // A qué chats de Telegram se manda el respaldo (BACKUP_CHAT_ID, o superadmins/admins vinculados)
+// Reporte de la caja del DÍA ANTERIOR (por bodega), como texto para Telegram.
+async function construirReporteCajaTexto() {
+    const { hoy } = require('../utils/fecha');
+    const d = new Date(hoy() + 'T12:00:00'); d.setDate(d.getDate() - 1);
+    const ayer = d.toLocaleDateString('en-CA');   // fecha de ayer, Colombia
+    const fmtp = n => '$' + Number(n || 0).toLocaleString('es-CO');
+    const cajas = await Caja.findAll({ where: { fecha: ayer }, include: [{ model: Bodega, as: 'bodega' }], order: [['bodega_id', 'ASC']] });
+
+    let msg = `📊 *Reporte de caja — ${ayer}*`;
+    if (!cajas.length) { msg += `\n\nNo hubo movimientos de caja ese día.`; return { ayer, msg }; }
+
+    let tIng = 0, tEgr = 0, tSaldo = 0;
+    for (const c of cajas) {
+        const ing = parseFloat(c.total_ingresos || 0), egr = parseFloat(c.total_egresos || 0), sal = parseFloat(c.saldo_final || 0);
+        tIng += ing; tEgr += egr; tSaldo += sal;
+        // Detalle de compras/ventas del día en esa bodega (contexto)
+        const [nCompras, nVentas] = await Promise.all([
+            Compra.count({ where: { fecha: ayer, bodega_id: c.bodega_id, estado: 'finalizada' } }),
+            Venta.count({ where: { fecha: ayer, bodega_id: c.bodega_id } })
+        ]);
+        msg += `\n\n🏢 *${c.bodega?.nombre || 'Bodega ' + c.bodega_id}*`;
+        msg += `\n  Saldo inicial: ${fmtp(c.saldo_inicial)}`;
+        msg += `\n  🟢 Ingresos: ${fmtp(ing)}  (${nVentas} venta${nVentas === 1 ? '' : 's'})`;
+        msg += `\n  🔴 Egresos: ${fmtp(egr)}  (${nCompras} compra${nCompras === 1 ? '' : 's'})`;
+        msg += `\n  💰 *Saldo final: ${fmtp(sal)}*`;
+    }
+    if (cajas.length > 1) {
+        msg += `\n\n━━━━━━━━━━━━\n*TOTAL (${cajas.length} bodegas)*`;
+        msg += `\n  🟢 ${fmtp(tIng)}   🔴 ${fmtp(tEgr)}`;
+        msg += `\n  💰 Saldo: ${fmtp(tSaldo)}`;
+    }
+    return { ayer, msg };
+}
+
+// Envía el reporte de caja de ayer a los chats de administradores (uso diario 6am + on-demand).
+async function enviarReporteCajaDiario() {
+    if (!bots.length) return;
+    try {
+        const { ayer, msg } = await construirReporteCajaTexto();
+        const chats = await chatsParaBackup();
+        if (!chats.length) { console.warn('⚠️  Reporte de caja sin chat destino (vincula un superadmin/admin o define BACKUP_CHAT_ID).'); return; }
+        for (const chatId of chats) {
+            await bots[0].sendMessage(chatId, msg, { parse_mode: 'Markdown' }).catch(e => console.error(`Reporte caja -> ${chatId}:`, e.message));
+        }
+        console.log(`✅ Reporte de caja (${ayer}) enviado a ${chats.length} chat(s)`);
+    } catch (e) { console.error('enviarReporteCajaDiario:', e.message); }
+}
+
 async function chatsParaBackup() {
     if (process.env.BACKUP_CHAT_ID)
         return String(process.env.BACKUP_CHAT_ID).split(',').map(s => s.trim()).filter(Boolean);
@@ -1084,6 +1140,22 @@ function programarBackupDiario() {
     console.log(`🗄️  Respaldo diario programado (próximo en ~${Math.round(msHastaProxima() / 3600000)}h)`);
 }
 
+// Programa el reporte de caja de ayer todos los días a las 06:00 hora Colombia (11:00 UTC).
+function programarReporteCajaDiario() {
+    const MS_DIA = 24 * 60 * 60 * 1000;
+    const msHastaProxima = () => {
+        const ahora = new Date();
+        const prox = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate(), 11, 0, 0)); // 06:00 Colombia
+        if (prox <= ahora) prox.setUTCDate(prox.getUTCDate() + 1);
+        return prox - ahora;
+    };
+    setTimeout(function run() {
+        enviarReporteCajaDiario();
+        setInterval(enviarReporteCajaDiario, MS_DIA);
+    }, msHastaProxima());
+    console.log(`📊 Reporte de caja diario programado (6am Colombia, próximo en ~${Math.round(msHastaProxima() / 3600000)}h)`);
+}
+
 // Inicia uno o VARIOS bots a la vez. Los tokens se leen de TELEGRAM_BOT_TOKEN
 // (uno solo, o varios separados por coma) y opcionalmente TELEGRAM_BOT_TOKEN_2.
 // Cada token = un bot distinto con las MISMAS funciones (útil para tener el bot
@@ -1111,7 +1183,8 @@ function startBot() {
         console.log(`🤖 Bot IA ASOERC #${i + 1} iniciado`);
     });
 
-    programarBackupDiario(); // respaldo diario de la BD por Telegram
+    programarBackupDiario();       // respaldo diario de la BD por Telegram
+    programarReporteCajaDiario();  // reporte de caja de ayer, 6am Colombia
 }
 
 module.exports = { startBot, enviarBackupDiario };
