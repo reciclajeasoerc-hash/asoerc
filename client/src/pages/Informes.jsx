@@ -171,6 +171,33 @@ export default function Informes() {
                             </table>
                         </div>
                     )}
+
+                    {/* Todas las compras del período (una fila por compra) */}
+                    {compras.compras?.length > 0 && (
+                        <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
+                            <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>🧾 Todas las compras del período ({compras.compras.length})</div>
+                            <div style={{ maxHeight: 460, overflowY: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                    <thead><tr style={{ background: '#f0faf0', position: 'sticky', top: 0 }}>
+                                        {['Fecha','Hora','#','Reciclador','Bodega','Kg','Total'].map(h => <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
+                                    </tr></thead>
+                                    <tbody>
+                                        {compras.compras.map(c => (
+                                            <tr key={c.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                                                <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{c.fecha}</td>
+                                                <td style={{ padding: '8px 14px', color: '#888' }}>{c.hora}</td>
+                                                <td style={{ padding: '8px 14px' }}>{c.numero_diario || '—'}</td>
+                                                <td style={{ padding: '8px 14px', fontWeight: 600 }}>{c.reciclador}</td>
+                                                <td style={{ padding: '8px 14px', color: '#666' }}>{c.bodega}</td>
+                                                <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{fmt(c.kilos)} kg</td>
+                                                <td style={{ padding: '8px 14px', fontWeight: 700, color: '#1a5c2a', whiteSpace: 'nowrap' }}>${fmt(c.total)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

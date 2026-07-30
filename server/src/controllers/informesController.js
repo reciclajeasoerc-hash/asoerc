@@ -92,7 +92,20 @@ exports.comprasPorPeriodo = async (req, res) => {
             }
         }
 
-        res.json({ ok: true, resumen, por_material, por_reciclador, detalle });
+        // Lista de TODAS las compras del período (una fila por compra) — para verlas completas
+        const comprasLista = compras.map(c => ({
+            id: c.id,
+            numero_diario: c.numero_diario || null,
+            fecha: c.fecha,
+            hora: c.updatedAt ? new Date(c.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
+            reciclador: c.reciclador?.nombre || 'Sin nombre',
+            bodega: c.bodega?.nombre || '',
+            kilos: c.items.reduce((a, i) => a + parseFloat(i.kilos || 0), 0),
+            total: parseFloat(c.total || 0),
+            neto: parseFloat(c.neto || c.total || 0)
+        }));
+
+        res.json({ ok: true, resumen, por_material, por_reciclador, compras: comprasLista, detalle });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 

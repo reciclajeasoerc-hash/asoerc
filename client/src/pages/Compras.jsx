@@ -61,6 +61,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
         propBodegaId ? String(propBodegaId) : (user?.bodega_id ? String(user.bodega_id) : '')
     );
     const [fecha, setFecha] = useState(hoy());
+    const [fechaVista, setFechaVista] = useState(hoy());   // fecha del historial que se está viendo (por defecto hoy)
     const [compraActiva, setCompraActiva] = useState(null);
     const [cantidades, setCantidades] = useState({});
     const [materialActivo, setMaterialActivo] = useState(null);
@@ -107,14 +108,24 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     const cargarHoy = async () => {
         const q = bodegaLista ? `&bodega_id=${bodegaLista}` : '';
-        const d = await api.get(`/compras?fecha=${hoy()}&estado=finalizada${q}`).catch(() => null);
-        if (d) setComprasHoy(d.items || []);
-        const r = await api.get(`/compras/resumen-dia?fecha=${hoy()}${q}`).catch(() => null);
+        const f = fechaVista || hoy();
+        // Trae TODAS las compras del día elegido (recorre las páginas → no se corta en 50).
+        let todas = [], page = 1, total = Infinity;
+        while (todas.length < total && page <= 100) {
+            const d = await api.get(`/compras?fecha=${f}&estado=finalizada&page=${page}${q}`).catch(() => null);
+            if (!d || !d.items) break;
+            todas = todas.concat(d.items);
+            total = d.total ?? todas.length;
+            if (d.items.length === 0) break;
+            page++;
+        }
+        setComprasHoy(todas);
+        const r = await api.get(`/compras/resumen-dia?fecha=${f}${q}`).catch(() => null);
         if (r) setResumen(r);
     };
 
-    // Recargar cuando cambia la bodega seleccionada; nueva compra sale por defecto en esa bodega.
-    useEffect(() => { cargarHoy(); }, [bodegaLista]);
+    // Recargar cuando cambia la bodega seleccionada o la fecha que se está viendo.
+    useEffect(() => { cargarHoy(); }, [bodegaLista, fechaVista]);
     useEffect(() => { if (!propBodegaId && filtroBodega) setBodegaId(filtroBodega); }, [filtroBodega]);
 
     const matsFiltrados = busquedaMat.trim()
@@ -408,10 +419,15 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
             {/* ── Tab Hoy ── */}
             {tabMobile === 'hoy' && (
                 <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                        <label style={{ fontSize: 13, color: '#555', fontWeight: 600, whiteSpace: 'nowrap' }}>📅 Ver día:</label>
+                        <input type="date" value={fechaVista} max={hoy()} onChange={e => setFechaVista(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13, flex: 1 }} />
+                        {fechaVista !== hoy() && <button onClick={() => setFechaVista(hoy())} style={{ padding: '7px 12px', background: '#e5e7eb', border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>Hoy</button>}
+                    </div>
                     {resumen && (
                         <div style={{ background: '#1a5c2a', borderRadius: 12, padding: '14px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
                             <div style={{ color: '#fff' }}>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{resumen.totalCompras} compras hoy</div>
+                                <div style={{ fontWeight: 700, fontSize: 15 }}>{comprasHoy.length} compras · {fechaVista === hoy() ? 'hoy' : fechaVista}</div>
                                 <div style={{ fontSize: 12, opacity: .8, marginTop: 2 }}>{fmt(resumen.totalKilos)} kg recolectados</div>
                             </div>
                             <div style={{ color: '#fff', textAlign: 'right' }}>
@@ -423,7 +439,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     {comprasHoy.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '60px 0', color: '#bbb' }}>
                             <div style={{ fontSize: 48 }}>♻️</div>
-                            <p style={{ fontSize: 14, marginTop: 12 }}>No hay compras hoy</p>
+                            <p style={{ fontSize: 14, marginTop: 12 }}>No hay compras {fechaVista === hoy() ? 'hoy' : 'ese día'}</p>
                         </div>
                     ) : (
                         comprasHoy.map(c => (
@@ -616,9 +632,14 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     </div>
                 </div>
 
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ fontSize: 12, color: '#555', fontWeight: 600 }}>📅 Ver compras del día:</label>
+                    <input type="date" value={fechaVista} max={hoy()} onChange={e => setFechaVista(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
+                    {fechaVista !== hoy() && <button onClick={() => setFechaVista(hoy())} style={{ padding: '5px 12px', background: '#e5e7eb', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Hoy</button>}
+                </div>
                 {resumen && (
-                    <div style={{ marginTop: 10, background: '#f0faf0', borderRadius: 8, padding: '8px 14px', display: 'flex', gap: 20, alignItems: 'center' }}>
-                        <div style={{ fontSize: 12, color: '#555' }}>Hoy: <strong>{resumen.totalCompras}</strong> compras · <strong>{fmt(resumen.totalKilos)} kg</strong></div>
+                    <div style={{ marginTop: 8, background: '#f0faf0', borderRadius: 8, padding: '8px 14px', display: 'flex', gap: 20, alignItems: 'center' }}>
+                        <div style={{ fontSize: 12, color: '#555' }}>{fechaVista === hoy() ? 'Hoy' : fechaVista}: <strong>{comprasHoy.length}</strong> compras · <strong>{fmt(resumen.totalKilos)} kg</strong></div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#1a5c2a', marginLeft: 'auto' }}>Pagado: ${fmt(resumen.totalNeto)}</div>
                     </div>
                 )}
@@ -665,8 +686,8 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                 </div>
 
                 {comprasHoy.length > 0 && (
-                    <div style={{ borderTop: '1px solid #f0f0f0', maxHeight: 180, overflowY: 'auto' }}>
-                        <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: .5 }}>COMPRAS DE HOY</div>
+                    <div style={{ borderTop: '1px solid #f0f0f0', maxHeight: 360, overflowY: 'auto' }}>
+                        <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: .5 }}>COMPRAS {fechaVista === hoy() ? 'DE HOY' : 'DEL ' + fechaVista} ({comprasHoy.length})</div>
                         {comprasHoy.map(c => (
                             <div key={c.id} onClick={() => setMostrarRecibo(c)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 16px', borderTop: '1px solid #f5f5f5', fontSize: 12 }}>
                                 <span style={{ color: '#555' }}>{c.reciclador?.nombre}</span>
