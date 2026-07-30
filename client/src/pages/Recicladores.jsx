@@ -217,7 +217,7 @@ export default function Recicladores() {
                                                 <span style={{ color: '#888', marginLeft: 8 }}>{p.descripcion}</span>
                                             </div>
                                             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                                <span style={{ color: '#888' }}>{p.fecha}</span>
+                                                <span style={{ color: '#888', fontSize: 12, whiteSpace: 'nowrap' }}>🕒 {p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}{p.createdAt ? ' · ' + new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                                                 <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: p.pagado ? '#d1fae5' : '#fee2e2', color: p.pagado ? '#059669' : '#dc2626' }}>
                                                     {p.pagado ? 'Pagado' : 'Pendiente'}
                                                 </span>

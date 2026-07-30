@@ -390,7 +390,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             return JSON.stringify({
                 id: r.id, nombre: r.nombre, cedula: r.cedula, telefono: r.telefono,
                 saldo_prestamo: parseFloat(r.saldo_prestamo || 0),
-                prestamos_pendientes: prestamos.map(p => ({ monto: parseFloat(p.monto), fecha: p.fecha, descripcion: p.descripcion })),
+                prestamos_pendientes: prestamos.map(p => ({ monto: parseFloat(p.monto), fecha: p.fecha, hora: p.createdAt ? new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : null, descripcion: p.descripcion })),
                 ultimas_compras: compras.map(c => ({ id: c.id, fecha: c.fecha, total: parseFloat(c.total) }))
             });
         }
@@ -455,7 +455,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             return JSON.stringify({
                 id: e.id, nombre: e.nombre, cargo: e.cargo || '', cedula: e.cedula || '',
                 salario: parseFloat(e.salario || 0),
-                prestamos_pendientes: prestamos.map(p => ({ monto: parseFloat(p.monto), fecha: p.fecha, descripcion: p.descripcion })),
+                prestamos_pendientes: prestamos.map(p => ({ monto: parseFloat(p.monto), fecha: p.fecha, hora: p.createdAt ? new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : null, descripcion: p.descripcion })),
                 total_prestamos: prestamos.reduce((s, p) => s + parseFloat(p.monto || 0), 0)
             });
         }
@@ -486,8 +486,8 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             const totalEmp = empsConPrestamos.reduce((s, p) => s + parseFloat(p.monto || 0), 0);
             return JSON.stringify({
                 total_pendiente: totalRec + totalEmp,
-                recicladores: recsConPrestamos.map(p => ({ persona: p.reciclador?.nombre, monto: parseFloat(p.monto), fecha: p.fecha, descripcion: p.descripcion })),
-                empleados: empsConPrestamos.map(p => ({ persona: p.empleado?.nombre, monto: parseFloat(p.monto), fecha: p.fecha, descripcion: p.descripcion }))
+                recicladores: recsConPrestamos.map(p => ({ persona: p.reciclador?.nombre, monto: parseFloat(p.monto), fecha: p.fecha, hora: p.createdAt ? new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : null, descripcion: p.descripcion })),
+                empleados: empsConPrestamos.map(p => ({ persona: p.empleado?.nombre, monto: parseFloat(p.monto), fecha: p.fecha, hora: p.createdAt ? new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : null, descripcion: p.descripcion }))
             });
         }
 

@@ -258,6 +258,7 @@ export default function Empleados() {
                                     <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                                         <div>
                                             <div><span style={{ fontWeight: 600 }}>${fmt(p.monto)}</span> <span style={{ color: '#888', fontSize: 12 }}>{p.descripcion}</span></div>
+                                            <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 1 }}>🕒 {p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}{p.createdAt ? ' · ' + new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : ''}</div>
                                             {parseFloat(p.abonado || 0) > 0 && (
                                                 <div style={{ fontSize: 11, marginTop: 2 }}>
                                                     <span style={{ color: '#059669' }}>Abonado ${fmt(p.abonado)}</span>

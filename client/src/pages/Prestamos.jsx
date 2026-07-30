@@ -230,7 +230,7 @@ export default function Prestamos() {
                                             </div>
                                         )}
                                     </td>
-                                    <td style={{ padding: '10px 14px', color: '#666' }}>{p.fecha}</td>
+                                    <td style={{ padding: '10px 14px', color: '#666', whiteSpace: 'nowrap' }}>{p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}{p.createdAt ? <span style={{ color: '#9ca3af' }}><br />🕒 {new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' })}</span> : ''}</td>
                                     <td style={{ padding: '10px 14px', color: '#666' }}>{p.descripcion || '—'}</td>
                                     <td style={{ padding: '10px 14px' }}>
                                         {(p.pagado || p.descontado)
