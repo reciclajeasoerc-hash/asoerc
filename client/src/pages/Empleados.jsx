@@ -16,8 +16,8 @@ export default function Empleados() {
     const [editando, setEditando] = useState(null);
     const [showP, setShowP] = useState(false);
     const [showD, setShowD] = useState(false);
-    const [form, setForm] = useState({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'dia' });
-    const [nForm, setNForm] = useState({ desde: '', hasta: hoy(), dias_periodo: '15', tipo: 'dia' });
+    const [form, setForm] = useState({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'completo' });
+    const [nForm, setNForm] = useState({ desde: '', hasta: hoy(), dias_periodo: '15', tipo: 'completo' });
     const [pForm, setPForm] = useState({ monto: '', descripcion: '', quincena: '', fecha: hoy() });
     const [dForm, setDForm] = useState({ fecha_inicio: hoy(), fecha_fin: hoy(), dias: '', motivo: '', quincena: '' });
     const [msg, setMsg] = useState('');
@@ -31,7 +31,7 @@ export default function Empleados() {
 
     const seleccionar = async (e) => {
         setSelected(e);
-        setNForm(f => ({ ...f, tipo: e.tipo_salario || 'dia' }));
+        setNForm(f => ({ ...f, tipo: e.tipo_salario || 'completo' }));
         const [p, d] = await Promise.all([
             api.get(`/empleados/${e.id}/prestamos`).catch(() => ({ prestamos: [] })),
             api.get(`/empleados/${e.id}/dias-no-laborados`).catch(() => ({ dias: [] }))
@@ -69,14 +69,14 @@ export default function Empleados() {
 
     const nuevoEmpleado = () => {
         setEditando(null);
-        setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'dia' });
+        setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'completo' });
         setMsg('');
         setShowEmp(s => !s);
     };
 
     const editarEmpleado = (e) => {
         setEditando(e.id);
-        setForm({ nombre: e.nombre || '', cedula: e.cedula || '', telefono: e.telefono || '', bodega_id: e.bodega_id || '', cargo: e.cargo || '', salario: e.salario || '', tipo_salario: e.tipo_salario || 'dia' });
+        setForm({ nombre: e.nombre || '', cedula: e.cedula || '', telefono: e.telefono || '', bodega_id: e.bodega_id || '', cargo: e.cargo || '', salario: e.salario || '', tipo_salario: e.tipo_salario || 'completo' });
         setMsg('');
         setShowEmp(true);
     };
@@ -97,12 +97,12 @@ export default function Empleados() {
             if (editando) await api.put(`/empleados/${editando}`, form);
             else await api.post('/empleados', form);
             setShowEmp(false); setEditando(null); setMsg('');
-            setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'dia' });
+            setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'completo' });
             const actualizados = await api.get('/empleados').then(d => d.empleados).catch(() => empleados);
             setEmpleados(actualizados);
             if (selected && editando === selected.id) {
                 const nuevo = actualizados.find(x => x.id === selected.id);
-                if (nuevo) { setSelected(nuevo); setNForm(f => ({ ...f, tipo: nuevo.tipo_salario || 'dia' })); }
+                if (nuevo) { setSelected(nuevo); setNForm(f => ({ ...f, tipo: nuevo.tipo_salario || 'completo' })); }
             }
         }
         catch (err) { setMsg(err.message); }
@@ -173,16 +173,16 @@ export default function Empleados() {
                             </select>
                         </label>
                         <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Tipo de salario</div>
+                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cómo se le paga</div>
                             <select value={form.tipo_salario} onChange={e => setForm({ ...form, tipo_salario: e.target.value })}
                                 style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                <option value="dia">Por día (jornal)</option>
-                                <option value="completo">Sueldo completo del periodo</option>
+                                <option value="completo">Sueldo fijo por quincena/periodo</option>
+                                <option value="dia">Por día trabajado (jornal)</option>
                             </select>
                         </label>
                     </div>
                     <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>
-                        💡 En <strong>Salario</strong> escribe el valor de <strong>un día</strong> si elegiste "Por día", o el <strong>total del periodo</strong> (ej: la quincena) si elegiste "Sueldo completo".
+                        💡 Si es <strong>"Sueldo fijo por quincena"</strong>: en <strong>Salario</strong> escribe lo que pagas en UNA quincena (ej: 1.000.000). Si es <strong>"Por día"</strong>: escribe el valor de un solo día.
                     </div>
                     {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
                     <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
@@ -328,13 +328,15 @@ export default function Empleados() {
                                         <label>
                                             <div style={{ fontSize: 11, color: '#555', marginBottom: 3 }}>Cómo se paga</div>
                                             <select value={nForm.tipo} onChange={e => setNForm({ ...nForm, tipo: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #cfe8d4', fontSize: 13, boxSizing: 'border-box' }}>
-                                                <option value="dia">Por día (jornal)</option>
-                                                <option value="completo">Sueldo completo</option>
+                                                <option value="completo">Sueldo fijo por quincena</option>
+                                                <option value="dia">Por día trabajado (jornal)</option>
                                             </select>
                                         </label>
                                     </div>
                                     <div style={{ fontSize: 11, color: '#888' }}>
-                                        Salario registrado: <strong>${fmt(salarioBase)}</strong> {nForm.tipo === 'dia' ? 'por día' : 'por periodo'} · Valor día: <strong>${fmt(Math.round(valorDia))}</strong>
+                                        {nForm.tipo === 'dia'
+                                            ? <>Valor de un día: <strong>${fmt(salarioBase)}</strong> · Paga = días trabajados × ese valor.</>
+                                            : <>Sueldo de la quincena: <strong>${fmt(salarioBase)}</strong> · Cada día que falta descuenta <strong>${fmt(Math.round(valorDia))}</strong> (÷ {diasPeriodo} días).</>}
                                     </div>
                                 </div>
 

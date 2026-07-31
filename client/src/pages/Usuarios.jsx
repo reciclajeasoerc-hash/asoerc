@@ -193,11 +193,14 @@ export default function Usuarios() {
 
                         {user?.rol === 'superadmin' && (
                             <>
-                                <label style={lbl}>Bodega</label>
+                                <label style={lbl}>Bodega / Sede * <span style={{ fontWeight: 400, color: '#9ca3af' }}>(obligatorio)</span></label>
                                 <select style={inp} value={form.bodega_id} onChange={e => setForm(f => ({ ...f, bodega_id: e.target.value }))}>
                                     <option value="">-- Seleccionar bodega --</option>
                                     {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
                                 </select>
+                                <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>
+                                    ⚠️ Esta persona quedará fija a esta bodega: todo lo que registre (compras, ventas, caja) se guarda aquí y no podrá cambiarla.
+                                </p>
                             </>
                         )}
 
