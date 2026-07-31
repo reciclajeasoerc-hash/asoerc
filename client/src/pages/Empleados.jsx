@@ -16,8 +16,8 @@ export default function Empleados() {
     const [editando, setEditando] = useState(null);
     const [showP, setShowP] = useState(false);
     const [showD, setShowD] = useState(false);
-    const [form, setForm] = useState({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'completo' });
-    const [nForm, setNForm] = useState({ desde: '', hasta: hoy(), dias_periodo: '15', tipo: 'completo' });
+    const [form, setForm] = useState({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'mensual' });
+    const [nForm, setNForm] = useState({ desde: '', hasta: hoy(), dias_periodo: '15', tipo: 'mensual' });
     const [pForm, setPForm] = useState({ monto: '', descripcion: '', quincena: '', fecha: hoy() });
     const [dForm, setDForm] = useState({ fecha_inicio: hoy(), fecha_fin: hoy(), dias: '', motivo: '', quincena: '' });
     const [msg, setMsg] = useState('');
@@ -31,7 +31,7 @@ export default function Empleados() {
 
     const seleccionar = async (e) => {
         setSelected(e);
-        setNForm(f => ({ ...f, tipo: e.tipo_salario || 'completo' }));
+        setNForm(f => ({ ...f, tipo: e.tipo_salario === 'dia' ? 'dia' : 'mensual' }));
         const [p, d] = await Promise.all([
             api.get(`/empleados/${e.id}/prestamos`).catch(() => ({ prestamos: [] })),
             api.get(`/empleados/${e.id}/dias-no-laborados`).catch(() => ({ dias: [] }))
@@ -43,12 +43,22 @@ export default function Empleados() {
     // ── Cálculo de liquidación de nómina (en el rango elegido) ────────────────
     const salarioBase   = parseFloat(selected?.salario || 0);
     const diasPeriodo   = parseFloat(nForm.dias_periodo || 0);
-    const valorDia      = nForm.tipo === 'dia' ? salarioBase : (diasPeriodo ? salarioBase / diasPeriodo : 0);
+    // Valor de un día según el modo:
+    //  'mensual'  → el salario es del MES; el día vale salario / (días del periodo × 2)  [el mes ≈ 2 quincenas]
+    //  'completo' → el salario es el fijo del PERIODO (la quincena); el día vale salario / díasPeriodo
+    //  'dia'      → el salario YA es el valor de un día
+    const valorDia =
+        nForm.tipo === 'dia'     ? salarioBase :
+        nForm.tipo === 'mensual' ? (diasPeriodo ? salarioBase / (diasPeriodo * 2) : 0) :
+                                   (diasPeriodo ? salarioBase / diasPeriodo : 0);
     const diasNoLab     = dias
         .filter(d => (!nForm.desde || d.fecha_inicio >= nForm.desde) && (!nForm.hasta || d.fecha_inicio <= nForm.hasta))
         .reduce((s, d) => s + parseFloat(d.dias || 0), 0);
     const diasPagados   = Math.max(0, diasPeriodo - diasNoLab);
-    const sueldoBruto   = nForm.tipo === 'dia' ? diasPagados * valorDia : Math.max(0, salarioBase - diasNoLab * valorDia);
+    // 'completo' = monto fijo del periodo menos las faltas; 'mensual' y 'dia' = días pagados × valor día
+    const sueldoBruto   = nForm.tipo === 'completo'
+        ? Math.max(0, salarioBase - diasNoLab * valorDia)
+        : Math.max(0, diasPagados * valorDia);
     const saldoDe = p => parseFloat(p.monto || 0) - parseFloat(p.abonado || 0);
     const prestamosPend = prestamos.filter(p => !p.descontado);
     const totalPrestamos = prestamosPend.reduce((s, p) => s + saldoDe(p), 0);
@@ -69,14 +79,14 @@ export default function Empleados() {
 
     const nuevoEmpleado = () => {
         setEditando(null);
-        setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'completo' });
+        setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'mensual' });
         setMsg('');
         setShowEmp(s => !s);
     };
 
     const editarEmpleado = (e) => {
         setEditando(e.id);
-        setForm({ nombre: e.nombre || '', cedula: e.cedula || '', telefono: e.telefono || '', bodega_id: e.bodega_id || '', cargo: e.cargo || '', salario: e.salario || '', tipo_salario: e.tipo_salario || 'completo' });
+        setForm({ nombre: e.nombre || '', cedula: e.cedula || '', telefono: e.telefono || '', bodega_id: e.bodega_id || '', cargo: e.cargo || '', salario: e.salario || '', tipo_salario: e.tipo_salario === 'dia' ? 'dia' : 'mensual' });
         setMsg('');
         setShowEmp(true);
     };
@@ -97,12 +107,12 @@ export default function Empleados() {
             if (editando) await api.put(`/empleados/${editando}`, form);
             else await api.post('/empleados', form);
             setShowEmp(false); setEditando(null); setMsg('');
-            setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'completo' });
+            setForm({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'mensual' });
             const actualizados = await api.get('/empleados').then(d => d.empleados).catch(() => empleados);
             setEmpleados(actualizados);
             if (selected && editando === selected.id) {
                 const nuevo = actualizados.find(x => x.id === selected.id);
-                if (nuevo) { setSelected(nuevo); setNForm(f => ({ ...f, tipo: nuevo.tipo_salario || 'completo' })); }
+                if (nuevo) { setSelected(nuevo); setNForm(f => ({ ...f, tipo: nuevo.tipo_salario === 'dia' ? 'dia' : 'mensual' })); }
             }
         }
         catch (err) { setMsg(err.message); }
@@ -176,13 +186,14 @@ export default function Empleados() {
                             <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cómo se le paga</div>
                             <select value={form.tipo_salario} onChange={e => setForm({ ...form, tipo_salario: e.target.value })}
                                 style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                                <option value="completo">Sueldo fijo por quincena/periodo</option>
+                                <option value="mensual">Sueldo mensual (se paga por quincena)</option>
+                                <option value="completo">Sueldo fijo por quincena</option>
                                 <option value="dia">Por día trabajado (jornal)</option>
                             </select>
                         </label>
                     </div>
                     <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>
-                        💡 Si es <strong>"Sueldo fijo por quincena"</strong>: en <strong>Salario</strong> escribe lo que pagas en UNA quincena (ej: 1.000.000). Si es <strong>"Por día"</strong>: escribe el valor de un solo día.
+                        💡 En <strong>Salario</strong>: si elegiste <strong>"Sueldo mensual"</strong> escribe el sueldo del MES (ej: 2.000.000) — el sistema paga la mitad cada quincena. Si es <strong>"por quincena"</strong>, escribe lo de UNA quincena. Si es <strong>"por día"</strong>, el valor de un día.
                     </div>
                     {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
                     <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
@@ -328,6 +339,7 @@ export default function Empleados() {
                                         <label>
                                             <div style={{ fontSize: 11, color: '#555', marginBottom: 3 }}>Cómo se paga</div>
                                             <select value={nForm.tipo} onChange={e => setNForm({ ...nForm, tipo: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #cfe8d4', fontSize: 13, boxSizing: 'border-box' }}>
+                                                <option value="mensual">Sueldo mensual (se paga por quincena)</option>
                                                 <option value="completo">Sueldo fijo por quincena</option>
                                                 <option value="dia">Por día trabajado (jornal)</option>
                                             </select>
@@ -336,6 +348,8 @@ export default function Empleados() {
                                     <div style={{ fontSize: 11, color: '#888' }}>
                                         {nForm.tipo === 'dia'
                                             ? <>Valor de un día: <strong>${fmt(salarioBase)}</strong> · Paga = días trabajados × ese valor.</>
+                                            : nForm.tipo === 'mensual'
+                                            ? <>Sueldo del mes: <strong>${fmt(salarioBase)}</strong> · Por quincena paga <strong>${fmt(Math.round(diasPeriodo * valorDia))}</strong> · cada día que falta descuenta <strong>${fmt(Math.round(valorDia))}</strong>.</>
                                             : <>Sueldo de la quincena: <strong>${fmt(salarioBase)}</strong> · Cada día que falta descuenta <strong>${fmt(Math.round(valorDia))}</strong> (÷ {diasPeriodo} días).</>}
                                     </div>
                                 </div>
