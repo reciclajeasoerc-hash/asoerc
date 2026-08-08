@@ -120,7 +120,7 @@ function App() {
 
         fetch('/api/setup/estado')
             .then(r => r.json())
-            .then(d => setConfigurado(d.configurado))
+            .then(d => setConfigurado(d.configurado !== false)) // solo mostrar Setup si el server dice explícitamente que NO está configurado (no por errores/caídas)
             .catch(() => setConfigurado(true)); // si falla, asumir configurado
     }, []);
 
