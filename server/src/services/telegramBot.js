@@ -559,7 +559,9 @@ async function ejecutarHerramienta(nombre, args, chatId) {
                 disponible -= aDescontar;
             }
             const netoCompra = Math.max(0, totalCompra - descuento);
-            await compra.update({ total: totalCompra, neto: netoCompra, descuento_prestamo: descuento, estado: 'finalizada' });
+            // Consecutivo continuo por bodega (igual que en la web)
+            const ultimoConsec = await Compra.max('numero_diario', { where: { bodega_id: bodega.id, estado: 'finalizada' } }) || 0;
+            await compra.update({ total: totalCompra, neto: netoCompra, descuento_prestamo: descuento, estado: 'finalizada', numero_diario: parseInt(ultimoConsec) + 1 });
             if (descuento > 0) await Reciclador.decrement('saldo_prestamo', { by: descuento, where: { id: args.reciclador_id } });
 
             const caja = await obtenerOCrearCaja(bodega.id, hoy);

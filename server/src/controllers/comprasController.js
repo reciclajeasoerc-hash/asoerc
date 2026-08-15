@@ -141,7 +141,9 @@ exports.finalizar = async (req, res, _intento = 0) => {
             disponible -= aDescontar;
         }
         const neto = Math.max(0, parseFloat(compra.total) - descuento);
-        const numeroDiario = await Compra.count({ where: { fecha: compra.fecha, bodega_id: compra.bodega_id, estado: 'finalizada' }, transaction: t }) + 1;
+        // Consecutivo CONTINUO por bodega (no se reinicia cada día): siguiente al máximo de esa bodega.
+        const ultimoConsec = await Compra.max('numero_diario', { where: { bodega_id: compra.bodega_id, estado: 'finalizada' }, transaction: t }) || 0;
+        const numeroDiario = parseInt(ultimoConsec) + 1;
         await compra.update({ estado: 'finalizada', descuento_prestamo: descuento, neto, numero_diario: numeroDiario }, { transaction: t });
 
         // Actualizar saldo_prestamo del reciclador

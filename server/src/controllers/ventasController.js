@@ -65,7 +65,9 @@ exports.crear = async (req, res) => {
             total += subtotal;
             await VentaItem.create({ venta_id: ventaData.id, material_id: item.material_id, kilos: item.kilos, precio_unitario, total: subtotal }, { transaction: t });
         }
-        await ventaData.update({ total }, { transaction: t });
+        // Consecutivo CONTINUO por bodega (no se reinicia cada día)
+        const ultimoConsec = await Venta.max('numero_diario', { where: { bodega_id }, transaction: t }) || 0;
+        await ventaData.update({ total, numero_diario: parseInt(ultimoConsec) + 1 }, { transaction: t });
 
         // Registrar en caja si el pago ya fue recibido
         let cajaId = null;

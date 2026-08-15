@@ -101,6 +101,7 @@ const RecicladorSede = sequelize.define('RecicladorSede', {
 
 const Venta = sequelize.define('Venta', {
     numero:     { type: DataTypes.INTEGER },
+    numero_diario: { type: DataTypes.INTEGER, defaultValue: 0 }, // consecutivo continuo POR BODEGA (no se reinicia)
     cliente_id: { type: DataTypes.INTEGER, allowNull: false },
     sede_id:    { type: DataTypes.INTEGER },
     bodega_id:  { type: DataTypes.INTEGER, allowNull: false },

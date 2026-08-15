@@ -12,7 +12,7 @@ const path      = require('path');
 const fs        = require('fs');
 const sequelize = require('./config/db');
 const { Op } = require('sequelize');
-const { Usuario, Bodega, Material, Cliente, ClienteSede, MaterialPrecioCliente, Configuracion } = require('./models');
+const { Usuario, Bodega, Material, Cliente, ClienteSede, MaterialPrecioCliente, Configuracion, Compra, Venta } = require('./models');
 const { startBot } = require('./services/telegramBot');
 const { iniciarVerificacion, verificarLicencia, estadoEndpoint } = require('./middlewares/licencia');
 
@@ -339,6 +339,27 @@ async function seedOrdenMateriales() {
     console.log(`✅ Orden de materiales aplicado (${cambios} materiales reorganizados)`);
 }
 
+async function renumerarConsecutivos() {
+    // Renumera compras y ventas con un consecutivo CONTINUO POR BODEGA (orden fecha, id → 1,2,3…),
+    // para que el número del recibo no se reinicie cada día. Se ejecuta una sola vez (bandera).
+    const VERSION = '1';
+    const flag = await Configuracion.findOne({ where: { clave: 'consecutivo_bodega_version' } });
+    if (flag && flag.valor === VERSION) return;
+
+    const bodegas = await Bodega.findAll();
+    let total = 0;
+    for (const b of bodegas) {
+        const compras = await Compra.findAll({ where: { bodega_id: b.id, estado: 'finalizada' }, order: [['fecha', 'ASC'], ['id', 'ASC']] });
+        let n = 0;
+        for (const c of compras) { n++; if (parseInt(c.numero_diario) !== n) { await c.update({ numero_diario: n }); total++; } }
+        const ventas = await Venta.findAll({ where: { bodega_id: b.id }, order: [['fecha', 'ASC'], ['id', 'ASC']] });
+        let m = 0;
+        for (const v of ventas) { m++; if (parseInt(v.numero_diario) !== m) { await v.update({ numero_diario: m }); total++; } }
+    }
+    if (flag) await flag.update({ valor: VERSION }); else await Configuracion.create({ clave: 'consecutivo_bodega_version', valor: VERSION });
+    console.log(`✅ Consecutivos por bodega renumerados (${total} registros)`);
+}
+
 const PORT = process.env.PORT || 3000;
 
 async function iniciar(intentos = 5) {
@@ -359,6 +380,7 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Materials ADD COLUMN orden INT DEFAULT 999").catch(() => {});
             await sequelize.query("ALTER TABLE PrestamoRecicladors ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
             await sequelize.query("ALTER TABLE PrestamoEmpleados ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
+            await sequelize.query("ALTER TABLE Ventas ADD COLUMN numero_diario INT DEFAULT 0").catch(() => {});
             // Índice único: una sola caja por bodega y día (evita cajas duplicadas por concurrencia)
             await sequelize.query("ALTER TABLE Cajas ADD UNIQUE INDEX uniq_caja_dia (bodega_id, fecha)").catch(() => {});
             // El logo de la empresa se guarda como base64 (data:URI) en configuracion.valor →
@@ -370,6 +392,7 @@ async function iniciar(intentos = 5) {
             await seed();
             await seedEcology();
             await seedOrdenMateriales().catch(e => console.error('Orden materiales error:', e.message));
+            await renumerarConsecutivos().catch(e => console.error('Renumerar consecutivos error:', e.message));
             app.listen(PORT, '0.0.0.0', () => console.log(`♻️  ASOERC corriendo en puerto ${PORT}`));
             try { startBot(); } catch(e) { console.error('Bot init error:', e.message); }
             try { require('./services/backup').initBackup(); } catch(e) { console.error('Backup init error:', e.message); }

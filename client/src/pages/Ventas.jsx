@@ -692,7 +692,7 @@ export function ReciboVenta({ venta, onClose }) {
                     <div style={{ fontWeight: 800, fontSize: 16, color: '#1a5c2a' }}>ASOERC ESP</div>
                     <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
                     <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE VENTA</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>#{venta.numero || venta.id} · {venta.fecha}</div>
+                    <div style={{ fontSize: 12, color: '#888' }}>#{String(venta.numero_diario || venta.numero || venta.id).padStart(5, '0')} · {venta.fecha}</div>
                     <div style={{ fontSize: 11, color: '#aaa' }}>Generado: {new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</div>
                 </div>
                 <div style={{ borderTop: '1px dashed #ccc', borderBottom: '1px dashed #ccc', padding: '10px 0', marginBottom: 14 }}>
