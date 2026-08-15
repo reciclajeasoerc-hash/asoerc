@@ -5,6 +5,21 @@ import { useAuth } from '../App';
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 const hoy = () => new Date().toISOString().slice(0, 10);
 
+// Lista cada fecha (día por día) entre inicio y fin, inclusive. Parseo manual para evitar
+// que la zona horaria corra el día.
+const fechasEntre = (ini, fin) => {
+    if (!ini) return [];
+    const [ay, am, ad] = ini.split('-').map(Number);
+    const [by, bm, bd] = (fin || ini).split('-').map(Number);
+    const cur = new Date(ay, am - 1, ad);
+    const end = new Date(by, bm - 1, bd);
+    const out = [];
+    let g = 0;
+    while (cur <= end && g < 366) { out.push(new Date(cur)); cur.setDate(cur.getDate() + 1); g++; }
+    return out;
+};
+const etiquetaDia = d => d.toLocaleDateString('es-CO', { weekday: 'short', day: '2-digit', month: 'short' });
+
 export default function Empleados() {
     const { user } = useAuth();
     const esSuper = user?.rol === 'superadmin';
@@ -368,7 +383,12 @@ export default function Empleados() {
                                     <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13, opacity: d.descontado ? .6 : 1 }}>
                                         <div>
                                             <div><span style={{ fontWeight: 600 }}>{d.dias} días</span> <span style={{ color: '#888', fontSize: 12 }}>{d.motivo}</span></div>
-                                            <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 1 }}>{d.fecha_inicio} → {d.fecha_fin}{d.quincena ? ' · ' + d.quincena : ''}</div>
+                                            <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 1 }}>{d.fecha_inicio} → {d.fecha_fin}</div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                                                {fechasEntre(d.fecha_inicio, d.fecha_fin).map((f, i) => (
+                                                    <span key={i} style={{ padding: '2px 7px', borderRadius: 6, fontSize: 11, background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', textTransform: 'capitalize' }}>{etiquetaDia(f)}</span>
+                                                ))}
+                                            </div>
                                         </div>
                                         <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, whiteSpace: 'nowrap', background: d.descontado ? '#e5e7eb' : '#dbeafe', color: d.descontado ? '#6b7280' : '#2563eb' }}>{d.descontado ? '🗄️ Archivado' : 'Cuenta'}</span>
                                     </div>
