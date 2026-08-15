@@ -76,7 +76,27 @@ export default function Empleados() {
             }
             await seleccionar(selected);
             setMsg('');
-            alert(`Nómina registrada. Neto pagado: $${fmt(netoPagar)}`);
+            alert(`Pago registrado ✅\nNeto pagado: $${fmt(netoPagar)}\nTodos los préstamos quedaron saldados (en $0).`);
+        } catch (err) { setMsg(err.message); }
+    };
+
+    // Pago PARCIAL: descuenta solo una parte de los préstamos (abono); el resto queda como saldo.
+    const registrarNominaParcial = async () => {
+        if (!selected) return;
+        const sugerido = Math.max(0, Math.min(Math.round(sueldoBruto), Math.round(totalPrestamos)));
+        const entrada = window.prompt(
+            `Pago de ${selected.nombre}\nSueldo de la quincena: $${fmt(Math.round(sueldoBruto))}\nPréstamos pendientes: $${fmt(Math.round(totalPrestamos))}\n\n¿Cuánto descontar de préstamos en ESTE pago?\n(el resto le queda como saldo pendiente)`,
+            String(sugerido)
+        );
+        if (entrada === null) return;
+        const monto = parseFloat(String(entrada).replace(/[^\d.]/g, ''));
+        if (isNaN(monto) || monto < 0) return setMsg('Monto inválido');
+        try {
+            if (monto > 0) await api.post(`/empleados/${selected.id}/prestamos/abonar-masivo`, { monto });
+            await seleccionar(selected);
+            setMsg('');
+            const netoParcial = sueldoBruto - monto;
+            alert(`Pago registrado ✅\nSe descontó $${fmt(monto)} de préstamos.\nNeto pagado: $${fmt(Math.round(netoParcial))}\nEl resto de los préstamos queda como saldo pendiente.`);
         } catch (err) { setMsg(err.message); }
     };
 
@@ -400,8 +420,12 @@ export default function Empleados() {
                                     <span style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>${fmt(Math.round(netoPagar))}</span>
                                 </div>
                                 <button onClick={registrarNomina} disabled={!salarioBase}
-                                    style={{ width: '100%', marginTop: 12, padding: '11px', background: salarioBase ? '#d97706' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salarioBase ? 'pointer' : 'default' }}>
-                                    💵 Registrar pago y descontar préstamos
+                                    style={{ width: '100%', marginTop: 12, padding: '11px', background: salarioBase ? '#1a5c2a' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salarioBase ? 'pointer' : 'default' }}>
+                                    ✅ Pagar y SALDAR TODO (préstamos en cero)
+                                </button>
+                                <button onClick={registrarNominaParcial} disabled={!salarioBase}
+                                    style={{ width: '100%', marginTop: 8, padding: '11px', background: salarioBase ? '#d97706' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salarioBase ? 'pointer' : 'default' }}>
+                                    💵 Pagar con abono parcial (queda saldo)
                                 </button>
                                 {!salarioBase && <div style={{ fontSize: 12, color: '#d97706', marginTop: 8, textAlign: 'center' }}>⚠️ Este empleado no tiene salario registrado. Edítalo con el botón + Nuevo o desde su ficha.</div>}
                             </>

@@ -150,6 +150,7 @@ router.get('/empleados/:id/prestamos',               empleadosCtrl.listarPrestam
 router.post('/empleados/:id/prestamos',              empleadosCtrl.crearPrestamo);
 router.put('/empleados/:id/prestamos/:prestamo_id',  empleadosCtrl.marcarPrestamoDescontado);
 router.post('/empleados/:id/prestamos/:prestamo_id/abono', empleadosCtrl.abonarPrestamo);
+router.post('/empleados/:id/prestamos/abonar-masivo', empleadosCtrl.abonarMasivoPrestamos);
 router.post('/empleados/:id/prestamos/reiniciar',    soloRoles('superadmin'), empleadosCtrl.reiniciarPrestamos);
 router.delete('/empleados/:id/dias-no-laborados',    soloRoles('superadmin'), empleadosCtrl.reiniciarDiasNoLaborados);
 router.get('/empleados/:id/dias-no-laborados',       empleadosCtrl.listarDiasNoLaborados);

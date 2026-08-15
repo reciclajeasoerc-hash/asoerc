@@ -96,6 +96,27 @@ exports.abonarPrestamo = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Abono parcial MASIVO: descuenta 'monto' repartido entre los préstamos pendientes
+// (más viejos primero). Lo que no alcance queda como saldo. Usado al pagar nómina "parcial".
+exports.abonarMasivoPrestamos = async (req, res) => {
+    try {
+        let restante = parseFloat(req.body.monto);
+        if (isNaN(restante) || restante <= 0) return res.status(400).json({ ok: false, msg: 'Monto inválido' });
+        const pendientes = await PrestamoEmpleado.findAll({ where: { empleado_id: req.params.id, descontado: false }, order: [['fecha', 'ASC'], ['id', 'ASC']] });
+        let aplicado = 0;
+        for (const p of pendientes) {
+            if (restante <= 0.001) break;
+            const saldo = parseFloat(p.monto) - parseFloat(p.abonado || 0);
+            if (saldo <= 0) { await p.update({ descontado: true }); continue; }
+            const abono = Math.min(saldo, restante);
+            const nuevoAbonado = parseFloat(p.abonado || 0) + abono;
+            await p.update({ abonado: nuevoAbonado, descontado: nuevoAbonado >= parseFloat(p.monto) - 0.001 });
+            aplicado += abono; restante -= abono;
+        }
+        res.json({ ok: true, aplicado });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
 // Reiniciar: poner TODOS los préstamos del empleado en cero (marcarlos como pagados). Solo superadmin.
 exports.reiniciarPrestamos = async (req, res) => {
     try {
