@@ -127,11 +127,15 @@ exports.reiniciarPrestamos = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
-// Reiniciar: borrar TODOS los días no laborados del empleado (para empezar la quincena limpia). Solo superadmin.
+// Reiniciar: ARCHIVAR los días no laborados pendientes (marcarlos descontado=true) para empezar
+// la quincena limpia SIN perder el historial. No se borran: quedan visibles como historial. Solo superadmin.
 exports.reiniciarDiasNoLaborados = async (req, res) => {
     try {
-        const n = await DiasNoLaborados.destroy({ where: { empleado_id: req.params.id } });
-        res.json({ ok: true, cantidad: n });
+        const [cantidad] = await DiasNoLaborados.update(
+            { descontado: true },
+            { where: { empleado_id: req.params.id, descontado: false } }
+        );
+        res.json({ ok: true, cantidad });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 

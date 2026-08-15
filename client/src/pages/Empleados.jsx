@@ -54,8 +54,10 @@ export default function Empleados() {
         nForm.tipo === 'dia'     ? salarioBase :
         nForm.tipo === 'mensual' ? (diasPeriodo ? salarioBase / (diasPeriodo * 2) : 0) :
                                    (diasPeriodo ? salarioBase / diasPeriodo : 0);
+    // Solo cuentan los días NO archivados (descontado=false) dentro del rango; los archivados
+    // quedan en el historial pero ya no descuentan de la nómina.
     const diasNoLab     = dias
-        .filter(d => (!nForm.desde || d.fecha_inicio >= nForm.desde) && (!nForm.hasta || d.fecha_inicio <= nForm.hasta))
+        .filter(d => !d.descontado && (!nForm.desde || d.fecha_inicio >= nForm.desde) && (!nForm.hasta || d.fecha_inicio <= nForm.hasta))
         .reduce((s, d) => s + parseFloat(d.dias || 0), 0);
     const diasPagados   = Math.max(0, diasPeriodo - diasNoLab);
     // 'completo' = monto fijo del periodo menos las faltas; 'mensual' y 'dia' = días pagados × valor día
@@ -184,11 +186,11 @@ export default function Empleados() {
     };
     const reiniciarDiasEmp = async () => {
         if (!selected) return;
-        if (!window.confirm(`¿Reiniciar (borrar) TODOS los días no laborados de ${selected.nombre}?\n\nSirve para empezar la quincena limpia.`)) return;
+        if (!window.confirm(`¿Archivar los días no laborados pendientes de ${selected.nombre}?\n\nQuedan en el HISTORIAL (no se borran) y dejan de contar para la nómina. Sirve para empezar la quincena limpia.`)) return;
         try {
             const d = await api.delete(`/empleados/${selected.id}/dias-no-laborados`);
             await seleccionar(selected);
-            alert(`Listo ✅\nSe borraron ${d.cantidad} registro(s) de días no laborados.`);
+            alert(`Listo ✅\nSe archivaron ${d.cantidad} registro(s).\nSiguen en el historial pero ya no descuentan de la nómina.`);
         } catch (err) { setMsg(err.message); }
     };
 
@@ -344,7 +346,7 @@ export default function Empleados() {
                             <>
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                                     <button onClick={() => setShowD(!showD)} style={{ padding: '7px 14px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Días no laborados</button>
-                                    {esSuper && <button onClick={reiniciarDiasEmp} title="Borrar todos los días no laborados (empezar quincena limpia)" style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🔄 Reiniciar días</button>}
+                                    {esSuper && <button onClick={reiniciarDiasEmp} title="Archivar los días no laborados pendientes (quedan en el historial, dejan de contar para la nómina)" style={{ padding: '7px 14px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗄️ Archivar / reiniciar</button>}
                                 </div>
                                 {showD && (
                                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 12, marginBottom: 12 }}>
@@ -360,10 +362,15 @@ export default function Empleados() {
                                         <button onClick={guardarDias} style={{ padding: '7px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12 }}>Registrar</button>
                                     </div>
                                 )}
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#555', margin: '4px 0 6px' }}>📋 Historial de días no laborados</div>
+                                {dias.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, padding: '8px 0' }}>Sin registros todavía.</div>}
                                 {dias.map(d => (
-                                    <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
-                                        <div><span style={{ fontWeight: 600 }}>{d.dias} días</span> <span style={{ color: '#888', fontSize: 12 }}>{d.motivo}</span></div>
-                                        <div style={{ color: '#888', fontSize: 12 }}>{d.fecha_inicio} → {d.fecha_fin}</div>
+                                    <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13, opacity: d.descontado ? .6 : 1 }}>
+                                        <div>
+                                            <div><span style={{ fontWeight: 600 }}>{d.dias} días</span> <span style={{ color: '#888', fontSize: 12 }}>{d.motivo}</span></div>
+                                            <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 1 }}>{d.fecha_inicio} → {d.fecha_fin}{d.quincena ? ' · ' + d.quincena : ''}</div>
+                                        </div>
+                                        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, whiteSpace: 'nowrap', background: d.descontado ? '#e5e7eb' : '#dbeafe', color: d.descontado ? '#6b7280' : '#2563eb' }}>{d.descontado ? '🗄️ Archivado' : 'Cuenta'}</span>
                                     </div>
                                 ))}
                             </>
