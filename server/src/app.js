@@ -380,7 +380,7 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Materials ADD COLUMN orden INT DEFAULT 999").catch(() => {});
             await sequelize.query("ALTER TABLE PrestamoRecicladors ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
             await sequelize.query("ALTER TABLE PrestamoEmpleados ADD COLUMN abonado DECIMAL(12,2) DEFAULT 0").catch(() => {});
-            await sequelize.query("ALTER TABLE Ventas ADD COLUMN numero_diario INT DEFAULT 0").catch(() => {});
+            await sequelize.query("ALTER TABLE Venta ADD COLUMN numero_diario INT DEFAULT 0").catch(() => {}); // la tabla es 'Venta' (singular)
             // Índice único: una sola caja por bodega y día (evita cajas duplicadas por concurrencia)
             await sequelize.query("ALTER TABLE Cajas ADD UNIQUE INDEX uniq_caja_dia (bodega_id, fecha)").catch(() => {});
             // El logo de la empresa se guarda como base64 (data:URI) en configuracion.valor →
