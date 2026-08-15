@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useAuth } from '../App';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 const hoy = () => new Date().toISOString().slice(0, 10);
 
 export default function Empleados() {
+    const { user } = useAuth();
+    const esSuper = user?.rol === 'superadmin';
     const [empleados, setEmpleados] = useState([]);
     const [busquedaEmp, setBusquedaEmp] = useState('');
     const [bodegas, setBodegas] = useState([]);
@@ -149,6 +152,26 @@ export default function Empleados() {
         } catch (err) { setMsg(err.message); }
     };
 
+    // Reiniciar (solo superadmin): poner préstamos en cero / borrar días no laborados.
+    const reiniciarPrestamosEmp = async () => {
+        if (!selected) return;
+        if (!window.confirm(`¿Poner en CERO todos los préstamos de ${selected.nombre}?\n\nSe marcarán todos como pagados y su saldo queda en $0.`)) return;
+        try {
+            const d = await api.post(`/empleados/${selected.id}/prestamos/reiniciar`, {});
+            await seleccionar(selected);
+            alert(`Listo ✅\nSe saldaron ${d.cantidad} préstamo(s) por $${fmt(d.total_saldado)}.\nSaldo actual: $0.`);
+        } catch (err) { setMsg(err.message); }
+    };
+    const reiniciarDiasEmp = async () => {
+        if (!selected) return;
+        if (!window.confirm(`¿Reiniciar (borrar) TODOS los días no laborados de ${selected.nombre}?\n\nSirve para empezar la quincena limpia.`)) return;
+        try {
+            const d = await api.delete(`/empleados/${selected.id}/dias-no-laborados`);
+            await seleccionar(selected);
+            alert(`Listo ✅\nSe borraron ${d.cantidad} registro(s) de días no laborados.`);
+        } catch (err) { setMsg(err.message); }
+    };
+
     const Btn = ({ active, onClick, children }) => (
         <button onClick={onClick} style={{ padding: '6px 14px', background: active ? '#1a5c2a' : '#f5f5f5', color: active ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>{children}</button>
     );
@@ -254,7 +277,10 @@ export default function Empleados() {
 
                         {tab === 'prestamos' && (
                             <>
-                                <button onClick={() => setShowP(!showP)} style={{ marginBottom: 12, padding: '7px 14px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>+ Préstamo</button>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                                    <button onClick={() => setShowP(!showP)} style={{ padding: '7px 14px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Préstamo</button>
+                                    {esSuper && <button onClick={reiniciarPrestamosEmp} title="Marcar todos los préstamos como pagados (saldo en cero)" style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🔄 Poner en cero</button>}
+                                </div>
                                 {showP && (
                                     <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: 12, marginBottom: 12 }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -296,7 +322,10 @@ export default function Empleados() {
 
                         {tab === 'dias' && (
                             <>
-                                <button onClick={() => setShowD(!showD)} style={{ marginBottom: 12, padding: '7px 14px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>+ Días no laborados</button>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                                    <button onClick={() => setShowD(!showD)} style={{ padding: '7px 14px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Días no laborados</button>
+                                    {esSuper && <button onClick={reiniciarDiasEmp} title="Borrar todos los días no laborados (empezar quincena limpia)" style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🔄 Reiniciar días</button>}
+                                </div>
                                 {showD && (
                                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 12, marginBottom: 12 }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>

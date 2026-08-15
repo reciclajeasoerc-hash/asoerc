@@ -96,6 +96,24 @@ exports.abonarPrestamo = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Reiniciar: poner TODOS los préstamos del empleado en cero (marcarlos como pagados). Solo superadmin.
+exports.reiniciarPrestamos = async (req, res) => {
+    try {
+        const pendientes = await PrestamoEmpleado.findAll({ where: { empleado_id: req.params.id, descontado: false } });
+        const totalSaldado = pendientes.reduce((s, p) => s + (parseFloat(p.monto) - parseFloat(p.abonado || 0)), 0);
+        await PrestamoEmpleado.update({ descontado: true }, { where: { empleado_id: req.params.id, descontado: false } });
+        res.json({ ok: true, cantidad: pendientes.length, total_saldado: totalSaldado });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+// Reiniciar: borrar TODOS los días no laborados del empleado (para empezar la quincena limpia). Solo superadmin.
+exports.reiniciarDiasNoLaborados = async (req, res) => {
+    try {
+        const n = await DiasNoLaborados.destroy({ where: { empleado_id: req.params.id } });
+        res.json({ ok: true, cantidad: n });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
 // Días no laborados
 exports.listarDiasNoLaborados = async (req, res) => {
     try {
