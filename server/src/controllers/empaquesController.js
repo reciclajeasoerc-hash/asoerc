@@ -32,16 +32,29 @@ exports.registrar = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// `saldo` NO se recibe del cliente: siempre se deriva de entregada - devuelta.
+// Antes se hacía update(req.body) directo, así que se podía mandar un saldo
+// suelto que no cuadrara con las cantidades y dejar empaques descuadrados.
+const CAMPOS_EDITABLES = ['tipo_actor', 'reciclador_id', 'conductor', 'bodega_id',
+    'fecha', 'cantidad_entregada', 'cantidad_devuelta', 'observaciones'];
+
 exports.actualizar = async (req, res) => {
     try {
         const e = await Empaque.findByPk(req.params.id);
         if (!e) return res.status(404).json({ ok: false, msg: 'No encontrado' });
-        if (req.body.cantidad_entregada !== undefined || req.body.cantidad_devuelta !== undefined) {
-            const entregada = parseInt(req.body.cantidad_entregada ?? e.cantidad_entregada);
-            const devuelta  = parseInt(req.body.cantidad_devuelta ?? e.cantidad_devuelta);
-            req.body.saldo  = entregada - devuelta;
+
+        const datos = {};
+        for (const campo of CAMPOS_EDITABLES) {
+            if (req.body[campo] !== undefined) datos[campo] = req.body[campo];
         }
-        await e.update(req.body);
+
+        if (datos.cantidad_entregada !== undefined || datos.cantidad_devuelta !== undefined) {
+            const entregada = parseInt(datos.cantidad_entregada ?? e.cantidad_entregada);
+            const devuelta  = parseInt(datos.cantidad_devuelta ?? e.cantidad_devuelta);
+            datos.saldo = entregada - devuelta;
+        }
+
+        await e.update(datos);
         res.json({ ok: true, empaque: e });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

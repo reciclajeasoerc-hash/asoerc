@@ -55,12 +55,25 @@ exports.crear = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Lista blanca. Quedan fuera `venta_id`, `compra_id` y `total_kilos`: son el
+// amarre de la remisión con su documento y el peso que ya se calculó a partir
+// de los ítems. Reasignarlos a mano dejaría la remisión colgada de otra venta
+// o con un peso que no corresponde a lo que realmente lleva.
+const CAMPOS_EDITABLES = ['numero', 'numero_orden', 'tipo', 'conductor', 'cliente_id',
+    'sede_id', 'bodega_id', 'fecha', 'hora_llegada', 'hora_salida', 'vehiculo', 'observaciones'];
+
 exports.actualizar = async (req, res) => {
     try {
         const remision = await Remision.findByPk(req.params.id);
         if (!remision) return res.status(404).json({ ok: false, msg: 'No encontrada' });
-        if (req.file) req.body.foto_url = `/uploads/${req.file.filename}`;
-        await remision.update(req.body);
+
+        const datos = {};
+        for (const campo of CAMPOS_EDITABLES) {
+            if (req.body[campo] !== undefined) datos[campo] = req.body[campo];
+        }
+        if (req.file) datos.foto_url = `/uploads/${req.file.filename}`;
+
+        await remision.update(datos);
         res.json({ ok: true, remision });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

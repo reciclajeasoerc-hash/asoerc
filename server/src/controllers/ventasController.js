@@ -158,11 +158,20 @@ exports.crearCliente = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Lista blanca de lo que la pantalla de clientes edita de verdad.
+const CAMPOS_CLIENTE = ['nombre', 'nit', 'telefono', 'email', 'contacto', 'tipo_precio', 'activo'];
+
 exports.actualizarCliente = async (req, res) => {
     try {
         const cliente = await Cliente.findByPk(req.params.id);
         if (!cliente) return res.status(404).json({ ok: false, msg: 'No encontrado' });
-        await cliente.update(req.body);
+
+        const datos = {};
+        for (const campo of CAMPOS_CLIENTE) {
+            if (req.body[campo] !== undefined) datos[campo] = req.body[campo];
+        }
+
+        await cliente.update(datos);
         res.json({ ok: true, cliente });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

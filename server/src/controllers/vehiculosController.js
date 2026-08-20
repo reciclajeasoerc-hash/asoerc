@@ -15,11 +15,21 @@ exports.crear = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Lista blanca: solo lo que la pantalla realmente edita, para que una columna
+// nueva del modelo no quede editable sin que nadie lo haya decidido.
+const CAMPOS_EDITABLES = ['placa', 'descripcion', 'conductor', 'tipo', 'activo'];
+
 exports.actualizar = async (req, res) => {
     try {
         const v = await Vehiculo.findByPk(req.params.id);
         if (!v) return res.status(404).json({ ok: false, msg: 'No encontrado' });
-        await v.update(req.body);
+
+        const datos = {};
+        for (const campo of CAMPOS_EDITABLES) {
+            if (req.body[campo] !== undefined) datos[campo] = req.body[campo];
+        }
+
+        await v.update(datos);
         res.json({ ok: true, vehiculo: v });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

@@ -33,11 +33,33 @@ exports.crear = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// Campos que se pueden editar desde la pantalla. Lista blanca a propósito:
+// `saldo_prestamo` NO está aquí. Antes se hacía update(req.body) directo, así
+// que cualquiera con sesión podía mandar {saldo_prestamo: 0} y borrarle la
+// deuda a un reciclador sin dejar rastro. El saldo solo lo mueven los
+// préstamos, los abonos y el cruce automático al finalizar una compra.
+const CAMPOS_EDITABLES = ['nombre', 'cedula', 'telefono', 'whatsapp', 'bodega_id', 'activo'];
+
 exports.actualizar = async (req, res) => {
     try {
         const r = await Reciclador.findByPk(req.params.id);
         if (!r) return res.status(404).json({ ok: false, msg: 'No encontrado' });
-        await r.update(req.body);
+
+        const datos = {};
+        for (const campo of CAMPOS_EDITABLES) {
+            if (req.body[campo] !== undefined) datos[campo] = req.body[campo];
+        }
+
+        // Cambiar la cédula a una que ya tiene otro reciclador fusionaría dos
+        // personas distintas en los reportes; se avisa en vez de reventar.
+        if (datos.cedula && datos.cedula !== r.cedula) {
+            const otro = await Reciclador.findOne({ where: { cedula: datos.cedula } });
+            if (otro && otro.id !== r.id) {
+                return res.status(400).json({ ok: false, msg: `La cédula ${datos.cedula} ya es de "${otro.nombre}".` });
+            }
+        }
+
+        await r.update(datos);
         res.json({ ok: true, reciclador: r });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
