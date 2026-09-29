@@ -146,7 +146,7 @@ export default function Caja() {
     const editarBase = async () => {
         if (!caja || caja.estado === 'cerrada') return;
         const actual = parseFloat(caja.saldo_inicial || 0);
-        const entrada = window.prompt(`Base del día — efectivo con el que arranca ${bodegaNombre || 'la caja'} hoy:`, actual ? String(actual) : '');
+        const entrada = window.prompt(`Base del día — efectivo con el que arranca ${caja?.bodega?.nombre || bodegaNombre || 'la caja'} hoy:`, actual ? String(actual) : '');
         if (entrada === null) return;
         const valor = parseFloat(String(entrada).replace(/[^\d.]/g, ''));
         if (isNaN(valor) || valor < 0) return alert('Base inválida');
@@ -410,6 +410,7 @@ export default function Caja() {
             <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: '100%', maxWidth: 420, boxShadow: '0 24px 60px rgba(0,0,0,.25)', textAlign: 'center' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🏦</div>
                 <h2 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 800 }}>Apertura de caja</h2>
+                <div style={{ display: 'inline-block', background: '#dcfce7', color: '#166534', borderRadius: 999, padding: '4px 12px', fontSize: 14, fontWeight: 700, marginBottom: 10 }}>🏭 {caja?.bodega?.nombre || bodegaNombre || 'Bodega'}</div>
                 <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: 14 }}>¿Con cuánto dinero inicia la caja hoy?{parseFloat(caja?.saldo_inicial) > 0 ? <><br /><span style={{ fontSize: 12 }}>Sugerido: lo que quedó al cerrar el día anterior. Corrígelo si no es lo que hay.</span></> : null}</p>
                 <input ref={aperturaRef} type="number" min="0" step="1000" value={montoApertura}
                     onChange={e => setMontoApertura(e.target.value)}
