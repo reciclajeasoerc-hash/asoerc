@@ -169,7 +169,9 @@ const Caja = sequelize.define('Caja', {
     total_egresos: { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
     saldo_final:  { type: DataTypes.DECIMAL(12,2), defaultValue: 0 },
     estado:       { type: DataTypes.ENUM('abierta','cerrada'), defaultValue: 'abierta' },
-    observaciones:{ type: DataTypes.TEXT }
+    observaciones:{ type: DataTypes.TEXT },
+    // true cuando una persona registró/confirmó la base del día (no la sugerida automática)
+    base_confirmada:{ type: DataTypes.BOOLEAN, defaultValue: false }
 });
 
 const MovimientoCaja = sequelize.define('MovimientoCaja', {

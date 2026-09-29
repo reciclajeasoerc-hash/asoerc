@@ -1,17 +1,30 @@
 const { Caja, MovimientoCaja, Bodega } = require('../models');
+const { obtenerCajaDia } = require('../utils/caja');
 
+const INCLUDE = [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }];
+
+// Caja de HOY: la crea si no existe (mismo camino que compras/ventas/bot, para que la base
+// sugerida se calcule igual venga de donde venga).
 exports.obtenerOAbrir = async (req, res) => {
     try {
         const { bodega_id } = req.query;
+        if (!bodega_id) return res.status(400).json({ ok: false, msg: 'bodega_id requerido' });
         const fecha = require("../utils/fecha").hoy();
-        let caja = await Caja.findOne({ where: { bodega_id, fecha }, include: [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }] });
-        if (!caja) {
-            // Tomar saldo final del día anterior como saldo inicial
-            const anterior = await Caja.findOne({ where: { bodega_id, estado: 'cerrada' }, order: [['fecha', 'DESC']] });
-            const saldo_inicial = anterior ? parseFloat(anterior.saldo_final) : 0;
-            caja = await Caja.create({ bodega_id, fecha, saldo_inicial, estado: 'abierta' });
-            caja = await Caja.findByPk(caja.id, { include: [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }] });
-        }
+        const base = await obtenerCajaDia(bodega_id, fecha);
+        const caja = await Caja.findByPk(base.id, { include: INCLUDE });
+        res.json({ ok: true, caja });
+    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+};
+
+// Caja de un día CUALQUIERA, solo lectura: no crea nada. caja = null si ese día no hubo caja.
+exports.porDia = async (req, res) => {
+    try {
+        // Un usuario que no es superadmin y no tiene bodega asignada no puede elegir cuál ver
+        // (bodegaFilter solo fuerza la bodega cuando el usuario tiene una).
+        if (req.user?.rol !== 'superadmin' && !req.user?.bodega_id) return res.status(403).json({ ok: false, msg: 'Tu usuario no tiene bodega asignada' });
+        const { bodega_id, fecha } = req.query;
+        if (!bodega_id || !/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')) return res.status(400).json({ ok: false, msg: 'bodega_id y fecha (AAAA-MM-DD) requeridos' });
+        const caja = await Caja.findOne({ where: { bodega_id, fecha }, include: INCLUDE });
         res.json({ ok: true, caja });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
@@ -41,7 +54,7 @@ exports.actualizarBase = async (req, res) => {
         if (caja.estado === 'cerrada') return res.status(400).json({ ok: false, msg: 'La caja está cerrada' });
         const base = parseFloat(req.body.saldo_inicial);
         if (isNaN(base) || base < 0) return res.status(400).json({ ok: false, msg: 'Base inválida' });
-        await caja.update({ saldo_inicial: base });
+        await caja.update({ saldo_inicial: base, base_confirmada: true });
         await recalcularCaja(caja.id);
         const full = await Caja.findByPk(caja.id, { include: [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }] });
         res.json({ ok: true, caja: full });

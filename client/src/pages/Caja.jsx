@@ -8,6 +8,8 @@ import { exportarCajaExcel, exportarCajaPDF } from '../utils/exportar';
 
 const fmt    = n => Number(n || 0).toLocaleString('es-CO');
 const fmtCOP = n => '$' + fmt(n);
+// Fecha del negocio (Colombia), igual que el servidor: después de las 7pm no salta a "mañana".
+const hoyCO  = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
 const CONCEPTOS_MANUAL = {
     ingreso: [
@@ -41,6 +43,10 @@ export default function Caja() {
     const [bodegas, setBodegas]   = useState([]);
     const [bodega_id, setBodegaId]= useState('');
     const [tab, setTab]           = useState('compras');
+    // Ver la caja de otro día (solo lectura). fechaVer === hoy → la caja de trabajo normal.
+    const [fechaVer, setFechaVer] = useState(hoyCO());
+    const [cajaVer, setCajaVer]   = useState(null);
+    const [cargandoVer, setCargandoVer] = useState(false);
 
     const [montoApertura, setMontoApertura] = useState('');
     const [loadingApertura, setLoadingApertura] = useState(false);
@@ -98,12 +104,31 @@ export default function Caja() {
         const bid = bId ? String(bId) : bodega_id;
         if (bId && String(bId) !== bodega_id) setBodegaId(String(bId));
         const d = await api.get(`/caja?bodega_id=${bid}`).catch(() => null);
-        if (d) { setCaja(d.caja); setAperturaHecha(false); }
+        if (d) {
+            setCaja(d.caja); setAperturaHecha(false);
+            // Sugerir en la apertura lo que quedó del día anterior (si quedó plata)
+            const sug = parseFloat(d.caja?.saldo_inicial) || 0;
+            setMontoApertura(sug > 0 ? String(sug) : '');
+        }
     };
 
-    const necesitaApertura = caja?.estado === 'abierta'
-        && (caja?.saldo_inicial ?? 0) === 0
-        && !(caja?.movimientos?.length)
+    const viendoHoy = fechaVer === hoyCO();
+    useEffect(() => {
+        if (!bodega_id || viendoHoy) { setCajaVer(null); return; }
+        let vigente = true; // descarta respuestas de una fecha/bodega que ya no está elegida
+        setCargandoVer(true); setCajaVer(null);
+        api.get(`/caja/dia?bodega_id=${bodega_id}&fecha=${fechaVer}`)
+            .then(d => { if (vigente) setCajaVer(d.caja || null); })
+            .catch(() => { if (vigente) setCajaVer(null); })
+            .finally(() => { if (vigente) setCargandoVer(false); });
+        return () => { vigente = false; };
+    }, [fechaVer, bodega_id]);
+
+    // La base se pide mientras nadie la haya confirmado hoy (antes se comparaba el DECIMAL,
+    // que llega como texto "0.00", contra el número 0 → nunca se pedía).
+    const necesitaApertura = viendoHoy
+        && caja?.estado === 'abierta'
+        && !caja?.base_confirmada
         && !aperturaHecha;
 
     // Registra la BASE del día (saldo inicial), no un movimiento de ingreso.
@@ -164,7 +189,10 @@ export default function Caja() {
     const colorManual  = tipo === 'ingreso' ? '#059669' : '#dc2626';
 
     // ── Panel Resumen (compartido móvil+escritorio) ─────────────────────────
-    const PanelResumen = ({ compact = false }) => (
+    const PanelResumen = ({ compact = false }) => {
+        const cm = viendoHoy ? caja : cajaVer; // caja mostrada
+        const enRojo = cm && parseFloat(cm.saldo_final) < 0;
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Selector bodega superadmin */}
             {user?.rol === 'superadmin' && bodegas.length > 0 && (
@@ -178,15 +206,31 @@ export default function Caja() {
 
             {/* 4 tarjetas */}
             <div style={{ padding: compact ? '12px 16px' : '14px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 10 }}>
-                    Resumen del día
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5 }}>
+                        {viendoHoy ? 'Resumen de hoy' : 'Resumen del día'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input type="date" value={fechaVer} max={hoyCO()} onChange={e => e.target.value && setFechaVer(e.target.value)}
+                            title="Ver la caja de otro día"
+                            style={{ padding: '3px 6px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }} />
+                        {!viendoHoy && (
+                            <button onClick={() => setFechaVer(hoyCO())}
+                                style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Hoy</button>
+                        )}
+                    </div>
                 </div>
+                {!viendoHoy && !cargandoVer && !cajaVer && (
+                    <div style={{ background: '#f3f4f6', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#6b7280', marginBottom: 10 }}>
+                        Ese día no hubo caja en esta bodega.
+                    </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: compact ? 8 : 10 }}>
                     {[
-                        { label: 'Base del día', v: caja?.saldo_inicial, c: '#6b7280', editable: true },
-                        { label: 'Ingresos',      v: caja?.total_ingresos, c: '#059669' },
-                        { label: 'Salidas',       v: caja?.total_egresos,  c: '#dc2626' },
-                        { label: 'Saldo actual',  v: caja?.saldo_final,    c: '#1a5c2a' },
+                        { label: 'Base del día', v: cm?.saldo_inicial, c: '#6b7280', editable: viendoHoy },
+                        { label: 'Ingresos',      v: cm?.total_ingresos, c: '#059669' },
+                        { label: 'Salidas',       v: cm?.total_egresos,  c: '#dc2626' },
+                        { label: viendoHoy && cm?.estado !== 'cerrada' ? 'Saldo actual' : 'Saldo final', v: cm?.saldo_final, c: enRojo ? '#dc2626' : '#1a5c2a' },
                     ].map(({ label, v, c, editable }) => (
                         <div key={label} style={{ background: '#f9fafb', borderRadius: 10, padding: compact ? '10px 12px' : '12px 14px', position: 'relative' }}>
                             <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: .3, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -200,19 +244,24 @@ export default function Caja() {
                         </div>
                     ))}
                 </div>
+                {enRojo && (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#991b1b', marginTop: 10 }}>
+                        ⚠️ La caja da negativo: salió más plata de la que se registró. {viendoHoy ? 'Revisa la base del día (✏️) o registra el ingreso que falta en Manual.' : 'Ese día faltó registrar la base o algún ingreso.'}
+                    </div>
+                )}
             </div>
 
             {/* Movimientos */}
             <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5, padding: '10px 16px 6px', flexShrink: 0 }}>
-                Movimientos de hoy
+                {viendoHoy ? 'Movimientos de hoy' : `Movimientos del ${fechaVer}`}
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
-                {!(caja?.movimientos?.length) ? (
+                {!(cm?.movimientos?.length) ? (
                     <div style={{ textAlign: 'center', padding: '32px 0', color: '#d1d5db' }}>
                         <div style={{ fontSize: 36 }}>📋</div>
                         <p style={{ fontSize: 12, marginTop: 8 }}>Sin movimientos aún</p>
                     </div>
-                ) : [...(caja.movimientos)].reverse().map(m => (
+                ) : [...(cm.movimientos)].reverse().map(m => (
                     <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.concepto}</div>
@@ -233,7 +282,22 @@ export default function Caja() {
                 ))}
             </div>
 
-            {/* Cerrar / Reabrir */}
+            {/* Días anteriores: solo lectura + descarga */}
+            {!viendoHoy && cm && (
+                <div style={{ padding: 12, borderTop: '1px solid #e5e7eb', flexShrink: 0, display: 'flex', gap: 6 }}>
+                    <button onClick={() => exportarCajaExcel({ caja: cm, movimientos: cm.movimientos || [], fecha: cm.fecha })}
+                        style={{ flex: 1, padding: '9px 4px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        📊 Excel
+                    </button>
+                    <button onClick={() => exportarCajaPDF({ caja: cm, movimientos: cm.movimientos || [], fecha: cm.fecha })}
+                        style={{ flex: 1, padding: '9px 4px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        📄 PDF
+                    </button>
+                </div>
+            )}
+
+            {/* Cerrar / Reabrir (solo la caja de hoy) */}
+            {viendoHoy && (
             <div style={{ padding: 12, borderTop: '1px solid #e5e7eb', flexShrink: 0 }}>
                 {caja?.estado === 'abierta' && (
                     <button onClick={cerrar}
@@ -267,8 +331,10 @@ export default function Caja() {
                     </>
                 )}
             </div>
+            )}
         </div>
-    );
+        );
+    };
 
     // ── Panel Manual ───────────────────────────────────────────────────────
     const PanelManual = () => (
@@ -344,7 +410,7 @@ export default function Caja() {
             <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: '100%', maxWidth: 420, boxShadow: '0 24px 60px rgba(0,0,0,.25)', textAlign: 'center' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🏦</div>
                 <h2 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 800 }}>Apertura de caja</h2>
-                <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: 14 }}>¿Con cuánto dinero inicia la caja hoy?</p>
+                <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: 14 }}>¿Con cuánto dinero inicia la caja hoy?{parseFloat(caja?.saldo_inicial) > 0 ? <><br /><span style={{ fontSize: 12 }}>Sugerido: lo que quedó al cerrar el día anterior. Corrígelo si no es lo que hay.</span></> : null}</p>
                 <input ref={aperturaRef} type="number" min="0" step="1000" value={montoApertura}
                     onChange={e => setMontoApertura(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && registrarApertura()}
@@ -383,7 +449,7 @@ export default function Caja() {
         ];
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f0faf0' }}>
-                <ModalApertura />
+                {ModalApertura()}
                 {reciboOverlay}
 
                 {/* Tab bar superior */}
@@ -405,7 +471,7 @@ export default function Caja() {
                     {tab === 'compras' && <div style={{ flex: 1, overflow: 'hidden' }}><Compras onCajaChange={cargar} bodegaId={bodega_id} /></div>}
                     {tab === 'ventas'  && <div style={{ flex: 1, overflow: 'auto'  }}><Ventas  onCajaChange={cargar} bodegaId={bodega_id} /></div>}
                     {tab === 'manual'  && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><PanelManual /></div>}
-                    {tab === 'resumen' && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><PanelResumen compact /></div>}
+                    {tab === 'resumen' && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>{PanelResumen({ compact: true })}</div>}
                 </div>
             </div>
         );
@@ -416,7 +482,7 @@ export default function Caja() {
     // ══════════════════════════════════════════════════════════════════════
     return (
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-            <ModalApertura />
+            {ModalApertura()}
             {reciboOverlay}
 
             {/* Panel izquierdo */}
@@ -447,7 +513,7 @@ export default function Caja() {
                     <div style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>💰 Caja</div>
                     {bodegaNombre && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{bodegaNombre}</div>}
                 </div>
-                <PanelResumen />
+                {PanelResumen({})}
             </div>
         </div>
     );

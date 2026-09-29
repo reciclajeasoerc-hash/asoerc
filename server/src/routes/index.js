@@ -159,6 +159,7 @@ router.post('/empleados/:id/dias-no-laborados',      empleadosCtrl.crearDiasNoLa
 // Caja
 router.get('/caja',           cajaCtrl.obtenerOAbrir);
 router.get('/caja/historial', cajaCtrl.historial);
+router.get('/caja/dia',       cajaCtrl.porDia);
 router.post('/caja/:id/movimientos', cajaCtrl.agregarMovimiento);
 router.put('/caja/:id/base',         cajaCtrl.actualizarBase);
 router.post('/caja/:id/cerrar',      cajaCtrl.cerrar);

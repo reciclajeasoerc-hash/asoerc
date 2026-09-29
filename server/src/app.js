@@ -375,6 +375,7 @@ async function iniciar(intentos = 5) {
             await sequelize.query("ALTER TABLE Remisions ADD COLUMN numero_orden VARCHAR(50) NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Bodegas ADD COLUMN logo_url VARCHAR(500) NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Compras ADD COLUMN numero_diario INT DEFAULT 0").catch(() => {});
+            await sequelize.query("ALTER TABLE Cajas ADD COLUMN base_confirmada TINYINT(1) DEFAULT 0").catch(() => {});
             await sequelize.query("ALTER TABLE Usuarios ADD COLUMN telegram_chat_id VARCHAR(50) NULL").catch(() => {});
             await sequelize.query("ALTER TABLE Empleados ADD COLUMN tipo_salario VARCHAR(20) DEFAULT 'dia'").catch(() => {});
             await sequelize.query("ALTER TABLE Materials ADD COLUMN orden INT DEFAULT 999").catch(() => {});

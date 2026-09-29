@@ -1,5 +1,6 @@
 // Helpers de caja SEGUROS ante concurrencia (varias personas registrando a la vez).
 const sequelize = require('../config/db');
+const { Op } = require('sequelize');
 const { Caja, MovimientoCaja } = require('../models');
 
 // Recalcula los totales de la caja DESDE sus movimientos, en UN SOLO UPDATE atómico:
@@ -27,8 +28,14 @@ async function obtenerCajaDia(bodega_id, fecha) {
     let caja = await Caja.findOne({ where: { bodega_id, fecha } });
     if (caja) return caja;
     // No existe: la crea con INSERT IGNORE (índice único evita duplicados si dos la crean a la vez).
-    const anterior = await Caja.findOne({ where: { bodega_id }, order: [['fecha', 'DESC']] });
-    const saldo = anterior ? parseFloat(anterior.saldo_final) : 0;
+    // Base sugerida = lo que quedó en la caja del día ANTERIOR a esta fecha (no la última que
+    // exista: una compra con fecha pasada no puede heredar el saldo de un día posterior).
+    // Plata física no puede ser negativa: si el día anterior cerró en rojo (se registraron
+    // compras sin registrar la base), el día nuevo arranca en 0 y la administradora confirma
+    // la base real. Antes se arrastraba el negativo y se iba acumulando día tras día.
+    const anterior = await Caja.findOne({ where: { bodega_id, fecha: { [Op.lt]: fecha } }, order: [['fecha', 'DESC']] });
+    const previo = anterior ? parseFloat(anterior.saldo_final) || 0 : 0;
+    const saldo = previo > 0 ? previo : 0;
     await sequelize.query(
         `INSERT IGNORE INTO Cajas (bodega_id, fecha, saldo_inicial, total_ingresos, total_egresos, saldo_final, estado, createdAt, updatedAt)
          VALUES (?, ?, ?, 0, 0, ?, 'abierta', NOW(), NOW())`,
