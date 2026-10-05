@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const auth   = require('../middlewares/auth');
-const { soloRoles } = require('../middlewares/bodegaFilter');
+const { soloRoles, requiereBodega, mismaBodega, forzarBodegaBody } = require('../middlewares/bodegaFilter');
 const bodegaFilter = require('../middlewares/bodegaFilter');
 const multer = require('multer');
 const path   = require('path');
@@ -24,7 +24,8 @@ const empaquesCtrl   = require('../controllers/empaquesController');
 const informesCtrl   = require('../controllers/informesController');
 const usuariosCtrl   = require('../controllers/usuariosController');
 const vehiculosCtrl  = require('../controllers/vehiculosController');
-const { Bodega, Material, Reciclador, PrestamoReciclador, PrestamoEmpleado, Empleado } = require('../models');
+const { Bodega, Material, Reciclador, PrestamoReciclador, PrestamoEmpleado, Empleado, Compra, Venta, Caja, Remision, Empaque } = require('../models');
+const bCompra = mismaBodega(Compra), bVenta = mismaBodega(Venta), bCaja = mismaBodega(Caja), bRemision = mismaBodega(Remision), bEmpaque = mismaBodega(Empaque);
 
 // Setup inicial (sin autenticación)
 router.get('/setup/estado',  setupCtrl.estado);
@@ -116,14 +117,16 @@ router.get('/recicladores/:id/sedes',                    recicladoresCtrl.listar
 router.post('/recicladores/:id/sedes',                   recicladoresCtrl.crearSede);
 
 // Compras
+// Compras, ventas, caja y remisiones: cada quien opera SOLO en su bodega (salvo superadmin)
+router.use(['/compras', '/ventas', '/caja', '/remisiones', '/empaques'], requiereBodega);
 router.get('/compras',                          comprasCtrl.listar);
 router.get('/compras/resumen-dia',              comprasCtrl.resumenDia);
 router.post('/compras',                         comprasCtrl.crear);
-router.get('/compras/:id',                      comprasCtrl.obtener);
-router.post('/compras/:id/items',               comprasCtrl.agregarItem);
-router.delete('/compras/:id/items/:item_id',    comprasCtrl.quitarItem);
-router.post('/compras/:id/finalizar',           comprasCtrl.finalizar);
-router.delete('/compras/:id',                   comprasCtrl.eliminar);
+router.get('/compras/:id',                      bCompra, comprasCtrl.obtener);
+router.post('/compras/:id/items',               bCompra, comprasCtrl.agregarItem);
+router.delete('/compras/:id/items/:item_id',    bCompra, comprasCtrl.quitarItem);
+router.post('/compras/:id/finalizar',           bCompra, comprasCtrl.finalizar);
+router.delete('/compras/:id',                   bCompra, comprasCtrl.eliminar);
 
 // Ventas y clientes
 router.get('/clientes',                              ventasCtrl.listarClientes);
@@ -137,9 +140,9 @@ router.post('/clientes/:id/precios',                 ventasCtrl.guardarPrecio);
 router.delete('/clientes/:id/precios/:material_id',  ventasCtrl.eliminarPrecio);
 router.get('/ventas',           ventasCtrl.listar);
 router.post('/ventas',          ventasCtrl.crear);
-router.get('/ventas/:id',       ventasCtrl.obtener);
-router.put('/ventas/:id/estado',ventasCtrl.actualizarEstado);
-router.delete('/ventas/:id',    ventasCtrl.eliminar);
+router.get('/ventas/:id',       bVenta, ventasCtrl.obtener);
+router.put('/ventas/:id/estado',bVenta, ventasCtrl.actualizarEstado);
+router.delete('/ventas/:id',    bVenta, ventasCtrl.eliminar);
 
 // Empleados
 router.get('/empleados',      empleadosCtrl.listar);
@@ -160,23 +163,23 @@ router.post('/empleados/:id/dias-no-laborados',      empleadosCtrl.crearDiasNoLa
 router.get('/caja',           cajaCtrl.obtenerOAbrir);
 router.get('/caja/historial', cajaCtrl.historial);
 router.get('/caja/dia',       cajaCtrl.porDia);
-router.post('/caja/:id/movimientos', cajaCtrl.agregarMovimiento);
-router.put('/caja/:id/base',         cajaCtrl.actualizarBase);
-router.post('/caja/:id/cerrar',      cajaCtrl.cerrar);
-router.post('/caja/:id/reabrir',     cajaCtrl.reabrir);
+router.post('/caja/:id/movimientos', bCaja, cajaCtrl.agregarMovimiento);
+router.put('/caja/:id/base',         bCaja, cajaCtrl.actualizarBase);
+router.post('/caja/:id/cerrar',      bCaja, cajaCtrl.cerrar);
+router.post('/caja/:id/reabrir',     bCaja, cajaCtrl.reabrir);
 
 // Remisiones
 router.get('/remisiones',      remisionesCtrl.listar);
-router.post('/remisiones',     upload.single('foto'), remisionesCtrl.crear);
-router.get('/remisiones/:id',  remisionesCtrl.obtener);
-router.put('/remisiones/:id',  upload.single('foto'), remisionesCtrl.actualizar);
-router.delete('/remisiones/:id', remisionesCtrl.eliminar);
+router.post('/remisiones',     upload.single('foto'), forzarBodegaBody, remisionesCtrl.crear);
+router.get('/remisiones/:id',  bRemision, remisionesCtrl.obtener);
+router.put('/remisiones/:id',  bRemision, upload.single('foto'), forzarBodegaBody, remisionesCtrl.actualizar);
+router.delete('/remisiones/:id', bRemision, remisionesCtrl.eliminar);
 
 // Empaques
 router.get('/empaques',          empaquesCtrl.listar);
 router.get('/empaques/resumen',  empaquesCtrl.resumen);
 router.post('/empaques',         empaquesCtrl.registrar);
-router.put('/empaques/:id',      empaquesCtrl.actualizar);
+router.put('/empaques/:id',      bEmpaque, empaquesCtrl.actualizar);
 
 // Vehículos
 router.get('/vehiculos',                    vehiculosCtrl.listar);

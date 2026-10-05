@@ -111,14 +111,15 @@ exports.comprasPorPeriodo = async (req, res) => {
 
 exports.certificadoCliente = async (req, res) => {
     try {
-        const { cliente_id, desde, hasta } = req.query;
+        const { cliente_id, desde, hasta, bodega_id } = req.query;
         if (!cliente_id || !desde || !hasta) return res.status(400).json({ ok: false, msg: 'cliente_id, desde y hasta son requeridos' });
 
         const cliente = await Cliente.findByPk(cliente_id);
         if (!cliente) return res.status(404).json({ ok: false, msg: 'Cliente no encontrado' });
 
         const ventas = await Venta.findAll({
-            where: { cliente_id, fecha: { [Op.between]: [desde, hasta] } },
+            // bodega_id: el de la barra para el superadmin; el suyo (forzado) para los demás
+            where: { cliente_id, fecha: { [Op.between]: [desde, hasta] }, ...(bodega_id ? { bodega_id } : {}) },
             include: [{ model: VentaItem, as: 'items', include: [{ model: Material, as: 'material' }] }]
         });
 

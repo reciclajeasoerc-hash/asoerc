@@ -10,7 +10,7 @@ async function req(method, url, body) {
     if (body) opts.body = JSON.stringify(body);
     const r = await fetch(`${BASE}${url}`, opts);
     const data = await r.json();
-    if (!r.ok) throw new Error(data.msg || 'Error en la petición');
+    if (!r.ok) { const e = new Error(data.msg || 'Error en la petición'); e.status = r.status; throw e; }
     return data;
 }
 

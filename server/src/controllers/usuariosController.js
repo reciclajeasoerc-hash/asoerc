@@ -49,6 +49,13 @@ exports.actualizar = async (req, res) => {
         if (req.user.rol !== 'superadmin' && usuario.bodega_id !== req.user.bodega_id)
             return res.status(403).json({ ok: false, msg: 'Sin permisos' });
         const { nombre, rol, activo, bodega_id, password, telegram_chat_id } = req.body;
+        // Igual que al crear: solo el superadmin asigna roles de admin/superadmin o edita a un
+        // superadmin. Si no, un admin se cambiaba a sí mismo a superadmin y salía de su bodega.
+        if (req.user.rol !== 'superadmin') {
+            if (usuario.rol === 'superadmin') return res.status(403).json({ ok: false, msg: 'Sin permisos' });
+            if (rol && rol !== usuario.rol && ['superadmin', 'admin'].includes(rol))
+                return res.status(403).json({ ok: false, msg: 'Sin permisos para asignar ese rol' });
+        }
         const upd = {};
         if (nombre) upd.nombre = nombre;
         if (rol && ROLES_VALIDOS.includes(rol)) upd.rol = rol;

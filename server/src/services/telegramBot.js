@@ -329,6 +329,29 @@ async function obtenerOCrearCaja(bodega_id, hoy) {
     return obtenerCajaDia(bodega_id, hoy);
 }
 
+// Bodega con la que opera quien le escribe al bot: la que tiene asignada su usuario.
+// Antes TODO caía en "la primera bodega activa": lo que registraba la encargada de
+// El Diamante por Telegram quedaba en la otra bodega.
+// Superadmin sin bodega asignada → la primera activa. Cualquier otro chat sin usuario
+// vinculado o sin bodega → null: no se sabe dónde registrar, así que no registra.
+const MSG_SIN_BODEGA = 'Tu Telegram no está vinculado a un usuario con bodega asignada. Pide al superadministrador que lo vincule en Usuarios.';
+async function alcanceChat(chatId) {
+    const u = await Usuario.findOne({ where: { telegram_chat_id: String(chatId), activo: true } });
+    // Chat sin usuario pero dado de alta como superadmin en la lista vieja (Configuración → Bot)
+    const esSuper = u ? u.rol === 'superadmin' : (await obtenerChat(chatId)).rol === 'superadmin';
+    let bodega = null;
+    if (u?.bodega_id) bodega = await Bodega.findByPk(u.bodega_id);
+    if (!bodega && esSuper) bodega = await Bodega.findOne({ where: { activa: true } });
+    return { esSuper, bodega };
+}
+async function bodegaDelChat(chatId) { return (await alcanceChat(chatId)).bodega; }
+// Filtro para listados: el superadmin ve todas las bodegas; los demás solo la suya.
+async function whereBodegaChat(chatId) {
+    const { esSuper, bodega } = await alcanceChat(chatId);
+    if (esSuper) return {};
+    return { bodega_id: bodega ? bodega.id : -1 };
+}
+
 async function ejecutarHerramienta(nombre, args, chatId) {
     const hoy = require("../utils/fecha").hoy();
     console.log(`🔧 [${nombre}]`, JSON.stringify(args));
@@ -433,7 +456,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
 
         case 'crear_empleado': {
             const nombre = args.nombre.trim().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-            const bodega = await Bodega.findOne({ where: { activa: true } });
+            const bodega = await bodegaDelChat(chatId);
             const e = await Empleado.create({
                 nombre,
                 cedula:   args.cedula   || null,
@@ -493,8 +516,8 @@ async function ejecutarHerramienta(nombre, args, chatId) {
 
         // ── Ventas ────────────────────────────────────────────────────────
         case 'registrar_venta': {
-            const bodega = await Bodega.findOne({ where: { activa: true } });
-            if (!bodega) return JSON.stringify({ ok: false, error: 'No hay bodega activa.' });
+            const bodega = await bodegaDelChat(chatId);
+            if (!bodega) return JSON.stringify({ ok: false, error: MSG_SIN_BODEGA });
             const esPagada = args.tipo_pago !== 'pendiente';
 
             const venta = await Venta.create({
@@ -526,8 +549,8 @@ async function ejecutarHerramienta(nombre, args, chatId) {
 
         // ── Compras ───────────────────────────────────────────────────────
         case 'registrar_compra': {
-            const bodega = await Bodega.findOne({ where: { activa: true } });
-            if (!bodega) return JSON.stringify({ ok: false, error: 'No hay bodega activa.' });
+            const bodega = await bodegaDelChat(chatId);
+            if (!bodega) return JSON.stringify({ ok: false, error: MSG_SIN_BODEGA });
 
             const compra = await Compra.create({
                 reciclador_id: args.reciclador_id, bodega_id: bodega.id, fecha: hoy, estado: 'borrador',
@@ -591,7 +614,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
         case 'cancelar_ultima_operacion': {
             const op = ultimaOp.get(chatId);
             if (!op) return JSON.stringify({ ok: false, mensaje: 'No hay operación reciente para cancelar.' });
-            const bodega = await Bodega.findOne({ where: { activa: true } });
+            const bodega = await bodegaDelChat(chatId);
             const caja   = bodega ? await Caja.findOne({ where: { bodega_id: bodega.id, fecha: hoy } }) : null;
 
             if (op.tipo === 'venta') {
@@ -642,12 +665,14 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             if (rol !== 'admin' && rol !== 'superadmin')
                 return JSON.stringify({ ok: false, error: 'Solo un administrador o super administrador puede eliminar una compra.' });
 
-            // Ubicar la compra (por id, o por reciclador/número del día).
+            // Ubicar la compra (por id, o por reciclador/número del día) — SOLO de su bodega
+            // (el superadmin, de cualquiera).
+            const wbElim = await whereBodegaChat(chatId);
             let compra = null;
             if (args.compra_id) {
-                compra = await Compra.findByPk(args.compra_id, { include: [{ model: Reciclador, as: 'reciclador' }] });
+                compra = await Compra.findOne({ where: { id: args.compra_id, ...wbElim }, include: [{ model: Reciclador, as: 'reciclador' }] });
             } else {
-                let candidatas = await Compra.findAll({ where: { fecha: hoy, estado: 'finalizada' }, include: [{ model: Reciclador, as: 'reciclador' }], order: [['numero_diario', 'ASC']] });
+                let candidatas = await Compra.findAll({ where: { fecha: hoy, estado: 'finalizada', ...wbElim }, include: [{ model: Reciclador, as: 'reciclador' }], order: [['numero_diario', 'ASC']] });
                 if (args.reciclador_nombre) { const n = args.reciclador_nombre.toLowerCase(); candidatas = candidatas.filter(c => (c.reciclador?.nombre || '').toLowerCase().includes(n)); }
                 if (args.numero_diario)     candidatas = candidatas.filter(c => Number(c.numero_diario) === Number(args.numero_diario));
                 if (candidatas.length === 0) return JSON.stringify({ ok: false, error: 'No encontré esa compra finalizada de hoy.' });
@@ -677,18 +702,19 @@ async function ejecutarHerramienta(nombre, args, chatId) {
 
         // ── Caja y resúmenes ──────────────────────────────────────────────
         case 'ver_caja': {
-            const bodega = await Bodega.findOne({ where: { activa: true } });
-            if (!bodega) return JSON.stringify({ ok: false, error: 'No hay bodega activa.' });
+            const bodega = await bodegaDelChat(chatId);
+            if (!bodega) return JSON.stringify({ ok: false, error: MSG_SIN_BODEGA });
             const caja = await Caja.findOne({ where: { bodega_id: bodega.id, fecha: hoy } });
             if (!caja) return JSON.stringify({ ok: true, mensaje: 'No hay caja abierta hoy. Saldo: $0' });
             return JSON.stringify({ ok: true, fecha: hoy, estado: caja.estado, saldo_inicial: parseFloat(caja.saldo_inicial), ingresos: parseFloat(caja.total_ingresos), egresos: parseFloat(caja.total_egresos), saldo_final: parseFloat(caja.saldo_final) });
         }
 
         case 'ver_resumen_dia': {
-            const bodega = await Bodega.findOne({ where: { activa: true } });
+            const bodega = await bodegaDelChat(chatId);
+            const wb = await whereBodegaChat(chatId);
             const [ventas, compras, caja] = await Promise.all([
-                Venta.findAll({ where: { fecha: hoy } }),
-                Compra.findAll({ where: { fecha: hoy, estado: 'finalizada' } }),
+                Venta.findAll({ where: { fecha: hoy, ...wb } }),
+                Compra.findAll({ where: { fecha: hoy, estado: 'finalizada', ...wb } }),
                 bodega ? Caja.findOne({ where: { bodega_id: bodega.id, fecha: hoy } }) : null
             ]);
             return JSON.stringify({
@@ -700,12 +726,12 @@ async function ejecutarHerramienta(nombre, args, chatId) {
         }
 
         case 'ver_ventas_hoy': {
-            const ventas = await Venta.findAll({ where: { fecha: hoy }, include: [{ model: Cliente, as: 'cliente' }], order: [['createdAt','DESC']] });
+            const ventas = await Venta.findAll({ where: { fecha: hoy, ...(await whereBodegaChat(chatId)) }, include: [{ model: Cliente, as: 'cliente' }], order: [['createdAt','DESC']] });
             return JSON.stringify(ventas.map(v => ({ id: v.id, cliente: v.cliente?.nombre || 'Sin cliente', total: parseFloat(v.total), estado: v.estado, tipo_pago: v.tipo_pago })));
         }
 
         case 'ver_compras_hoy': {
-            const compras = await Compra.findAll({ where: { fecha: hoy, estado: 'finalizada' }, include: [{ model: Reciclador, as: 'reciclador' }], order: [['createdAt','DESC']] });
+            const compras = await Compra.findAll({ where: { fecha: hoy, estado: 'finalizada', ...(await whereBodegaChat(chatId)) }, include: [{ model: Reciclador, as: 'reciclador' }], order: [['createdAt','DESC']] });
             return JSON.stringify(compras.map(c => ({ id: c.id, reciclador: c.reciclador?.nombre || 'Sin nombre', total: parseFloat(c.total) })));
         }
 
@@ -713,9 +739,10 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             const dias = args.dias || 7;
             const desde = new Date(); desde.setDate(desde.getDate() - dias);
             const desdeStr = desde.toISOString().slice(0, 10);
+            const wb = await whereBodegaChat(chatId);
             const [ventas, compras] = await Promise.all([
-                Venta.findAll({ where: { fecha: { [Op.gte]: desdeStr } }, include: [{ model: Cliente, as: 'cliente' }], order: [['fecha','DESC']], limit: 20 }),
-                Compra.findAll({ where: { fecha: { [Op.gte]: desdeStr }, estado: 'finalizada' }, include: [{ model: Reciclador, as: 'reciclador' }], order: [['fecha','DESC']], limit: 20 })
+                Venta.findAll({ where: { fecha: { [Op.gte]: desdeStr }, ...wb }, include: [{ model: Cliente, as: 'cliente' }], order: [['fecha','DESC']], limit: 20 }),
+                Compra.findAll({ where: { fecha: { [Op.gte]: desdeStr }, estado: 'finalizada', ...wb }, include: [{ model: Reciclador, as: 'reciclador' }], order: [['fecha','DESC']], limit: 20 })
             ]);
             return JSON.stringify({
                 periodo: `Últimos ${dias} días`,
@@ -728,7 +755,8 @@ async function ejecutarHerramienta(nombre, args, chatId) {
         case 'guardar_remision': {
             const fotoPendiente = fotosPendientes.get(chatId);
             if (!fotoPendiente) return JSON.stringify({ ok: false, error: 'No hay foto pendiente. Envía primero la foto.' });
-            const bodega = await Bodega.findOne({ where: { activa: true } });
+            const bodega = await bodegaDelChat(chatId);
+            if (!bodega) return JSON.stringify({ ok: false, error: MSG_SIN_BODEGA });
             const remision = await Remision.create({
                 tipo: args.tipo, conductor: args.conductor, bodega_id: bodega.id,
                 foto_url: fotoPendiente.url, fecha: hoy,
@@ -870,15 +898,17 @@ async function obtenerChat(chatId) {
         const usuario = await Usuario.findOne({ where: { telegram_chat_id: String(chatId), activo: true } });
         if (usuario) return { autorizado: true, rol: usuario.rol || 'operador', nombre: usuario.nombre };
 
-        // 2) Fallback: lista JSON en Configuracion
+        // 2) Fallback: lista JSON en Configuracion.
+        // Antes, si la lista estaba vacía (o fallaba la BD), CUALQUIER chat que encontrara el bot
+        // entraba como admin. Ahora un chat desconocido no entra: se vincula en Usuarios.
         const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
-        if (!conf || !conf.valor) return { autorizado: true, rol: 'admin', nombre: null };
+        if (!conf || !conf.valor) return { autorizado: false, rol: null, nombre: null };
         const chats = JSON.parse(conf.valor || '[]');
-        if (chats.length === 0) return { autorizado: true, rol: 'admin', nombre: null };
+        if (chats.length === 0) return { autorizado: false, rol: null, nombre: null };
         const chat = chats.find(c => String(c.chat_id) === String(chatId));
         if (!chat) return { autorizado: false, rol: null, nombre: null };
         return { autorizado: true, rol: chat.rol || 'operador', nombre: chat.nombre };
-    } catch { return { autorizado: true, rol: 'admin', nombre: null }; }
+    } catch { return { autorizado: false, rol: null, nombre: null }; }
 }
 
 // ── Anti-reproceso persistente + cola serial por chat ─────────────────────────
@@ -913,7 +943,7 @@ async function manejarMensaje(bot, msg) {
             const { autorizado, rol, nombre } = await obtenerChat(chatId);
             if (!autorizado) {
                 await bot.sendMessage(chatId,
-                    `⛔ *Sin acceso*\n\nTu chat ID es: \`${chatId}\`\n\nPide al administrador que te agregue en *Configuración → Bot Telegram* del sistema ASOERC.`,
+                    `⛔ *Sin acceso*\n\nTu chat ID es: \`${chatId}\`\n\nPide al superadministrador que ponga este número en tu usuario (*Usuarios → editar → Telegram*) del sistema ASOERC.`,
                     { parse_mode: 'Markdown' }
                 );
                 return;

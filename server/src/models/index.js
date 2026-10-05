@@ -254,9 +254,13 @@ const Certificado = sequelize.define('Certificado', {
 });
 
 // ── Hooks: numero = id ───────────────────────────────────────────────────────
-Compra.addHook('afterCreate',  async (r) => { await r.update({ numero: r.id }); });
-Venta.addHook('afterCreate',   async (r) => { await r.update({ numero: r.id }); });
-Remision.addHook('afterCreate',async (r) => { await r.update({ numero: r.id }); });
+// El número se asigna DENTRO de la transacción de quien crea el registro. Sin pasarla, el
+// UPDATE salía por otra conexión y quedaba esperando el bloqueo de esa misma transacción
+// (crear una venta desde la web tardaba ~50 s y fallaba con "Lock wait timeout").
+const numerar = async (r, opts) => { await r.update({ numero: r.id }, { transaction: opts?.transaction }); };
+Compra.addHook('afterCreate',  numerar);
+Venta.addHook('afterCreate',   numerar);
+Remision.addHook('afterCreate',numerar);
 
 // ── Asociaciones ─────────────────────────────────────────────────────────────
 

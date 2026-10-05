@@ -52,9 +52,16 @@ exports.actualizarBase = async (req, res) => {
         const caja = await Caja.findByPk(req.params.id);
         if (!caja) return res.status(404).json({ ok: false, msg: 'Caja no encontrada' });
         if (caja.estado === 'cerrada') return res.status(400).json({ ok: false, msg: 'La caja está cerrada' });
+        // La base se registra UNA vez al abrir el día. Después de confirmada, solo el
+        // superadmin la corrige (las encargadas no pueden irla ajustando para cuadrar).
+        if (caja.base_confirmada && req.user?.rol !== 'superadmin')
+            return res.status(403).json({ ok: false, msg: 'La base del día ya se registró. Solo el superadministrador puede corregirla.' });
         const base = parseFloat(req.body.saldo_inicial);
         if (isNaN(base) || base < 0) return res.status(400).json({ ok: false, msg: 'Base inválida' });
-        await caja.update({ saldo_inicial: base, base_confirmada: true });
+        // UPDATE condicional: si dos personas la registran a la vez, solo la primera entra.
+        const condicion = req.user?.rol === 'superadmin' ? { id: caja.id, estado: 'abierta' } : { id: caja.id, estado: 'abierta', base_confirmada: false };
+        const [cambiadas] = await Caja.update({ saldo_inicial: base, base_confirmada: true }, { where: condicion });
+        if (!cambiadas) return res.status(409).json({ ok: false, msg: 'La base del día ya se registró. Solo el superadministrador puede corregirla.' });
         await recalcularCaja(caja.id);
         const full = await Caja.findByPk(caja.id, { include: [{ model: MovimientoCaja, as: 'movimientos' }, { model: Bodega, as: 'bodega' }] });
         res.json({ ok: true, caja: full });

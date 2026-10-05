@@ -63,6 +63,9 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const [fecha, setFecha] = useState(hoy());
     const [fechaVista, setFechaVista] = useState(hoy());   // fecha del historial que se está viendo (por defecto hoy)
     const [compraActiva, setCompraActiva] = useState(null);
+    // La compra abierta ya vive en el servidor (estado 'borrador'); aquí se recuerda CUÁL es,
+    // para que si el celular recarga la página no toque empezar de cero.
+    const claveBorrador = `compraAbierta:${user?.id || ''}`;
     const [cantidades, setCantidades] = useState({});
     const [materialActivo, setMaterialActivo] = useState(null);
     const [msg, setMsg] = useState('');
@@ -77,6 +80,18 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     const kgInputRef = useRef(null);
 
     useEffect(() => { if (propBodegaId) setBodegaId(String(propBodegaId)); }, [propBodegaId]);
+
+    // Recuperar la compra que quedó abierta si la página se recargó (celular, actualización de la app)
+    const guardarBorrador = id => { try { id ? localStorage.setItem(claveBorrador, String(id)) : localStorage.removeItem(claveBorrador); } catch { /* sin almacenamiento */ } };
+    useEffect(() => {
+        let id = null;
+        try { id = localStorage.getItem(claveBorrador); } catch { /* sin almacenamiento */ }
+        if (!id) return;
+        api.get(`/compras/${id}`)
+            .then(d => { if (d?.compra?.estado === 'borrador') setCompraActiva(prev => prev || d.compra); else guardarBorrador(null); })
+            // Solo se olvida si el servidor dice que ya no existe o no es suya; sin señal se conserva
+            .catch(e => { if (e?.status === 404 || e?.status === 403) guardarBorrador(null); });
+    }, []);
 
     useEffect(() => {
         Promise.all([
@@ -128,6 +143,8 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
     useEffect(() => { cargarHoy(); }, [bodegaLista, fechaVista]);
     useEffect(() => { if (!propBodegaId && filtroBodega) setBodegaId(filtroBodega); }, [filtroBodega]);
 
+    const nombreBodega = bodegas.find(b => String(b.id) === String(bodega_id))?.nombre || '';
+
     const matsFiltrados = busquedaMat.trim()
         ? materiales.filter(m => m.activo !== false && `${m.nombre || ''} ${m.codigo || ''}`.toLowerCase().includes(busquedaMat.trim().toLowerCase()))
         : materiales.filter(m => m.categoria === catActiva && m.activo !== false);
@@ -139,6 +156,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
         try {
             const d = await api.post('/compras', { reciclador_id, bodega_id, fecha });
             setCompraActiva(d.compra);
+            guardarBorrador(d.compra?.id);
             setCantidades({});
             setMsg('');
         } catch (err) { setMsg(err.message); }
@@ -193,6 +211,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
             }
             setMostrarRecibo(d.compra);
             setCompraActiva(null);
+            guardarBorrador(null);
             setCantidades({});
             setMsg('');
             cargarHoy();
@@ -206,6 +225,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
         if (!window.confirm('¿Cancelar esta compra?')) return;
         await api.delete(`/compras/${compraActiva.id}`);
         setCompraActiva(null); setCantidades({});
+        guardarBorrador(null);
     };
 
     // Solo administrador o super administrador pueden borrar una compra ya finalizada.
@@ -275,6 +295,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                         <div style={{ background: '#fff', margin: 12, borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
                             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: '#1a5c2a' }}>♻️ Abrir cuenta de compra</div>
                             <div style={{ marginBottom: 10 }}>
+                                {esSuper ? (
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
                                     <span style={{ fontSize: 11, color: '#666' }}>Filtrar sede:</span>
                                     <select value={filtroBodegaRec} onChange={e => setFiltroBodegaRec(e.target.value)}
@@ -283,6 +304,9 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         {bodegas.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
                                     </select>
                                 </div>
+                                ) : (
+                                <div style={{ fontSize: 12, color: '#1a5c2a', fontWeight: 600, marginBottom: 6 }}>📍 Se registra en: {nombreBodega || 'tu bodega'}</div>
+                                )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                                     <span style={{ fontSize: 11, color: '#666' }}>Reciclador *</span>
                                     <button onClick={() => setShowNuevoRec(!showNuevoRec)}
@@ -523,6 +547,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
                         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#1a5c2a' }}>♻️ Abrir cuenta de compra</div>
                         <div style={{ display: 'grid', gridTemplateColumns: esSuper ? '120px 1fr 1fr 140px 90px' : '120px 1fr 90px', gap: 10, alignItems: 'flex-end' }}>
+                            {esSuper ? (
                             <label>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Sede</div>
                                 <select value={filtroBodegaRec} onChange={e => setFiltroBodegaRec(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
@@ -530,6 +555,12 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     {bodegas.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
                                 </select>
                             </label>
+                            ) : (
+                            <div>
+                                <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Bodega</div>
+                                <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f0faf0', border: '1px solid #c8e6c9', fontSize: 13, fontWeight: 600, color: '#1a5c2a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 {nombreBodega || 'Tu bodega'}</div>
+                            </div>
+                            )}
                             <div>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
                                     <span>Reciclador*</span>

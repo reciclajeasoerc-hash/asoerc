@@ -48,6 +48,8 @@ exports.listarGastos = async (req, res) => {
         const { vehiculo_id, desde, hasta } = req.query;
         const where = {};
         if (vehiculo_id) where.vehiculo_id = vehiculo_id;
+        // Los vehículos son compartidos, pero cada gasto es de una bodega
+        if (req.user?.rol !== 'superadmin') where.bodega_id = req.user?.bodega_id || -1;
         if (desde && hasta) where.fecha = { [Op.between]: [desde, hasta] };
         const gastos = await GastoVehiculo.findAll({
             where,
@@ -69,7 +71,9 @@ exports.registrarGasto = async (req, res) => {
 exports.eliminarGasto = async (req, res) => {
     try {
         const g = await GastoVehiculo.findByPk(req.params.gasto_id);
-        if (!g) return res.status(404).json({ ok: false, msg: 'No encontrado' });
+        if (!g || String(g.vehiculo_id) !== String(req.params.id)) return res.status(404).json({ ok: false, msg: 'No encontrado' });
+        if (req.user?.rol !== 'superadmin' && String(g.bodega_id) !== String(req.user?.bodega_id))
+            return res.status(403).json({ ok: false, msg: 'Ese gasto es de otra bodega' });
         await g.destroy();
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }

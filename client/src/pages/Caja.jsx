@@ -192,6 +192,8 @@ export default function Caja() {
     const PanelResumen = ({ compact = false }) => {
         const cm = viendoHoy ? caja : cajaVer; // caja mostrada
         const enRojo = cm && parseFloat(cm.saldo_final) < 0;
+        // Una vez registrada la base, solo el superadmin la corrige (igual lo valida el servidor)
+        const puedeEditarBase = viendoHoy && (user?.rol === 'superadmin' || !cm?.base_confirmada);
         return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Selector bodega superadmin */}
@@ -227,7 +229,7 @@ export default function Caja() {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: compact ? 8 : 10 }}>
                     {[
-                        { label: 'Base del día', v: cm?.saldo_inicial, c: '#6b7280', editable: viendoHoy },
+                        { label: 'Base del día', v: cm?.saldo_inicial, c: '#6b7280', editable: puedeEditarBase },
                         { label: 'Ingresos',      v: cm?.total_ingresos, c: '#059669' },
                         { label: 'Salidas',       v: cm?.total_egresos,  c: '#dc2626' },
                         { label: viendoHoy && cm?.estado !== 'cerrada' ? 'Saldo actual' : 'Saldo final', v: cm?.saldo_final, c: enRojo ? '#dc2626' : '#1a5c2a' },
@@ -244,9 +246,12 @@ export default function Caja() {
                         </div>
                     ))}
                 </div>
+                {viendoHoy && cm?.base_confirmada && user?.rol !== 'superadmin' && (
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>🔒 La base ya se registró. Si hay que corregirla, la cambia el superadministrador.</div>
+                )}
                 {enRojo && (
                     <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#991b1b', marginTop: 10 }}>
-                        ⚠️ La caja da negativo: salió más plata de la que se registró. {viendoHoy ? 'Revisa la base del día (✏️) o registra el ingreso que falta en Manual.' : 'Ese día faltó registrar la base o algún ingreso.'}
+                        ⚠️ La caja da negativo: salió más plata de la que se registró. {!viendoHoy ? 'Ese día faltó registrar la base o algún ingreso.' : puedeEditarBase ? 'Revisa la base del día (✏️) o registra el ingreso que falta en Manual.' : 'Registra el ingreso que falta en Manual o avisa al superadministrador.'}
                     </div>
                 )}
             </div>
@@ -471,7 +476,7 @@ export default function Caja() {
                 <div style={{ flex: 1, overflow: 'hidden', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff' }}>
                     {tab === 'compras' && <div style={{ flex: 1, overflow: 'hidden' }}><Compras onCajaChange={cargar} bodegaId={bodega_id} /></div>}
                     {tab === 'ventas'  && <div style={{ flex: 1, overflow: 'auto'  }}><Ventas  onCajaChange={cargar} bodegaId={bodega_id} /></div>}
-                    {tab === 'manual'  && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><PanelManual /></div>}
+                    {tab === 'manual'  && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>{PanelManual()}</div>}
                     {tab === 'resumen' && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>{PanelResumen({ compact: true })}</div>}
                 </div>
             </div>
@@ -504,7 +509,7 @@ export default function Caja() {
                 <div style={{ flex: 1, overflow: 'hidden', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                     {tab === 'compras' && <div style={{ flex: 1, overflow: 'hidden' }}><Compras onCajaChange={cargar} bodegaId={bodega_id} /></div>}
                     {tab === 'ventas'  && <div style={{ flex: 1, overflow: 'auto'  }}><Ventas  onCajaChange={cargar} bodegaId={bodega_id} /></div>}
-                    {tab === 'manual'  && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><PanelManual /></div>}
+                    {tab === 'manual'  && <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>{PanelManual()}</div>}
                 </div>
             </div>
 

@@ -78,6 +78,33 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     const inputRef = useRef(null);
 
+    // La orden de venta solo existe en la pantalla hasta que se crea: se guarda en el
+    // dispositivo para que una recarga (celular, actualización de la app) no la borre.
+    const claveOrden = `ordenVenta:${user?.id || ''}`;
+    const [ordenRecuperada, setOrdenRecuperada] = useState(false);
+    // Bodega en la que se ABRIÓ la orden: la venta se registra ahí aunque después cambie el
+    // selector de la barra o de Caja (antes una orden recuperada podía irse a la otra bodega).
+    const [ordenBodega, setOrdenBodega] = useState('');
+    useEffect(() => {
+        try {
+            const o = JSON.parse(localStorage.getItem(claveOrden) || 'null');
+            if (o && o.ordenAbierta) {
+                setClienteId(o.cliente_id || ''); setSedeId(o.sede_id || '');
+                setTipoPago(o.tipo_pago || 'efectivo'); setItems(Array.isArray(o.items) ? o.items : []);
+                setOrdenBodega(o.bodega_id ? String(o.bodega_id) : '');
+                setOrdenAbierta(true);
+            }
+        } catch { /* sin almacenamiento o dato dañado */ }
+        setOrdenRecuperada(true);
+    }, []);
+    useEffect(() => {
+        if (!ordenRecuperada) return; // no pisar lo guardado antes de leerlo
+        try {
+            if (ordenAbierta) localStorage.setItem(claveOrden, JSON.stringify({ ordenAbierta, cliente_id, sede_id, tipo_pago, items, bodega_id: ordenBodega }));
+            else localStorage.removeItem(claveOrden);
+        } catch { /* sin almacenamiento */ }
+    }, [ordenRecuperada, ordenAbierta, cliente_id, sede_id, tipo_pago, items, ordenBodega]);
+
     useEffect(() => {
         Promise.all([
             api.get('/clientes').then(d => setClientes(d.clientes || [])),
@@ -116,14 +143,16 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
     useEffect(() => { if (!propBodegaId && filtroBodega) setBodegaId(filtroBodega); }, [filtroBodega]);
 
     const clienteSeleccionado = clientes.find(c => String(c.id) === String(cliente_id));
+    // Al recuperar una orden guardada, las sedes del cliente llegan cuando cargan los clientes
+    useEffect(() => { if (cliente_id && clienteSeleccionado) setSedes(clienteSeleccionado.sedes || []); }, [clientes]);
 
     const abrirOrden = () => {
         if (!cliente_id) return setMsg('Selecciona un cliente');
         if (esSuper && !bodega_id) return setMsg('Selecciona una bodega');
-        setOrdenAbierta(true); setMsg('');
+        setOrdenBodega(bodega_id); setOrdenAbierta(true); setMsg('');
     };
     const cancelarOrden = () => {
-        setOrdenAbierta(false);
+        setOrdenAbierta(false); setOrdenBodega('');
         setItems([]); setCantidades({}); setPrecios({});
         setMaterialActivo(null); setMsg('');
     };
@@ -163,12 +192,12 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
         setLoading(true);
         try {
             const d = await api.post('/ventas', {
-                cliente_id, sede_id: sede_id || null, bodega_id, fecha, tipo_pago,
+                cliente_id, sede_id: sede_id || null, bodega_id: ordenBodega || bodega_id, fecha, tipo_pago,
                 items: items.map(i => ({ material_id: i.material_id, kilos: i.kilos, precio_unitario: i.precio_unitario })),
             });
             setReciboVenta(d.venta);
             cancelarOrden(); cargarHoy();
-            if (tipo_pago !== 'pendiente') onCajaChange?.(bodega_id);
+            if (tipo_pago !== 'pendiente') onCajaChange?.(ordenBodega || bodega_id);
         } catch (e) { setMsg(e.msg || e.message); }
         finally { setLoading(false); }
     };
@@ -201,6 +230,9 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
     );
 
     // ── Bloque materiales (compartido) ────────────────────────────────────
+    // Se llama como FUNCIÓN, no como <Componente/>: definido aquí adentro, React lo veía como un
+    // componente nuevo en cada render y lo desmontaba entero → en el celular la lista saltaba
+    // arriba y se cerraba el teclado con cada número y con el refresco automático de 20 s.
     const BloqueCategoriasYMateriales = () => (
         <>
             {/* Buscar material */}
@@ -363,7 +395,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
                     {/* Materiales */}
                     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '10px 12px 0' }}>
-                        <BloqueCategoriasYMateriales />
+                        {BloqueCategoriasYMateriales()}
                     </div>
 
                     {/* Carrito + Botón crear */}
@@ -527,7 +559,7 @@ export default function Ventas({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     <div style={{ background: '#1a5c2a', borderRadius: 10, padding: '10px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                         <div style={{ color: '#fff' }}>
                             <span style={{ fontWeight: 700, fontSize: 15 }}>🏢 {clienteSeleccionado?.nombre}</span>
-                            <span style={{ fontSize: 12, marginLeft: 12, opacity: .8 }}>{bodegas.find(b => String(b.id) === bodega_id)?.nombre} · {tipo_pago}</span>
+                            <span style={{ fontSize: 12, marginLeft: 12, opacity: .8 }}>{bodegas.find(b => String(b.id) === String(ordenBodega || bodega_id))?.nombre} · {tipo_pago}</span>
                         </div>
                         <button onClick={cancelarOrden} style={{ padding: '5px 12px', background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
                     </div>
