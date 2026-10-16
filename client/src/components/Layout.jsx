@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, puedePasar } from '../App';
 import { api } from '../api';
-import InstalarApp from './InstalarApp';
+import InstalarApp from './InstalarApp';
+import AvisoLicencia from '../pages/AvisoLicencia.jsx';
 
 const TODOS_NAV = [
     { to: '/',             icon: '📊', label: 'Dashboard',    modulo: 'dashboard'     },
@@ -135,6 +136,7 @@ export default function Layout() {
 
             {/* Contenido principal */}
             <main style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+                <AvisoLicencia sistema="Sistema ASOERC" />
                 <Outlet />
             </main>
 
@@ -308,6 +310,7 @@ export default function Layout() {
                 </div>
             </aside>
             <main style={{ flex: 1, overflow: 'auto', position: 'relative', minHeight: 0 }}>
+                <AvisoLicencia sistema="Sistema ASOERC" />
                 <Outlet />
             </main>
         </div>

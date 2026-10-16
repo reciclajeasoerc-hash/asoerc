@@ -33,7 +33,10 @@ let estado = {
     suscripcionActiva: false,
     sinConfigurar: false,
     fallosConfirmados: 0,
-    ultimoMotivo: 'arranque'
+    ultimoMotivo: 'arranque',
+    // Las necesita el aviso previo: con diasRestantes (dias enteros, y contra el
+    // vencimiento) no se puede calcular cuando se APAGA de verdad el sistema.
+    estadoLicencia: '', fechaVencimiento: '', fechaBloqueo: ''
 };
 
 const CACHE_MS        = 60 * 60 * 1000;  // todo normal: revisar cada hora
@@ -129,6 +132,9 @@ async function refrescarSiNecesario() {
         estado.diasRestantes     = Number(d.dias_restantes) || 0;
         estado.pagoUrl           = d.pago_url || '';
         estado.suscripcionActiva = d.suscripcion_activa || false;
+        estado.estadoLicencia    = d.estado || '';
+        estado.fechaVencimiento  = d.fecha_vencimiento || '';
+        estado.fechaBloqueo      = d.fecha_bloqueo || '';
         estado.ultimoMotivo      = 'licencia ' + (d.estado || 'valida');
         return;
     }
@@ -138,6 +144,9 @@ async function refrescarSiNecesario() {
         estado.diasRestantes     = Number(d.dias_restantes) || 0;
         estado.pagoUrl           = d.pago_url || '';
         estado.suscripcionActiva = d.suscripcion_activa || false;
+        estado.estadoLicencia    = d.estado || '';
+        estado.fechaVencimiento  = d.fecha_vencimiento || '';
+        estado.fechaBloqueo      = d.fecha_bloqueo || '';
         estado.fallosConfirmados++;
 
         if (esDesactivacionManual(resp)) {
@@ -210,6 +219,10 @@ async function estadoEndpoint(req, res) {
         suscripcionActiva: estado.suscripcionActiva,
         pagoUrl: estado.pagoUrl,
         sinConfigurar: !!estado.sinConfigurar,
+        estadoLicencia: estado.estadoLicencia,
+        fechaVencimiento: estado.fechaVencimiento,
+        // El sistema se apaga a las 00:00 de Bogota de esta fecha.
+        fechaBloqueo: estado.fechaBloqueo,
         confirmacionesNegativas: estado.fallosConfirmados,
         motivo: estado.ultimoMotivo,
         ultimaVerificacion: estado.checkedAt ? new Date(estado.checkedAt).toISOString() : null
