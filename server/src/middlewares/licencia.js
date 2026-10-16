@@ -1,26 +1,49 @@
+// Verificación de licencia contra mi-plataforma. Es el modelo de cobro: sin
+// esto el sistema es un regalo, no un producto.
+//
+// VERSIÓN CANÓNICA (2026-10-16). Une lo mejor de las dos que existían y tapa
+// un hueco que ninguna cubría. Si se cambia, se cambia en TODOS los sistemas.
+//
+// Las tres reglas que no se negocian:
+//   1. Una caída del servidor de licencias NUNCA apaga a un cliente que paga.
+//   2. Una negativa EXPLÍCITA del servidor sí se obedece.
+//   3. Si falta la configuración en producción, el sistema NO funciona gratis.
+//
+// PUBLICAS: rutas que nunca se bloquean. Cada sistema define las suyas —
+// revisar los webhooks (WhatsApp/Telegram) antes de copiar esta lista.
 const https = require('https');
 const http  = require('http');
 
-// Estado en memoria. valida=null = aún no se sabe (arranque).
-let estadoLicencia = {
-    valida: null, checkedAt: 0, diasRestantes: 0, pagoUrl: '', suscripcionActiva: false,
-    ultimoOkAt: 0, fallosConfirmados: 0
+const PUBLICAS = (process.env.LICENCIA_RUTAS_PUBLICAS || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+
+// Rutas publicas propias del sistema, declaradas desde app.js. Se usa cuando la
+// excepcion es una decision de producto y no de despliegue: por ejemplo la
+// pantalla del torneo en Boton, que no se puede apagar a mitad de un torneo
+// aunque el club deba el mes. Hay que llamarla ANTES de montar las rutas.
+function rutasPublicas(...rutas) {
+    for (const r of rutas.flat()) if (r) PUBLICAS.push(String(r).trim());
+}
+
+let estado = {
+    valida: null,            // null = aún no se sabe (arranque)
+    checkedAt: 0,
+    diasRestantes: 0,
+    pagoUrl: '',
+    suscripcionActiva: false,
+    sinConfigurar: false,
+    fallosConfirmados: 0,
+    ultimoMotivo: 'arranque'
 };
-const CACHE_MS          = 60 * 60 * 1000;   // todo normal: re-verificar cada hora
-const CACHE_DUDOSO_MS   = 5 * 60 * 1000;    // el servidor dijo "inválida": confirmar cada 5 minutos
-const FALLOS_PARA_BLOQUEAR = 2;             // dos negativas seguidas antes de apagar por vencimiento
 
-// Antes había además 3 días de gracia tras la última verificación válida, y se
-// aplicaban TAMBIÉN cuando el servidor respondía claramente "esta licencia está
-// inválida". Eso hacía imposible cortarle el servicio a un cliente moroso: la
-// plataforma decía "bloqueada" y el sistema seguía funcionando 3 días más.
-//
-// La gracia existía para que una caída del servidor de licencias no apagara a un
-// cliente que sí paga. Ese caso ya está cubierto por el fail-open del veredicto
-// 'desconocido', que nunca bloquea. Una respuesta explícita de "inválida" no es
-// una falla: es una decisión del dueño, y debe obedecerse.
+const CACHE_MS        = 60 * 60 * 1000;  // todo normal: revisar cada hora
+const CACHE_DUDOSO_MS = 5 * 60 * 1000;   // tras una negativa: confirmar cada 5 min
+const FALLOS_PARA_BLOQUEAR = 2;          // dos negativas seguidas antes de apagar por vencimiento
 
-// Devuelve { status, json } o null si el servidor es inalcanzable / no responde.
+const sinConfigurar = () => !process.env.LICENSE_SERVER_URL || !process.env.LICENSE_KEY;
+const esProduccion  = () => process.env.NODE_ENV === 'production';
+
+// Devuelve { status, json } o null si el servidor es inalcanzable.
 function fetchLicencia() {
     return new Promise((resolve) => {
         const url = `${process.env.LICENSE_SERVER_URL}/api/pagos/mp/validar/${process.env.LICENSE_KEY}`;
@@ -39,133 +62,158 @@ function fetchLicencia() {
     });
 }
 
-// Interpreta la respuesta en 3 estados, NUNCA bloquea por errores del servidor:
-//  'valida'      -> el servidor confirma que la licencia está activa
-//  'invalida'    -> el servidor confirma CLARAMENTE (con forma de estado de licencia) que venció
-//  'desconocido' -> inalcanzable, 404/5xx, cuerpo raro/de error → no se puede afirmar nada
-// ¿El dueño desactivó la licencia a mano? La plataforma lo dice en `estado`.
-// Eso es una orden explícita, no un vencimiento: se obedece de inmediato.
-function esDesactivacionManual(resp) {
-    return !!(resp && resp.json && resp.json.estado === 'desactivada');
-}
+// ¿La respuesta tiene forma de estado de licencia, o es un error genérico?
+// Railway contesta {status:'error',code:404,message:'Application not found'}
+// cuando la plataforma está caída o renombrada: eso NO es un veredicto.
+const tieneFormaDeLicencia = d =>
+    !!d && (('dias_restantes' in d) || ('fecha_vencimiento' in d) || ('suscripcion_activa' in d) || ('pago_url' in d));
 
+// HUECO QUE TAPABA NADIE: si LICENSE_KEY apunta a una licencia borrada o mal
+// escrita, la plataforma responde 404 {ok:false, msg:'Licencia no encontrada'}.
+// Esa respuesta no tiene forma de licencia, así que las dos versiones anteriores
+// la leían como "problema del servidor" y dejaban el sistema abierto para
+// siempre. Es un veredicto real de un servidor sano: se trata como inválida.
+const esClaveDesconocida = (resp) =>
+    !!(resp && resp.status === 404 && resp.json && resp.json.ok === false &&
+       typeof resp.json.msg === 'string' && /no encontrada/i.test(resp.json.msg));
+
+// El dueño apretó el botón de desactivar. Es una orden, no un vencimiento.
+const esDesactivacionManual = (resp) =>
+    !!(resp && resp.json && resp.json.estado === 'desactivada');
+
+// 'valida' | 'invalida' | 'desconocido'
 function interpretar(resp) {
-    if (!resp || resp.json === null) return 'desconocido';          // inalcanzable / no-JSON
-    if (resp.status && resp.status >= 400) return 'desconocido';    // 404/5xx = problema del servidor de licencias, no del cliente
+    if (!resp || resp.json === null) return 'desconocido';       // inalcanzable / no-JSON
+    if (esClaveDesconocida(resp)) return 'invalida';
+    if (resp.status && resp.status >= 400) return 'desconocido'; // 5xx y 404 genérico = problema del servidor
     const d = resp.json;
-    const esEstadoLicencia = ('dias_restantes' in d) || ('fecha_vencimiento' in d) || ('suscripcion_activa' in d) || ('pago_url' in d);
+    if (!tieneFormaDeLicencia(d)) return 'desconocido';
 
-    // La negativa EXPLÍCITA manda sobre cualquier otra señal. Antes se miraba
-    // primero `dias_restantes > 0`, así que desactivar a mano una licencia que
-    // todavía no vencía no surtía efecto: el sistema la leía como válida.
-    if (esEstadoLicencia && (d.ok === false || d.valida === false)) return 'invalida';
-
-    // Señal positiva (tolerante a distintos nombres de campo)
+    // La negativa explícita manda sobre cualquier otra señal. Si se mirara
+    // primero dias_restantes>0, desactivar a mano una licencia aún vigente no
+    // surtiría efecto.
+    if (d.ok === false || d.valida === false) return 'invalida';
     if (d.ok === true || d.valida === true || d.suscripcion_activa === true || Number(d.dias_restantes) > 0) return 'valida';
-
-    return 'desconocido'; // p.ej. {status:'error',code:404,message:'Application not found'}
+    return 'desconocido';
 }
 
 async function refrescarSiNecesario() {
     const ahora = Date.now();
-    // Si la última respuesta fue negativa, se re-consulta mucho más seguido para
-    // confirmar rápido; mientras todo va bien, basta una vez por hora.
-    const espera = estadoLicencia.fallosConfirmados > 0 ? CACHE_DUDOSO_MS : CACHE_MS;
-    if (ahora - estadoLicencia.checkedAt < espera && estadoLicencia.valida !== null) return;
+    const espera = estado.fallosConfirmados > 0 ? CACHE_DUDOSO_MS : CACHE_MS;
+    if (ahora - estado.checkedAt < espera && estado.valida !== null) return;
+
+    // Falta configuración. Distinto de "el servidor no responde": desplegar en
+    // producción sin LICENSE_KEY dejaría el sistema gratis para siempre, que es
+    // exactamente lo que pasó en Ferre Láser. En desarrollo sí se deja pasar.
+    if (sinConfigurar()) {
+        estado = {
+            ...estado,
+            valida: !esProduccion(), checkedAt: ahora, diasRestantes: 0,
+            pagoUrl: '', suscripcionActiva: false, sinConfigurar: true,
+            fallosConfirmados: 0,
+            ultimoMotivo: esProduccion() ? 'sin LICENSE_KEY en produccion' : 'sin configurar (desarrollo)'
+        };
+        if (esProduccion()) console.error('⛔ Sin LICENSE_SERVER_URL/LICENSE_KEY en produccion — acceso bloqueado');
+        return;
+    }
+    estado.sinConfigurar = false;
 
     const resp = await fetchLicencia();
     const veredicto = interpretar(resp);
-    estadoLicencia.checkedAt = ahora;
+    estado.checkedAt = ahora;
 
     if (veredicto === 'valida') {
         const d = resp.json;
-        estadoLicencia.valida             = true;
-        estadoLicencia.ultimoOkAt         = ahora;
-        estadoLicencia.fallosConfirmados  = 0;
-        estadoLicencia.diasRestantes      = Number(d.dias_restantes) || 0;
-        estadoLicencia.pagoUrl            = d.pago_url || '';
-        estadoLicencia.suscripcionActiva  = d.suscripcion_activa || false;
+        estado.valida            = true;
+        estado.fallosConfirmados = 0;
+        estado.diasRestantes     = Number(d.dias_restantes) || 0;
+        estado.pagoUrl           = d.pago_url || '';
+        estado.suscripcionActiva = d.suscripcion_activa || false;
+        estado.ultimoMotivo      = 'licencia ' + (d.estado || 'valida');
         return;
     }
 
     if (veredicto === 'invalida') {
-        const d = resp.json;
-        estadoLicencia.diasRestantes     = Number(d.dias_restantes) || 0;
-        estadoLicencia.pagoUrl           = d.pago_url || '';
-        estadoLicencia.suscripcionActiva = d.suscripcion_activa || false;
-        estadoLicencia.fallosConfirmados++;
+        const d = (resp && resp.json) || {};
+        estado.diasRestantes     = Number(d.dias_restantes) || 0;
+        estado.pagoUrl           = d.pago_url || '';
+        estado.suscripcionActiva = d.suscripcion_activa || false;
+        estado.fallosConfirmados++;
 
-        // Desactivación a mano: el dueño apretó el botón. Se obedece ya.
         if (esDesactivacionManual(resp)) {
-            estadoLicencia.valida = false;
+            estado.valida = false;
+            estado.ultimoMotivo = 'desactivada por el proveedor';
             console.warn('⛔ Licencia DESACTIVADA por el proveedor — acceso bloqueado');
             return;
         }
-
+        if (esClaveDesconocida(resp)) {
+            estado.valida = false;
+            estado.ultimoMotivo = 'LICENSE_KEY no existe en la plataforma';
+            console.error('⛔ La LICENSE_KEY no existe en mi-plataforma — acceso bloqueado');
+            return;
+        }
         // Vencimiento: se exige una segunda confirmación para no apagar a nadie
         // por una respuesta rara de una sola vez.
-        if (estadoLicencia.fallosConfirmados >= FALLOS_PARA_BLOQUEAR) {
-            estadoLicencia.valida = false;
+        if (estado.fallosConfirmados >= FALLOS_PARA_BLOQUEAR) {
+            estado.valida = false;
+            estado.ultimoMotivo = 'vencida (' + (d.fecha_vencimiento || 's/f') + ')';
             console.warn(`⛔ LICENCIA VENCIDA confirmada (${d.fecha_vencimiento || 's/f'}) — acceso bloqueado`);
         } else {
-            if (estadoLicencia.valida === null) estadoLicencia.valida = true; // arranque: permitir
-            console.warn(`⚠️  Licencia reportada inválida (${estadoLicencia.fallosConfirmados}/${FALLOS_PARA_BLOQUEAR}) — se confirma en ${CACHE_DUDOSO_MS / 60000} min`);
+            if (estado.valida === null) estado.valida = true;   // arranque: permitir
+            estado.ultimoMotivo = `invalida sin confirmar (${estado.fallosConfirmados}/${FALLOS_PARA_BLOQUEAR})`;
+            console.warn(`⚠️  Licencia reportada invalida (${estado.fallosConfirmados}/${FALLOS_PARA_BLOQUEAR}) — se confirma en ${CACHE_DUDOSO_MS / 60000} min`);
         }
         return;
     }
 
-    // 'desconocido' → FAIL-OPEN: jamás bloquear por un error/caída del servidor de licencias.
-    estadoLicencia.fallosConfirmados = 0;
-    if (estadoLicencia.valida === null) estadoLicencia.valida = true;
-    console.warn('⚠️  No se pudo verificar licencia (inalcanzable/404/cuerpo inválido) — se permite el acceso (fail-open)');
+    // 'desconocido' → FAIL-OPEN: jamás bloquear por una caída del servidor.
+    estado.fallosConfirmados = 0;
+    if (estado.valida === null) estado.valida = true;
+    estado.ultimoMotivo = 'servidor de licencias inalcanzable (fail-open)';
+    console.warn('⚠️  No se pudo verificar licencia — se permite el acceso (fail-open)');
 }
 
-// Verificar licencia al arrancar y cada hora
 async function iniciarVerificacion() {
     await refrescarSiNecesario();
-    setInterval(refrescarSiNecesario, CACHE_MS);
+    setInterval(refrescarSiNecesario, CACHE_DUDOSO_MS).unref?.();
 }
 
-// Middleware para rutas de API
+function esPublica(p) {
+    return p === '/auth/login' || p === '/health' || p === '/configuracion' ||
+           p.startsWith('/setup') || PUBLICAS.some(r => p === r || p.startsWith(r));
+}
+
 async function verificarLicencia(req, res, next) {
-    // Siempre permitir login, health, setup y configuracion pública
-    if (req.path === '/auth/login' ||
-        req.path === '/health' ||
-        req.path.startsWith('/setup') ||
-        req.path === '/configuracion') return next();
-
+    if (esPublica(req.path)) return next();
     await refrescarSiNecesario();
-
-    // Solo bloquea si está CONFIRMADO como inválido (valida === false). null/true → pasa.
-    if (estadoLicencia.valida !== false) return next();
+    if (estado.valida !== false) return next();   // null/true → pasa
 
     res.status(403).json({
-        ok:      false,
-        licencia: false,
-        msg:     'Licencia vencida. Renueve su suscripción para continuar.',
-        pago_url: estadoLicencia.pagoUrl,
-        dias:    estadoLicencia.diasRestantes
+        ok: false, licencia: false,
+        msg: estado.sinConfigurar
+            ? 'Este sistema no tiene licencia configurada. Contacte al proveedor.'
+            : 'Licencia vencida. Renueve su suscripción para continuar.',
+        pago_url: estado.pagoUrl, dias: estado.diasRestantes
     });
 }
 
-// Endpoint interno para que el frontend sepa el estado
-// Siempre espera la primera verificación antes de responder
+// Para que el estado real se vea desde fuera sin entrar a los logs. Un sistema
+// mal configurado tiene que delatarse solo; si no, el hueco no lo marca nadie.
 async function estadoEndpoint(req, res) {
-    // force=1 salta el caché para responder al instante, pero NO borra las
-    // confirmaciones negativas: si las borrara, el contador nunca llegaría al
-    // umbral y una licencia vencida jamás se bloquearía (el propio frontend
-    // consulta con force=1).
-    if (req.query.force === '1') estadoLicencia.checkedAt = 0;
-    await refrescarSiNecesario(); // garantiza que siempre hay un resultado real
+    // force=1 salta el caché pero NO borra las confirmaciones negativas: si las
+    // borrara, el contador nunca llegaría al umbral (el frontend llama con force).
+    if (req.query.force === '1') estado.checkedAt = 0;
+    await refrescarSiNecesario();
     res.json({
-        valida:            estadoLicencia.valida,
-        diasRestantes:     estadoLicencia.diasRestantes,
-        suscripcionActiva: estadoLicencia.suscripcionActiva,
-        pagoUrl:           estadoLicencia.pagoUrl,
-        // Útil para diagnosticar por qué sigue (o no) disponible el sistema
-        confirmacionesNegativas: estadoLicencia.fallosConfirmados,
-        ultimaVerificacion: estadoLicencia.checkedAt ? new Date(estadoLicencia.checkedAt).toISOString() : null
+        valida: estado.valida,
+        diasRestantes: estado.diasRestantes,
+        suscripcionActiva: estado.suscripcionActiva,
+        pagoUrl: estado.pagoUrl,
+        sinConfigurar: !!estado.sinConfigurar,
+        confirmacionesNegativas: estado.fallosConfirmados,
+        motivo: estado.ultimoMotivo,
+        ultimaVerificacion: estado.checkedAt ? new Date(estado.checkedAt).toISOString() : null
     });
 }
 
-module.exports = { iniciarVerificacion, verificarLicencia, estadoEndpoint };
+module.exports = { iniciarVerificacion, verificarLicencia, estadoEndpoint, rutasPublicas };
