@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import CajaOrigen from '../components/CajaOrigen';
+
+// Fecha de Colombia (con toISOString, después de las 7 pm ya daba "mañana" y la plata caía en la caja del día siguiente)
+const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
@@ -18,7 +22,7 @@ export default function Recicladores() {
     const [showPrestamo, setShowPrestamo] = useState(false);
     const [showSedeForm, setShowSedeForm] = useState(false);
     const [form, setForm] = useState({ nombre: '', cedula: '', telefono: '', whatsapp: '', bodega_id: '' });
-    const [pForm, setPForm] = useState({ monto: '', descripcion: '', fecha: new Date().toISOString().slice(0, 10) });
+    const [pForm, setPForm] = useState({ monto: '', descripcion: '', fecha: hoy(), bodega_id: '' });
     const [precioForm, setPrecioForm] = useState({ material_id: '', precio: '' });
     const [sedeForm, setSedeForm] = useState({ nombre: '', direccion: '' });
     const [msg, setMsg] = useState('');
@@ -78,10 +82,10 @@ export default function Recicladores() {
         if (!selected) return;
         try {
             await api.post(`/recicladores/${selected.id}/prestamos`, pForm);
-            setPForm({ monto: '', descripcion: '', fecha: new Date().toISOString().slice(0, 10) });
+            setPForm(f => ({ monto: '', descripcion: '', fecha: hoy(), bodega_id: f.bodega_id }));
             setShowPrestamo(false);
             seleccionar(selected); cargar();
-        } catch (err) { setMsg(err.message); }
+        } catch (err) { setMsg(err.message); alert(err.message); }
     };
 
     return (
@@ -206,6 +210,7 @@ export default function Recicladores() {
                                         </div>
                                         <input placeholder="Descripción" value={pForm.descripcion} onChange={e => setPForm({ ...pForm, descripcion: e.target.value })}
                                             style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #fde68a', fontSize: 13, marginBottom: 8 }} />
+                                        <div style={{ marginBottom: 8 }}><CajaOrigen value={pForm.bodega_id} onChange={v => setPForm(f => ({ ...f, bodega_id: v }))} /></div>
                                         <button onClick={guardarPrestamo} style={{ padding: '7px 16px', background: '#d97706', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13 }}>Registrar préstamo</button>
                                     </div>
                                 )}

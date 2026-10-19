@@ -1,4 +1,5 @@
-const { Empleado, PrestamoEmpleado, DiasNoLaborados, Bodega } = require('../models');
+const { sequelize, Empleado, PrestamoEmpleado, DiasNoLaborados, Bodega } = require('../models');
+const { bodegaDeLaOperacion, cajaParaEgreso, crearEgreso, recalcularCaja } = require('../utils/caja');
 
 const include = [{ model: Bodega, as: 'bodega' }];
 
@@ -58,16 +59,30 @@ exports.listarPrestamos = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// El préstamo sale del cajón → egreso en la caja de la bodega. Al descontarlo en la nómina
+// no se vuelve a tocar la caja (la nómina va aparte).
 exports.crearPrestamo = async (req, res) => {
+    let t;
     try {
-        const { monto, fecha, descripcion, quincena } = req.body;
-        if (!monto) return res.status(400).json({ ok: false, msg: 'Monto requerido' });
-        const p = await PrestamoEmpleado.create({
-            empleado_id: req.params.id, monto, descripcion, quincena,
-            fecha: fecha || require("../utils/fecha").hoy()
-        });
+        const { descripcion, quincena } = req.body;
+        const monto = parseFloat(req.body.monto);
+        if (!(monto > 0)) return res.status(400).json({ ok: false, msg: 'Monto requerido' });
+        const empleado = await Empleado.findByPk(req.params.id);
+        if (!empleado) return res.status(404).json({ ok: false, msg: 'Empleado no encontrado' });
+        const fecha = req.body.fecha || require("../utils/fecha").hoy();
+        const bodega_id = bodegaDeLaOperacion(req.user, req.body);
+        const caja = await cajaParaEgreso(bodega_id, fecha);
+
+        t = await sequelize.transaction();
+        const p = await PrestamoEmpleado.create({ empleado_id: empleado.id, monto, descripcion, quincena, fecha, bodega_id }, { transaction: t });
+        await crearEgreso(caja, { concepto: `Préstamo a empleado — ${empleado.nombre}`, monto, referencia: `prestamo_emp:${p.id}` }, t);
+        await t.commit();
+        await recalcularCaja(caja.id);
         res.json({ ok: true, prestamo: p });
-    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+    } catch (err) {
+        if (t && !t.finished) await t.rollback();
+        res.status(err.status || 500).json({ ok: false, msg: err.message });
+    }
 };
 
 exports.marcarPrestamoDescontado = async (req, res) => {

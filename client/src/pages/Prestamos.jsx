@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import PickerBuscable from '../components/PickerBuscable';
+import CajaOrigen from '../components/CajaOrigen';
 
-const hoy = () => new Date().toISOString().slice(0, 10);
+// Fecha de Colombia (con toISOString, después de las 7 pm ya daba "mañana" y la plata caía en la caja del día siguiente)
+const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
 function ModalNuevoPrestamo({ onClose, onSaved }) {
     const [tipo, setTipo] = useState('reciclador');
     const [personas, setPersonas] = useState([]);
-    const [form, setForm] = useState({ persona_id: '', monto: '', fecha: hoy(), descripcion: '', quincena: '' });
+    const [form, setForm] = useState({ persona_id: '', monto: '', fecha: hoy(), descripcion: '', quincena: '', bodega_id: '' });
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState('');
 
@@ -25,7 +27,7 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
             const endpoint = tipo === 'reciclador'
                 ? `/recicladores/${form.persona_id}/prestamos`
                 : `/empleados/${form.persona_id}/prestamos`;
-            await api.post(endpoint, { monto: form.monto, fecha: form.fecha, descripcion: form.descripcion, quincena: form.quincena });
+            await api.post(endpoint, { monto: form.monto, fecha: form.fecha, descripcion: form.descripcion, quincena: form.quincena, bodega_id: form.bodega_id });
             onSaved();
         } catch (err) { setMsg(err.message); }
         finally { setLoading(false); }
@@ -72,6 +74,7 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
                         <input value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })}
                             style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
                     </label>
+                    <CajaOrigen value={form.bodega_id} onChange={v => setForm(f => ({ ...f, bodega_id: v }))} />
                     {tipo === 'empleado' && (
                         <label>
                             <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Quincena (ej: 2026-05-15)</div>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import CajaOrigen from '../components/CajaOrigen';
 import PickerBuscable from '../components/PickerBuscable';
 
-const hoy = () => new Date().toISOString().slice(0, 10);
+// Fecha de Colombia (con toISOString, después de las 7 pm ya daba "mañana" y la plata caía en la caja del día siguiente)
+const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 const primerDiaMes = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; };
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
@@ -59,7 +61,7 @@ function ModalVehiculo({ vehiculo, onClose, onSaved }) {
 }
 
 function ModalGasto({ vehiculo, onClose, onSaved }) {
-    const [form, setForm] = useState({ fecha: hoy(), tipo: 'gasolina', monto: '', descripcion: '', km_actual: '' });
+    const [form, setForm] = useState({ fecha: hoy(), tipo: 'gasolina', monto: '', descripcion: '', km_actual: '', sale_de_caja: true, bodega_id: '' });
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState('');
 
@@ -106,6 +108,13 @@ function ModalGasto({ vehiculo, onClose, onSaved }) {
                         <input type="number" value={form.km_actual} onChange={e => setForm({ ...form, km_actual: e.target.value })}
                             style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
                     </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={form.sale_de_caja} onChange={e => setForm({ ...form, sale_de_caja: e.target.checked })} style={{ width: 18, height: 18 }} />
+                        ¿Se pagó con plata de la caja?
+                    </label>
+                    {form.sale_de_caja
+                        ? <CajaOrigen value={form.bodega_id} onChange={v => setForm(f => ({ ...f, bodega_id: v }))} />
+                        : <div style={{ fontSize: 12, color: '#6b7280' }}>No se descuenta de la caja (pagado por transferencia u otro medio).</div>}
                 </div>
                 {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>

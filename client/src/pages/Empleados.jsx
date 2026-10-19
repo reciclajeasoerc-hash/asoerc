@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import CajaOrigen from '../components/CajaOrigen';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
-const hoy = () => new Date().toISOString().slice(0, 10);
+// Fecha de Colombia (con toISOString, después de las 7 pm ya daba "mañana" y la plata caía en la caja del día siguiente)
+const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
 // Lista cada fecha (día por día) entre inicio y fin, inclusive. Parseo manual para evitar
 // que la zona horaria corra el día.
@@ -36,7 +38,7 @@ export default function Empleados() {
     const [showD, setShowD] = useState(false);
     const [form, setForm] = useState({ nombre: '', cedula: '', telefono: '', bodega_id: '', cargo: '', salario: '', tipo_salario: 'mensual' });
     const [nForm, setNForm] = useState({ desde: '', hasta: hoy(), dias_periodo: '15', tipo: 'mensual' });
-    const [pForm, setPForm] = useState({ monto: '', descripcion: '', quincena: '', fecha: hoy() });
+    const [pForm, setPForm] = useState({ monto: '', descripcion: '', quincena: '', fecha: hoy(), bodega_id: '' });
     const [dForm, setDForm] = useState({ fecha_inicio: hoy(), fecha_fin: hoy(), dias: '', motivo: '', quincena: '' });
     const [msg, setMsg] = useState('');
 
@@ -160,8 +162,12 @@ export default function Empleados() {
 
     const guardarPrestamo = async () => {
         if (!selected || !pForm.monto) return;
-        try { await api.post(`/empleados/${selected.id}/prestamos`, pForm); setShowP(false); seleccionar(selected); }
-        catch (err) { setMsg(err.message); }
+        try {
+            await api.post(`/empleados/${selected.id}/prestamos`, { ...pForm, fecha: hoy() });
+            setPForm(f => ({ monto: '', descripcion: '', quincena: '', fecha: hoy(), bodega_id: f.bodega_id }));
+            setShowP(false); seleccionar(selected);
+        }
+        catch (err) { setMsg(err.message); alert(err.message); }
     };
 
     const guardarDias = async () => {
@@ -325,6 +331,7 @@ export default function Empleados() {
                                             <input placeholder="Quincena (ej: 2026-05-1)" value={pForm.quincena} onChange={e => setPForm({ ...pForm, quincena: e.target.value })} style={{ padding: '7px', borderRadius: 6, border: '1px solid #fde68a', fontSize: 13 }} />
                                         </div>
                                         <input placeholder="Descripción" value={pForm.descripcion} onChange={e => setPForm({ ...pForm, descripcion: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #fde68a', fontSize: 13, marginBottom: 8 }} />
+                                        <div style={{ marginBottom: 8 }}><CajaOrigen value={pForm.bodega_id} onChange={v => setPForm(f => ({ ...f, bodega_id: v }))} /></div>
                                         <button onClick={guardarPrestamo} style={{ padding: '7px 16px', background: '#d97706', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12 }}>Registrar</button>
                                     </div>
                                 )}

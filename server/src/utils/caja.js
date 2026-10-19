@@ -55,4 +55,48 @@ async function sumarEnCaja(caja_id, tipo, monto) {
     );
 }
 
-module.exports = { recalcularCaja, obtenerCajaDia, sumarEnCaja };
+// ── Plata que sale del cajón por algo que NO es una compra (préstamos, gastos de vehículo) ──
+
+// De qué bodega sale la plata: la del usuario; el superadmin la elige (bodega_id del cuerpo).
+function bodegaDeLaOperacion(user, body) {
+    if (user?.rol === 'superadmin') {
+        const b = parseInt(body?.bodega_id);
+        if (!b) { const e = new Error('Elige de qué bodega sale la plata'); e.status = 400; throw e; }
+        return b;
+    }
+    if (!user?.bodega_id) { const e = new Error('Tu usuario no tiene bodega asignada. Pide al superadministrador que te asigne una.'); e.status = 403; throw e; }
+    return user.bodega_id;
+}
+
+// Caja del día donde se va a registrar la salida. Se llama ANTES de abrir la transacción
+// (igual que en compras). Si esa caja ya está cerrada, no se mete plata por detrás.
+async function cajaParaEgreso(bodega_id, fecha) {
+    const caja = await obtenerCajaDia(bodega_id, fecha);
+    if (caja.estado === 'cerrada') {
+        const e = new Error(`La caja del ${fecha} ya está cerrada. Reábrela para registrar esta salida.`); e.status = 400; throw e;
+    }
+    return caja;
+}
+
+// Crea el movimiento de egreso dentro de la transacción de quien llama. Después del commit,
+// quien llama hace sumarEnCaja(caja.id, 'egreso', monto).
+async function crearEgreso(caja, { concepto, monto, referencia }, t) {
+    // Se vuelve a mirar la caja DENTRO de la transacción y con la fila bloqueada: si alguien
+    // la cerró entre la revisión previa y este momento, no entra la salida.
+    const fila = await Caja.findByPk(caja.id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!fila || fila.estado === 'cerrada') {
+        const e = new Error(`La caja del ${caja.fecha} ya está cerrada. Reábrela para registrar esta salida.`); e.status = 400; throw e;
+    }
+    const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour12: false });
+    return MovimientoCaja.create({ caja_id: caja.id, tipo: 'egreso', concepto, monto, hora, referencia }, { transaction: t });
+}
+
+// Quita los movimientos de una referencia (p. ej. al borrar un gasto) y recalcula sus cajas.
+async function quitarMovimientos(referencia, t) {
+    const movs = await MovimientoCaja.findAll({ where: { referencia }, transaction: t });
+    const cajas = [...new Set(movs.map(m => m.caja_id))];
+    await MovimientoCaja.destroy({ where: { referencia }, transaction: t });
+    return cajas;
+}
+
+module.exports = { recalcularCaja, obtenerCajaDia, sumarEnCaja, bodegaDeLaOperacion, cajaParaEgreso, crearEgreso, quitarMovimientos };

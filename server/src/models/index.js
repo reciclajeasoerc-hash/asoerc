@@ -138,7 +138,8 @@ const PrestamoEmpleado = sequelize.define('PrestamoEmpleado', {
     fecha:       { type: DataTypes.DATEONLY, allowNull: false },
     descripcion: { type: DataTypes.STRING },
     quincena:    { type: DataTypes.STRING },
-    descontado:  { type: DataTypes.BOOLEAN, defaultValue: false }
+    descontado:  { type: DataTypes.BOOLEAN, defaultValue: false },
+    bodega_id:   { type: DataTypes.INTEGER } // de qué caja salió la plata (null = préstamos viejos)
 });
 
 const DiasNoLaborados = sequelize.define('DiasNoLaborados', {
@@ -158,7 +159,8 @@ const PrestamoReciclador = sequelize.define('PrestamoReciclador', {
     fecha:         { type: DataTypes.DATEONLY, allowNull: false },
     descripcion:   { type: DataTypes.STRING },
     compra_id:     { type: DataTypes.INTEGER },
-    pagado:        { type: DataTypes.BOOLEAN, defaultValue: false }
+    pagado:        { type: DataTypes.BOOLEAN, defaultValue: false },
+    bodega_id:     { type: DataTypes.INTEGER } // de qué caja salió la plata (null = préstamos viejos)
 });
 
 const Caja = sequelize.define('Caja', {
@@ -235,7 +237,8 @@ const GastoVehiculo = sequelize.define('GastoVehiculo', {
     tipo:        { type: DataTypes.ENUM('gasolina','viatico','mantenimiento','otro'), allowNull: false },
     monto:       { type: DataTypes.DECIMAL(12,2), allowNull: false },
     descripcion: { type: DataTypes.STRING },
-    km_actual:   { type: DataTypes.INTEGER }
+    km_actual:   { type: DataTypes.INTEGER },
+    sale_de_caja:{ type: DataTypes.BOOLEAN, defaultValue: false } // true = se pagó con plata de la caja
 });
 
 const Configuracion = sequelize.define('Configuracion', {

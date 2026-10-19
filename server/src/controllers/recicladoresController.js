@@ -1,4 +1,5 @@
-const { Reciclador, Compra, PrestamoReciclador, Bodega, MaterialPrecioReciclador, Material, RecicladorSede } = require('../models');
+const { sequelize, Reciclador, Compra, PrestamoReciclador, Bodega, MaterialPrecioReciclador, Material, RecicladorSede } = require('../models');
+const { bodegaDeLaOperacion, cajaParaEgreso, crearEgreso, recalcularCaja } = require('../utils/caja');
 
 exports.listar = async (req, res) => {
     try {
@@ -135,17 +136,33 @@ exports.crearSede = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+// El préstamo es plata que SALE del cajón: se registra como egreso en la caja de la bodega
+// (antes solo quedaba como deuda y la caja mostraba plata que ya no estaba).
+// Cuando después se le descuenta en una compra, la compra paga solo el neto: no se cuenta doble.
 exports.crearPrestamo = async (req, res) => {
+    let t;
     try {
         const { reciclador_id } = req.params;
-        const { monto, fecha, descripcion } = req.body;
-        if (!monto) return res.status(400).json({ ok: false, msg: 'Monto requerido' });
-        const prestamo = await PrestamoReciclador.create({
-            reciclador_id, monto, fecha: fecha || require("../utils/fecha").hoy(), descripcion
-        });
-        await Reciclador.increment('saldo_prestamo', { by: parseFloat(monto), where: { id: reciclador_id } });
+        const { descripcion } = req.body;
+        const monto = parseFloat(req.body.monto);
+        if (!(monto > 0)) return res.status(400).json({ ok: false, msg: 'Monto requerido' });
+        const reciclador = await Reciclador.findByPk(reciclador_id);
+        if (!reciclador) return res.status(404).json({ ok: false, msg: 'Reciclador no encontrado' });
+        const fecha = req.body.fecha || require("../utils/fecha").hoy();
+        const bodega_id = bodegaDeLaOperacion(req.user, req.body);
+        const caja = await cajaParaEgreso(bodega_id, fecha);
+
+        t = await sequelize.transaction();
+        const prestamo = await PrestamoReciclador.create({ reciclador_id, monto, fecha, descripcion, bodega_id }, { transaction: t });
+        await Reciclador.increment('saldo_prestamo', { by: monto, where: { id: reciclador_id }, transaction: t });
+        await crearEgreso(caja, { concepto: `Préstamo a reciclador — ${reciclador.nombre}`, monto, referencia: `prestamo_rec:${prestamo.id}` }, t);
+        await t.commit();
+        await recalcularCaja(caja.id);
         res.json({ ok: true, prestamo });
-    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+    } catch (err) {
+        if (t && !t.finished) await t.rollback();
+        res.status(err.status || 500).json({ ok: false, msg: err.message });
+    }
 };
 
 exports.marcarPrestamoPagado = async (req, res) => {

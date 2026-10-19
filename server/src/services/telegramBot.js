@@ -14,7 +14,7 @@ const { Op } = require('sequelize');
 const whatsappService = require('./whatsappService');
 // Helpers de caja SEGUROS ante concurrencia (mismos que usa la web): evitan que dos
 // registros a la vez se pisen la plata. Antes el bot hacía leer-modificar-escribir.
-const { obtenerCajaDia, sumarEnCaja, recalcularCaja } = require('../utils/caja');
+const { obtenerCajaDia, sumarEnCaja, recalcularCaja, cajaParaEgreso, crearEgreso } = require('../utils/caja');
 
 // ── Estado por chat ───────────────────────────────────────────────────────
 const historiales     = new Map();
@@ -487,19 +487,29 @@ async function ejecutarHerramienta(nombre, args, chatId) {
 
         // ── Préstamos ─────────────────────────────────────────────────────
         case 'registrar_prestamo': {
-            const hoyDate = hoy;
-            if (args.tipo_persona === 'reciclador') {
-                const r = await Reciclador.findByPk(args.persona_id);
-                if (!r) return JSON.stringify({ ok: false, error: 'Reciclador no encontrado' });
-                await PrestamoReciclador.create({ reciclador_id: args.persona_id, monto: args.monto, fecha: hoyDate, descripcion: args.descripcion || 'Préstamo registrado por Telegram', pagado: false });
-                await r.update({ saldo_prestamo: parseFloat(r.saldo_prestamo || 0) + args.monto });
-                return JSON.stringify({ ok: true, mensaje: `Préstamo de $${fmt(args.monto)} registrado a ${r.nombre}` });
-            } else {
-                const e = await Empleado.findByPk(args.persona_id);
-                if (!e) return JSON.stringify({ ok: false, error: 'Empleado no encontrado' });
-                await PrestamoEmpleado.create({ empleado_id: args.persona_id, monto: args.monto, fecha: hoyDate, descripcion: args.descripcion || 'Préstamo registrado por Telegram', descontado: false });
-                return JSON.stringify({ ok: true, mensaje: `Préstamo de $${fmt(args.monto)} registrado a ${e.nombre}` });
-            }
+            // El préstamo sale del cajón: egreso en la caja de la bodega de quien escribe
+            const monto = parseFloat(args.monto);
+            if (!(monto > 0)) return JSON.stringify({ ok: false, error: 'Monto inválido' });
+            const bodega = await bodegaDelChat(chatId);
+            if (!bodega) return JSON.stringify({ ok: false, error: MSG_SIN_BODEGA });
+            const esRec = args.tipo_persona === 'reciclador';
+            const persona = esRec ? await Reciclador.findByPk(args.persona_id) : await Empleado.findByPk(args.persona_id);
+            if (!persona) return JSON.stringify({ ok: false, error: esRec ? 'Reciclador no encontrado' : 'Empleado no encontrado' });
+            let caja;
+            try { caja = await cajaParaEgreso(bodega.id, hoy); } catch (e) { return JSON.stringify({ ok: false, error: e.message }); }
+            const descripcion = args.descripcion || 'Préstamo registrado por Telegram';
+            await sequelize.transaction(async t => {
+                if (esRec) {
+                    const p = await PrestamoReciclador.create({ reciclador_id: persona.id, monto, fecha: hoy, descripcion, pagado: false, bodega_id: bodega.id }, { transaction: t });
+                    await Reciclador.increment('saldo_prestamo', { by: monto, where: { id: persona.id }, transaction: t });
+                    await crearEgreso(caja, { concepto: `Préstamo a reciclador — ${persona.nombre}`, monto, referencia: `prestamo_rec:${p.id}` }, t);
+                } else {
+                    const p = await PrestamoEmpleado.create({ empleado_id: persona.id, monto, fecha: hoy, descripcion, descontado: false, bodega_id: bodega.id }, { transaction: t });
+                    await crearEgreso(caja, { concepto: `Préstamo a empleado — ${persona.nombre}`, monto, referencia: `prestamo_emp:${p.id}` }, t);
+                }
+            });
+            await recalcularCaja(caja.id);
+            return JSON.stringify({ ok: true, mensaje: `Préstamo de $${fmt(monto)} registrado a ${persona.nombre} y descontado de la caja de ${bodega.nombre}` });
         }
 
         case 'ver_prestamos_pendientes': {

@@ -1,4 +1,5 @@
-const { Vehiculo, GastoVehiculo, Bodega } = require('../models');
+const { sequelize, Vehiculo, GastoVehiculo, Bodega } = require('../models');
+const { bodegaDeLaOperacion, cajaParaEgreso, crearEgreso, sumarEnCaja, quitarMovimientos, recalcularCaja } = require('../utils/caja');
 const { Op } = require('sequelize');
 
 exports.listar = async (req, res) => {
@@ -60,12 +61,38 @@ exports.listarGastos = async (req, res) => {
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
 
+const TIPOS_GASTO = { gasolina: 'Gasolina', viatico: 'Viático', mantenimiento: 'Mantenimiento', otro: 'Otro' };
+
+// Por defecto el gasto se paga con plata de la caja → egreso en la caja de la bodega.
+// sale_de_caja:false = se pagó de otra forma (transferencia, etc.) y la caja no se toca.
 exports.registrarGasto = async (req, res) => {
+    let t;
     try {
-        const { id } = req.params;
-        const g = await GastoVehiculo.create({ ...req.body, vehiculo_id: id });
+        const vehiculo = await Vehiculo.findByPk(req.params.id);
+        if (!vehiculo) return res.status(404).json({ ok: false, msg: 'Vehículo no encontrado' });
+        const monto = parseFloat(req.body.monto);
+        if (!(monto > 0)) return res.status(400).json({ ok: false, msg: 'El monto es requerido' });
+        const tipo = TIPOS_GASTO[req.body.tipo] ? req.body.tipo : 'otro';
+        const fecha = req.body.fecha || require('../utils/fecha').hoy();
+        const sale_de_caja = req.body.sale_de_caja !== false && req.body.sale_de_caja !== 'false';
+        const bodega_id = bodegaDeLaOperacion(req.user, req.body);
+        const caja = sale_de_caja ? await cajaParaEgreso(bodega_id, fecha) : null;
+
+        t = await sequelize.transaction();
+        // Lista blanca (antes se guardaba req.body tal cual)
+        const g = await GastoVehiculo.create({
+            vehiculo_id: vehiculo.id, bodega_id, fecha, tipo, monto, sale_de_caja,
+            descripcion: req.body.descripcion || null,
+            km_actual: req.body.km_actual ? parseInt(req.body.km_actual) : null,
+        }, { transaction: t });
+        if (caja) await crearEgreso(caja, { concepto: `${TIPOS_GASTO[tipo]} vehículo ${vehiculo.placa}${g.descripcion ? ' — ' + g.descripcion : ''}`, monto, referencia: `gasto_veh:${g.id}` }, t);
+        await t.commit();
+        if (caja) await recalcularCaja(caja.id);
         res.json({ ok: true, gasto: g });
-    } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
+    } catch (err) {
+        if (t && !t.finished) await t.rollback();
+        res.status(err.status || 500).json({ ok: false, msg: err.message });
+    }
 };
 
 exports.eliminarGasto = async (req, res) => {
@@ -74,7 +101,13 @@ exports.eliminarGasto = async (req, res) => {
         if (!g || String(g.vehiculo_id) !== String(req.params.id)) return res.status(404).json({ ok: false, msg: 'No encontrado' });
         if (req.user?.rol !== 'superadmin' && String(g.bodega_id) !== String(req.user?.bodega_id))
             return res.status(403).json({ ok: false, msg: 'Ese gasto es de otra bodega' });
-        await g.destroy();
+        // Si salió de la caja, la plata vuelve a la caja (se borra su egreso y se recalcula)
+        const cajas = await sequelize.transaction(async t => {
+            const ids = await quitarMovimientos(`gasto_veh:${g.id}`, t);
+            await g.destroy({ transaction: t });
+            return ids;
+        });
+        for (const cid of cajas) await recalcularCaja(cid);
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

@@ -19,7 +19,6 @@ const CONCEPTOS_MANUAL = {
     ],
     egreso: [
         { label: 'Gastos operativos',   icon: '🔧' },
-        { label: 'Préstamo reciclador', icon: '👤' },
         { label: 'Pago nómina',         icon: '💼' },
         { label: 'Otro egreso',         icon: '💸' },
     ],
