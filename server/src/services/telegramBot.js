@@ -337,8 +337,10 @@ async function obtenerOCrearCaja(bodega_id, hoy) {
 const MSG_SIN_BODEGA = 'Tu Telegram no está vinculado a un usuario con bodega asignada. Pide al superadministrador que lo vincule en Usuarios.';
 async function alcanceChat(chatId) {
     const u = await Usuario.findOne({ where: { telegram_chat_id: String(chatId), activo: true } });
-    // Chat sin usuario pero dado de alta como superadmin en la lista vieja (Configuración → Bot)
-    const esSuper = u ? u.rol === 'superadmin' : (await obtenerChat(chatId)).rol === 'superadmin';
+    // Solo un USUARIO superadmin cuenta como superadmin. Un chat de la lista vieja
+    // (Configuración → Bot) nunca lo es: un admin podía darse de alta ahí como superadmin
+    // y así registrar o ver en las dos bodegas.
+    const esSuper = u?.rol === 'superadmin';
     let bodega = null;
     if (u?.bodega_id) bodega = await Bodega.findByPk(u.bodega_id);
     if (!bodega && esSuper) bodega = await Bodega.findOne({ where: { activa: true } });
@@ -614,11 +616,16 @@ async function ejecutarHerramienta(nombre, args, chatId) {
         case 'cancelar_ultima_operacion': {
             const op = ultimaOp.get(chatId);
             if (!op) return JSON.stringify({ ok: false, mensaje: 'No hay operación reciente para cancelar.' });
-            const bodega = await bodegaDelChat(chatId);
-            const caja   = bodega ? await Caja.findOne({ where: { bodega_id: bodega.id, fecha: hoy } }) : null;
+            const { esSuper, bodega } = await alcanceChat(chatId);
+            const Modelo = op.tipo === 'venta' ? Venta : Compra;
+            const doc = await Modelo.findByPk(op.id);
+            if (doc && !esSuper && (!bodega || String(doc.bodega_id) !== String(bodega.id)))
+                return JSON.stringify({ ok: false, mensaje: 'Esa operación es de otra bodega; no se puede cancelar desde aquí.' });
+            // La caja que se revierte es la de la bodega y fecha DE LA OPERACIÓN
+            const caja   = doc ? await Caja.findOne({ where: { bodega_id: doc.bodega_id, fecha: doc.fecha } }) : null;
 
             if (op.tipo === 'venta') {
-                const venta = await Venta.findByPk(op.id);
+                const venta = doc;
                 if (!venta) return JSON.stringify({ ok: false, mensaje: 'Venta no encontrada.' });
                 if (caja) {
                     const mov = await MovimientoCaja.findOne({ where: { caja_id: caja.id, concepto: `Venta #${op.id}` } });
@@ -631,7 +638,7 @@ async function ejecutarHerramienta(nombre, args, chatId) {
             }
 
             if (op.tipo === 'compra') {
-                const compra = await Compra.findByPk(op.id);
+                const compra = doc;
                 if (!compra) return JSON.stringify({ ok: false, mensaje: 'Compra no encontrada.' });
                 if (caja) {
                     const mov = await MovimientoCaja.findOne({ where: { caja_id: caja.id, concepto: `Compra #${op.id}` } });
@@ -907,7 +914,8 @@ async function obtenerChat(chatId) {
         if (chats.length === 0) return { autorizado: false, rol: null, nombre: null };
         const chat = chats.find(c => String(c.chat_id) === String(chatId));
         if (!chat) return { autorizado: false, rol: null, nombre: null };
-        return { autorizado: true, rol: chat.rol || 'operador', nombre: chat.nombre };
+        const rolChat = chat.rol === 'superadmin' ? 'admin' : (chat.rol || 'operador');
+        return { autorizado: true, rol: rolChat, nombre: chat.nombre };
     } catch { return { autorizado: false, rol: null, nombre: null }; }
 }
 

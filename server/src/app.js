@@ -104,9 +104,12 @@ async function seed() {
             const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
             await Usuario.create({ nombre: 'Administrador', email: process.env.ADMIN_EMAIL, password: hash, rol: 'superadmin', bodega_id: principal?.id });
             console.log(`✅ Superadmin creado: ${process.env.ADMIN_EMAIL}`);
-        } else if (existe.rol !== 'superadmin') {
+        } else if (existe.rol !== 'superadmin' && await Usuario.count({ where: { rol: 'superadmin', activo: true } }) === 0) {
+            // Solo si el sistema se quedó SIN ningún superadmin (para no perder el acceso).
+            // Antes lo volvía superadmin en CADA arranque: si esa cuenta la usa una encargada y
+            // le bajaban el rol, con el siguiente despliegue recuperaba el acceso total.
             await existe.update({ rol: 'superadmin', bodega_id: principal?.id || existe.bodega_id });
-            console.log(`✅ Usuario actualizado a superadmin`);
+            console.log(`✅ Usuario actualizado a superadmin (no había ninguno)`);
         }
     }
     // Materiales con categorías

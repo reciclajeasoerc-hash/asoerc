@@ -118,7 +118,7 @@ router.post('/recicladores/:id/sedes',                   recicladoresCtrl.crearS
 
 // Compras
 // Compras, ventas, caja y remisiones: cada quien opera SOLO en su bodega (salvo superadmin)
-router.use(['/compras', '/ventas', '/caja', '/remisiones', '/empaques'], requiereBodega);
+router.use(['/compras', '/ventas', '/caja', '/remisiones', '/empaques', '/vehiculos/gastos', '/vehiculos/:id/gastos'], requiereBodega);
 router.get('/compras',                          comprasCtrl.listar);
 router.get('/compras/resumen-dia',              comprasCtrl.resumenDia);
 router.post('/compras',                         comprasCtrl.crear);

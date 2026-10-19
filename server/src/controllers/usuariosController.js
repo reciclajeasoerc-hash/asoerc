@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { Usuario, Bodega } = require('../models');
+const { olvidarUsuario } = require('../middlewares/auth');
 
 const ROLES_VALIDOS = ['superadmin', 'admin', 'cajero', 'vendedor', 'operador'];
 
@@ -64,6 +65,7 @@ exports.actualizar = async (req, res) => {
         if (password) upd.password = await bcrypt.hash(password, 10);
         if (telegram_chat_id !== undefined) upd.telegram_chat_id = telegram_chat_id?.trim() || null;
         await usuario.update(upd);
+        olvidarUsuario(usuario.id); // el nuevo rol/bodega aplica desde su próxima petición
         res.json({ ok: true, usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, activo: usuario.activo } });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };
@@ -76,6 +78,7 @@ exports.eliminar = async (req, res) => {
         if (req.user.rol !== 'superadmin' && usuario.bodega_id !== req.user.bodega_id)
             return res.status(403).json({ ok: false, msg: 'Sin permisos' });
         await usuario.update({ activo: false });
+        olvidarUsuario(usuario.id);
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ ok: false, msg: err.message }); }
 };

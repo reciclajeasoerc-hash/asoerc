@@ -102,6 +102,11 @@ async function agregarTelegramChat(req, res) {
     try {
         const { chat_id, nombre, rol } = req.body;
         if (!chat_id) return res.status(400).json({ ok: false, msg: 'chat_id requerido' });
+        // Esta lista vieja no puede dar más poder que el de quien la edita: un admin no da de
+        // alta chats como admin/superadmin (así se saltaba la restricción de bodega en el bot).
+        const ROLES_CHAT = ['admin', 'cajero', 'vendedor', 'operador'];
+        if (rol && !ROLES_CHAT.includes(rol)) return res.status(400).json({ ok: false, msg: 'Rol inválido para un chat. El superadmin se vincula desde su usuario.' });
+        if (rol === 'admin' && req.user?.rol !== 'superadmin') return res.status(403).json({ ok: false, msg: 'Solo el superadministrador puede dar rol admin a un chat' });
         const conf = await Configuracion.findOne({ where: { clave: 'telegram_chats' } });
         const chats = conf ? JSON.parse(conf.valor || '[]') : [];
         const existe = chats.find(c => String(c.chat_id) === String(chat_id));
