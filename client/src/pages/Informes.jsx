@@ -2,10 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { exportarInformeComprasExcel, exportarInformeComprasPDF, exportarCertificadoDisposicionFinal } from '../utils/exportar';
 import PickerBuscable from '../components/PickerBuscable';
+import { EncabezadoPagina, Pestanas, Tarjeta, Kpi, RejillaKpi, Boton, Campo, ContenedorTabla, estiloTabla, estiloTh, estiloTd, estiloTdNum, estiloInput, Vacio } from '../components/ui';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 const hoy = () => new Date().toISOString().slice(0, 10);
 const primerDiaMes = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; };
+
+const PESTANAS = [
+    { id: 'compras', label: 'Compras por período', icono: 'compras' },
+    { id: 'certificado', label: 'Certificado cliente', icono: 'clientes' },
+];
+
+// Tabla simple con encabezado; cols = [{ t: 'Título', num: bool }]
+function TablaInforme({ cols, children, alto }) {
+    return (
+        <ContenedorTabla style={alto ? { maxHeight: alto, overflowY: 'auto' } : undefined}>
+            <table style={estiloTabla}>
+                <thead><tr>{cols.map(c => <th key={c.t} style={{ ...estiloTh, textAlign: c.num ? 'right' : 'left' }}>{c.t}</th>)}</tr></thead>
+                <tbody>{children}</tbody>
+            </table>
+        </ContenedorTabla>
+    );
+}
 
 export default function Informes() {
     const [tab, setTab] = useState('compras');
@@ -46,223 +64,157 @@ export default function Informes() {
         finally { setLoading(false); }
     };
 
-    const Btn = ({ active, onClick, children }) => (
-        <button onClick={onClick} style={{ padding: '8px 18px', background: active ? '#1a5c2a' : '#f5f5f5', color: active ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{children}</button>
-    );
-
     return (
-        <div style={{ padding: 24 }}>
-            <div style={{ marginBottom: 20 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 700 }}>📊 Informes</h1>
-                <p style={{ color: '#666', fontSize: 13 }}>Reportes de compras, ventas y certificados</p>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                <Btn active={tab === 'compras'} onClick={() => setTab('compras')}>📦 Compras por período</Btn>
-                <Btn active={tab === 'certificado'} onClick={() => setTab('certificado')}>📜 Certificado cliente</Btn>
-            </div>
+        <div className="pagina">
+            <EncabezadoPagina titulo="Informes" sub="Reportes de compras y certificados" icono="informes" />
+            <Pestanas items={PESTANAS} activa={tab} onChange={setTab} />
 
             {/* Filtros */}
-            <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)', display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <label>
-                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Desde</div>
-                    <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                </label>
-                <label>
-                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Hasta</div>
-                    <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                </label>
-                {tab === 'compras' && (
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Bodega</div>
-                        <select value={bodega_id} onChange={e => setBodegaId(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                            <option value="">Todas</option>
-                            {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                        </select>
-                    </label>
-                )}
-                {tab === 'certificado' && (
-                    <div>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cliente*</div>
-                        <PickerBuscable
-                            items={clientes}
-                            value={cliente_id}
-                            onChange={setClienteId}
-                            placeholder="Buscar cliente..."
-                            fontSize={13}
-                        />
-                    </div>
-                )}
-                <button onClick={tab === 'compras' ? cargarCompras : cargarCertificado} disabled={loading} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
-                    {loading ? 'Cargando...' : '🔍 Generar'}
-                </button>
-            </div>
+            <Tarjeta style={{ marginBottom: 14 }}>
+                <div className="rejilla-form" style={{ alignItems: 'end' }}>
+                    <Campo etiqueta="Desde">
+                        <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Hasta">
+                        <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={estiloInput} />
+                    </Campo>
+                    {tab === 'compras' && (
+                        <Campo etiqueta="Bodega">
+                            <select value={bodega_id} onChange={e => setBodegaId(e.target.value)} style={estiloInput}>
+                                <option value="">Todas</option>
+                                {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                            </select>
+                        </Campo>
+                    )}
+                    {tab === 'certificado' && (
+                        <div>
+                            <div className="etiqueta" style={{ color: 'var(--texto-2)', marginBottom: 5, fontSize: 12 }}>Cliente*</div>
+                            <PickerBuscable items={clientes} value={cliente_id} onChange={setClienteId} placeholder="Buscar cliente..." fontSize={14} />
+                        </div>
+                    )}
+                    <Boton onClick={tab === 'compras' ? cargarCompras : cargarCertificado} disabled={loading} ancho>
+                        {loading ? 'Cargando...' : 'Generar'}
+                    </Boton>
+                </div>
+            </Tarjeta>
 
             {/* Informe de compras */}
             {tab === 'compras' && compras && (
                 <div>
-                    {/* Botones exportar */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                        <button onClick={() => exportarInformeComprasExcel({ ...compras, desde, hasta })}
-                            style={{ padding: '8px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                            📊 Descargar Excel
-                        </button>
-                        <button onClick={() => exportarInformeComprasPDF({ ...compras, desde, hasta })}
-                            style={{ padding: '8px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                            📄 Descargar PDF
-                        </button>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                        <Boton variante="secundario" icono="informes" onClick={() => exportarInformeComprasExcel({ ...compras, desde, hasta })}>Descargar Excel</Boton>
+                        <Boton variante="secundario" icono="remisiones" onClick={() => exportarInformeComprasPDF({ ...compras, desde, hasta })}>Descargar PDF</Boton>
                     </div>
 
-                    {/* Totales */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
-                        {[
-                            ['Total compras', `$${fmt(compras.resumen?.total_pagado)}`, '#1a5c2a'],
-                            ['# Compras', compras.resumen?.total_compras, '#2563eb'],
-                            ['Kg comprados', `${fmt(compras.resumen?.total_kilos)} kg`, '#d97706'],
-                            ['Recicladores', compras.resumen?.total_recicladores, '#7c3aed'],
-                        ].map(([t, v, c]) => (
-                            <div key={t} style={{ background: '#fff', borderRadius: 8, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.08)' }}>
-                                <div style={{ fontSize: 12, color: '#666' }}>{t}</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, color: c, marginTop: 4 }}>{v}</div>
-                            </div>
-                        ))}
-                    </div>
+                    <RejillaKpi>
+                        <Kpi titulo="Total compras" tono="marco" icono="compras" valor={`$${fmt(compras.resumen?.total_pagado)}`} />
+                        <Kpi titulo="# Compras" icono="remisiones" valor={compras.resumen?.total_compras} />
+                        <Kpi titulo="Kg comprados" tono="verde" icono="kilos" valor={`${fmt(compras.resumen?.total_kilos)} kg`} />
+                        <Kpi titulo="Recicladores" tono="noche" icono="recicladores" valor={compras.resumen?.total_recicladores} />
+                    </RejillaKpi>
 
-                    {/* Por material */}
-                    {compras.por_material?.length > 0 && (
-                        <div style={{ background: '#fff', borderRadius: 10, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                            <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>Por material</div>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead><tr style={{ background: '#f0faf0' }}>
-                                    {['Material','Kg comprados','Total pagado','Precio promedio/kg'].map(h => <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
-                                </tr></thead>
-                                <tbody>
+                    <div className="rejilla-2-1" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', marginBottom: 14 }}>
+                        {compras.por_material?.length > 0 && (
+                            <Tarjeta titulo="Por material" sinPadding>
+                                <TablaInforme cols={[{ t: 'Material' }, { t: 'Kg', num: true }, { t: 'Total pagado', num: true }, { t: 'Promedio/kg', num: true }]}>
                                     {compras.por_material.map(m => (
-                                        <tr key={m.material} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                            <td style={{ padding: '9px 14px', fontWeight: 600 }}>{m.material}</td>
-                                            <td style={{ padding: '9px 14px' }}>{fmt(m.total_kilos)} kg</td>
-                                            <td style={{ padding: '9px 14px', fontWeight: 700, color: '#1a5c2a' }}>${fmt(m.total_pagado)}</td>
-                                            <td style={{ padding: '9px 14px', color: '#666' }}>${fmt(m.precio_promedio)}/kg</td>
+                                        <tr key={m.material}>
+                                            <td style={{ ...estiloTd, fontWeight: 700 }}>{m.material}</td>
+                                            <td style={estiloTdNum}>{fmt(m.total_kilos)} kg</td>
+                                            <td style={{ ...estiloTdNum, fontWeight: 700 }}>${fmt(m.total_pagado)}</td>
+                                            <td style={{ ...estiloTdNum, color: 'var(--texto-2)' }}>${fmt(m.precio_promedio)}</td>
                                         </tr>
                                     ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {/* Por reciclador */}
-                    {compras.por_reciclador?.length > 0 && (
-                        <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                            <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>Por reciclador</div>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead><tr style={{ background: '#f0faf0' }}>
-                                    {['Reciclador','Compras','Kg','Total pagado'].map(h => <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
-                                </tr></thead>
-                                <tbody>
+                                </TablaInforme>
+                            </Tarjeta>
+                        )}
+                        {compras.por_reciclador?.length > 0 && (
+                            <Tarjeta titulo="Por reciclador" sinPadding>
+                                <TablaInforme cols={[{ t: 'Reciclador' }, { t: 'Compras', num: true }, { t: 'Kg', num: true }, { t: 'Total pagado', num: true }]}>
                                     {compras.por_reciclador.map(r => (
-                                        <tr key={r.reciclador} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                            <td style={{ padding: '9px 14px', fontWeight: 600 }}>{r.reciclador}</td>
-                                            <td style={{ padding: '9px 14px' }}>{r.total_compras}</td>
-                                            <td style={{ padding: '9px 14px' }}>{fmt(r.total_kilos)} kg</td>
-                                            <td style={{ padding: '9px 14px', fontWeight: 700, color: '#1a5c2a' }}>${fmt(r.total_pagado)}</td>
+                                        <tr key={r.reciclador}>
+                                            <td style={{ ...estiloTd, fontWeight: 700 }}>{r.reciclador}</td>
+                                            <td style={estiloTdNum}>{r.total_compras}</td>
+                                            <td style={estiloTdNum}>{fmt(r.total_kilos)} kg</td>
+                                            <td style={{ ...estiloTdNum, fontWeight: 700 }}>${fmt(r.total_pagado)}</td>
                                         </tr>
                                     ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                                </TablaInforme>
+                            </Tarjeta>
+                        )}
+                    </div>
 
-                    {/* Todas las compras del período (una fila por compra) */}
                     {compras.compras?.length > 0 && (
-                        <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                            <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>🧾 Todas las compras del período ({compras.compras.length})</div>
-                            <div style={{ maxHeight: 460, overflowY: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                    <thead><tr style={{ background: '#f0faf0', position: 'sticky', top: 0 }}>
-                                        {['Fecha','Hora','#','Reciclador','Bodega','Kg','Total'].map(h => <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
-                                    </tr></thead>
-                                    <tbody>
-                                        {compras.compras.map(c => (
-                                            <tr key={c.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                                <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{c.fecha}</td>
-                                                <td style={{ padding: '8px 14px', color: '#888' }}>{c.hora}</td>
-                                                <td style={{ padding: '8px 14px' }}>{c.numero_diario || '—'}</td>
-                                                <td style={{ padding: '8px 14px', fontWeight: 600 }}>{c.reciclador}</td>
-                                                <td style={{ padding: '8px 14px', color: '#666' }}>{c.bodega}</td>
-                                                <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{fmt(c.kilos)} kg</td>
-                                                <td style={{ padding: '8px 14px', fontWeight: 700, color: '#1a5c2a', whiteSpace: 'nowrap' }}>${fmt(c.total)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <Tarjeta titulo={`Todas las compras del período (${compras.compras.length})`} sinPadding>
+                            <TablaInforme alto={460} cols={[{ t: 'Fecha' }, { t: 'Hora' }, { t: '#' }, { t: 'Reciclador' }, { t: 'Bodega' }, { t: 'Kg', num: true }, { t: 'Total', num: true }]}>
+                                {compras.compras.map(c => (
+                                    <tr key={c.id}>
+                                        <td style={{ ...estiloTd, whiteSpace: 'nowrap' }}>{c.fecha}</td>
+                                        <td style={{ ...estiloTd, color: 'var(--texto-3)' }}>{c.hora}</td>
+                                        <td style={estiloTd}>{c.numero_diario || '—'}</td>
+                                        <td style={{ ...estiloTd, fontWeight: 700 }}>{c.reciclador}</td>
+                                        <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{c.bodega}</td>
+                                        <td style={estiloTdNum}>{fmt(c.kilos)} kg</td>
+                                        <td style={{ ...estiloTdNum, fontWeight: 700 }}>${fmt(c.total)}</td>
+                                    </tr>
+                                ))}
+                            </TablaInforme>
+                        </Tarjeta>
                     )}
                 </div>
             )}
 
-            {/* Certificado cliente */}
+            {/* Certificado cliente (documento: se imprime) */}
             {tab === 'certificado' && certificado && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 700 }}>
+                <div className="tarjeta" style={{ padding: 'clamp(18px, 4vw, 32px)', maxWidth: 760 }}>
                     <div style={{ textAlign: 'center', marginBottom: 24 }}>
                         <img src="/logo.png" alt="ASOERC" style={{ width: 90, marginBottom: 8 }} />
-                        <div style={{ fontWeight: 800, fontSize: 20, color: '#1a5c2a' }}>ASOERC ESP</div>
-                        <div style={{ fontSize: 13, color: '#666' }}>NIT: 901.299.762-6</div>
-                        <div style={{ fontWeight: 700, fontSize: 16, marginTop: 16, textTransform: 'uppercase', letterSpacing: 1 }}>Certificado de Compra de Material Reciclable</div>
+                        <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: 22, color: 'var(--verde-osc)' }}>ASOERC ESP</div>
+                        <div style={{ fontSize: 13, color: 'var(--texto-2)' }}>NIT: 901.299.762-6</div>
+                        <div className="tit-seccion" style={{ justifyContent: 'center', marginTop: 16, fontSize: 17 }}>Certificado de Compra de Material Reciclable</div>
                     </div>
 
-                    <div style={{ fontSize: 14, lineHeight: 1.8, color: '#333', marginBottom: 20 }}>
+                    <div style={{ fontSize: 14.5, lineHeight: 1.8, color: 'var(--texto)', marginBottom: 20 }}>
                         <p>Certificamos que la empresa <strong>{certificado.cliente?.nombre}</strong>
                         {certificado.cliente?.nit ? ` (NIT: ${certificado.cliente.nit})` : ''} realizó entrega de material reciclable a ASOERC ESP durante el período comprendido entre el <strong>{desde}</strong> y el <strong>{hasta}</strong>, con los siguientes detalles:</p>
                     </div>
 
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 }}>
-                        <thead><tr style={{ background: '#f0faf0' }}>
-                            {['Material','Cantidad (kg)','Valor unitario','Total'].map(h => <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
-                        </tr></thead>
-                        <tbody>
+                    <div style={{ border: '1.5px solid var(--borde)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
+                        <TablaInforme cols={[{ t: 'Material' }, { t: 'Cantidad (kg)', num: true }, { t: 'Valor unitario', num: true }, { t: 'Total', num: true }]}>
                             {(certificado.detalle || []).map(d => (
-                                <tr key={d.material} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '9px 14px', fontWeight: 600 }}>{d.material}</td>
-                                    <td style={{ padding: '9px 14px' }}>{fmt(d.kilos)} kg</td>
-                                    <td style={{ padding: '9px 14px', color: '#666' }}>${fmt(d.precio_promedio)}/kg</td>
-                                    <td style={{ padding: '9px 14px', fontWeight: 700 }}>${fmt(d.total)}</td>
+                                <tr key={d.material}>
+                                    <td style={{ ...estiloTd, fontWeight: 700 }}>{d.material}</td>
+                                    <td style={estiloTdNum}>{fmt(d.kilos)} kg</td>
+                                    <td style={{ ...estiloTdNum, color: 'var(--texto-2)' }}>${fmt(d.precio_promedio)}/kg</td>
+                                    <td style={{ ...estiloTdNum, fontWeight: 700 }}>${fmt(d.total)}</td>
                                 </tr>
                             ))}
-                            <tr style={{ background: '#f0faf0', fontWeight: 700 }}>
-                                <td style={{ padding: '10px 14px' }} colSpan={2}>TOTAL</td>
-                                <td style={{ padding: '10px 14px' }}></td>
-                                <td style={{ padding: '10px 14px', color: '#1a5c2a', fontSize: 15 }}>${fmt(certificado.total)}</td>
+                            <tr style={{ background: 'var(--verde-suave)' }}>
+                                <td style={{ ...estiloTd, fontWeight: 800 }} colSpan={3}>TOTAL</td>
+                                <td style={{ ...estiloTdNum, fontWeight: 800, color: 'var(--verde-osc)', fontSize: 15.5 }}>${fmt(certificado.total)}</td>
                             </tr>
-                        </tbody>
-                    </table>
+                        </TablaInforme>
+                    </div>
 
-                    <div style={{ fontSize: 12, color: '#888', textAlign: 'center', borderTop: '1px solid #eee', paddingTop: 16 }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--texto-3)', textAlign: 'center', borderTop: '1px solid var(--borde)', paddingTop: 16 }}>
                         Este certificado fue generado el {hoy()} y tiene validez como soporte de gestión ambiental.
                     </div>
 
-                    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
-                        <button onClick={() => exportarCertificadoDisposicionFinal({ cliente: certificado.cliente, detalle: certificado.detalle, desde, fechaCertificado: new Date().toISOString().slice(0,10) })}
-                            style={{ padding: '9px 24px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                            📄 Descargar Certificado Oficial PDF
-                        </button>
-                        <button onClick={() => window.print()} style={{ padding: '9px 20px', background: '#f5f5f5', color: '#333', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir</button>
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+                        <Boton icono="remisiones" onClick={() => exportarCertificadoDisposicionFinal({ cliente: certificado.cliente, detalle: certificado.detalle, desde, fechaCertificado: new Date().toISOString().slice(0,10) })}>
+                            Descargar certificado oficial PDF
+                        </Boton>
+                        <Boton variante="secundario" onClick={() => window.print()}>Imprimir</Boton>
                     </div>
                 </div>
             )}
 
             {/* Estados vacíos */}
             {tab === 'compras' && !compras && !loading && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 40, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                    <div style={{ fontSize: 40 }}>📊</div>
-                    <p style={{ color: '#999', marginTop: 12, fontSize: 13 }}>Selecciona un período y haz clic en Generar</p>
-                </div>
+                <Tarjeta><Vacio icono="informes" texto="Selecciona un período y toca Generar" /></Tarjeta>
             )}
             {tab === 'certificado' && !certificado && !loading && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 40, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                    <div style={{ fontSize: 40 }}>📜</div>
-                    <p style={{ color: '#999', marginTop: 12, fontSize: 13 }}>Selecciona un cliente y período para generar el certificado</p>
-                </div>
+                <Tarjeta><Vacio icono="clientes" texto="Selecciona un cliente y un período para generar el certificado" /></Tarjeta>
             )}
         </div>
     );

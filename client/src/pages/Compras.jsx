@@ -30,6 +30,35 @@ const CAT_COLORS = {
     'Varios':        { bg: '#f0f9ff', border: '#0284c7', text: '#0c4a6e', active: '#0284c7' },
 };
 
+// ── Estilos del diseño "Operación" (familias y botones de material) ──────────
+const estiloCat = (activa, movil) => ({
+    height: movil ? 40 : 42, padding: movil ? '0 14px' : '0 16px', borderRadius: 9, whiteSpace: 'nowrap', flexShrink: 0,
+    display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
+    border: activa ? '2px solid var(--noche)' : '1.5px solid var(--borde-fuerte)',
+    background: activa ? 'var(--noche)' : '#fff', color: activa ? '#fff' : 'var(--texto-2)',
+    fontFamily: 'var(--fuente-tit)', fontSize: movil ? 15 : 16, fontWeight: activa ? 800 : 600, letterSpacing: .3,
+});
+const estiloMat = (esActivo, enCarrito) => ({
+    width: '100%', minHeight: 64, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', position: 'relative',
+    background: esActivo ? 'var(--noche)' : enCarrito ? 'var(--verde-suave)' : '#fff',
+    border: `2px solid ${esActivo ? 'var(--noche)' : enCarrito ? 'var(--verde)' : 'var(--borde)'}`,
+    boxShadow: esActivo ? '0 6px 16px rgba(15,27,45,.25)' : 'var(--sombra)', transition: 'all .12s',
+});
+function ContenidoMat({ mat, esActivo, enCarrito }) {
+    return (
+        <>
+            {enCarrito && !esActivo && <span style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: '50%', background: 'var(--verde)' }} />}
+            <div style={{ fontFamily: 'var(--fuente-tit)', fontSize: 17, fontWeight: 700, color: esActivo ? '#fff' : 'var(--texto)', lineHeight: 1.15, paddingRight: 10 }}>{mat.nombre}</div>
+            <div style={{ fontSize: 12.5, marginTop: 3, color: esActivo ? '#cbd5e1' : enCarrito ? 'var(--verde-osc)' : 'var(--texto-3)', fontWeight: enCarrito ? 700 : 500 }}>
+                {/* En el carrito va el precio que de verdad se aplicó (puede ser especial del reciclador) */}
+                {enCarrito ? `✓ ${fmtKg(enCarrito.kilos)} kg · $${fmt(enCarrito.precio_unitario)} / kg` : `$${fmt(mat.precio_compra)} / kg`}
+            </div>
+        </>
+    );
+}
+const tituloTarjeta = { display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: 18, letterSpacing: .5, textTransform: 'uppercase', color: 'var(--texto)', marginBottom: 12 };
+const botonVerde = { background: 'var(--verde)', color: '#fff', border: '2px solid var(--verde-osc)', borderRadius: 10, fontFamily: 'var(--fuente-tit)', fontWeight: 800, letterSpacing: .5, textTransform: 'uppercase', cursor: 'pointer' };
+
 function useMobile() {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
     useEffect(() => {
@@ -245,8 +274,8 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     // Formulario inline para crear un reciclador nuevo (compartido móvil + escritorio)
     const formNuevoRec = showNuevoRec && (
-        <div style={{ marginTop: 10, background: '#f0faf0', border: '2px solid #1a5c2a', borderRadius: 8, padding: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1a5c2a', marginBottom: 8 }}>Nuevo reciclador</div>
+        <div style={{ marginTop: 10, background: 'var(--verde-suave)', border: '2px solid var(--verde-osc)', borderRadius: 8, padding: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--verde-osc)', marginBottom: 8 }}>Nuevo reciclador</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 }}>
                 {[['nombre','Nombre *'],['cedula','Cédula'],['telefono','Teléfono']].map(([k,l]) => (
                     <input key={k} placeholder={l} value={recForm[k]} onChange={e => setRecForm({ ...recForm, [k]: e.target.value })}
@@ -254,7 +283,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                 ))}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={crearReciclador} style={{ padding: '7px 16px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Guardar</button>
+                <button onClick={crearReciclador} style={{ padding: '7px 16px', background: 'var(--verde-osc)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Guardar</button>
                 <button onClick={() => setShowNuevoRec(false)} style={{ padding: '7px 12px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
             </div>
         </div>
@@ -268,22 +297,24 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
     // ── MÓVIL ─────────────────────────────────────────────────────────────────
     if (isMobile) return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f0faf0', position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--fondo)', position: 'relative' }}>
 
-            {/* Tabs superiores */}
-            <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
-                {[{ id: 'nueva', label: '♻️ Nueva' }, { id: 'hoy', label: '📋 Hoy' }].map(t => (
-                    <button key={t.id} onClick={() => setTabMobile(t.id)}
-                        style={{
-                            flex: 1, padding: '12px 4px', border: 'none', background: 'none', cursor: 'pointer',
-                            fontWeight: tabMobile === t.id ? 700 : 400,
-                            color: tabMobile === t.id ? '#1a5c2a' : '#6b7280',
-                            borderBottom: tabMobile === t.id ? '2px solid #1a5c2a' : '2px solid transparent',
-                            fontSize: 13, transition: 'all .15s'
-                        }}>
-                        {t.label}
-                    </button>
-                ))}
+            {/* Tabs superiores: control segmentado */}
+            <div style={{ padding: '10px 12px 0', flexShrink: 0 }}>
+                <div style={{ display: 'flex', background: '#fff', border: '1.5px solid var(--borde)', borderRadius: 10, padding: 3 }}>
+                    {[{ id: 'nueva', label: 'Nueva compra' }, { id: 'hoy', label: 'Compras de hoy' }].map(t => (
+                        <button key={t.id} onClick={() => setTabMobile(t.id)} aria-pressed={tabMobile === t.id}
+                            style={{
+                                flex: 1, height: 40, border: 'none', borderRadius: 8, cursor: 'pointer',
+                                fontFamily: 'var(--fuente-tit)', fontSize: 15.5, letterSpacing: .3,
+                                fontWeight: tabMobile === t.id ? 800 : 600,
+                                background: tabMobile === t.id ? 'var(--noche)' : 'transparent',
+                                color: tabMobile === t.id ? '#fff' : 'var(--texto-2)',
+                            }}>
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* ── Tab Nueva ── */}
@@ -292,8 +323,8 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
                     {/* Abrir cuenta / banner activo */}
                     {!compraActiva ? (
-                        <div style={{ background: '#fff', margin: 12, borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: '#1a5c2a' }}>♻️ Abrir cuenta de compra</div>
+                        <div className="tarjeta" style={{ margin: 12, padding: 16 }}>
+                            <div style={tituloTarjeta}>♻️ Abrir cuenta de compra</div>
                             <div style={{ marginBottom: 10 }}>
                                 {esSuper ? (
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
@@ -305,12 +336,12 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     </select>
                                 </div>
                                 ) : (
-                                <div style={{ fontSize: 12, color: '#1a5c2a', fontWeight: 600, marginBottom: 6 }}>📍 Se registra en: {nombreBodega || 'tu bodega'}</div>
+                                <div style={{ fontSize: 12, color: 'var(--verde-osc)', fontWeight: 600, marginBottom: 6 }}>📍 Se registra en: {nombreBodega || 'tu bodega'}</div>
                                 )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                                     <span style={{ fontSize: 11, color: '#666' }}>Reciclador *</span>
                                     <button onClick={() => setShowNuevoRec(!showNuevoRec)}
-                                        style={{ fontSize: 11, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
+                                        style={{ fontSize: 11, color: 'var(--verde-osc)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
                                 </div>
                                 <PickerBuscable
                                     items={recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec)}
@@ -339,14 +370,15 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                             )}
                             {msg && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{msg}</div>}
                             <button onClick={abrirCuenta} disabled={loading}
-                                style={{ width: '100%', padding: '13px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-                                {loading ? 'Abriendo...' : 'Abrir cuenta ♻️'}
+                                style={{ ...botonVerde, width: '100%', height: 52, fontSize: 18 }}>
+                                {loading ? 'Abriendo...' : 'Abrir cuenta'}
                             </button>
                         </div>
                     ) : (
-                        <div style={{ background: '#1a5c2a', margin: 12, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-                            <div style={{ color: '#fff' }}>
-                                <div style={{ fontWeight: 700, fontSize: 14 }}>👤 {compraActiva.reciclador?.nombre}</div>
+                        <div style={{ background: 'var(--noche)', margin: 12, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0, borderLeft: '5px solid var(--verde)' }}>
+                            <div style={{ color: '#fff', minWidth: 0 }}>
+                                <div className="etiqueta" style={{ color: 'var(--verde-vivo)', fontSize: 11 }}>Cuenta abierta</div>
+                                <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: 18 }}>{compraActiva.reciclador?.nombre}</div>
                                 <div style={{ fontSize: 11, opacity: .8, marginTop: 2 }}>{compraActiva.bodega?.nombre} · {compraActiva.fecha}</div>
                             </div>
                             <button onClick={cancelar}
@@ -370,7 +402,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                             const activa = catActiva === cat;
                             return (
                                 <button key={cat} onClick={() => { setCatActiva(cat); setMaterialActivo(null); }}
-                                    style={{ padding: '7px 14px', borderRadius: 20, border: `2px solid ${activa ? cc.active : '#ddd'}`, background: activa ? cc.bg : '#fff', color: activa ? cc.text : '#888', fontSize: 12, fontWeight: activa ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                    style={estiloCat(activa, true)}>
                                     {CAT_ICONS[cat] || '📋'} {cat}
                                 </button>
                             );
@@ -384,15 +416,8 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                             const enCarrito = compraActiva?.items?.find(i => i.material_id === mat.id);
                             const esActivo = materialActivo?.id === mat.id;
                             return (
-                                <button key={mat.id} onClick={() => seleccionarMaterial(mat)}
-                                    style={{
-                                        padding: '14px 10px', background: esActivo ? cc.active : enCarrito ? cc.bg : '#fff',
-                                        border: `2px solid ${esActivo ? cc.active : enCarrito ? cc.border : '#e5e7eb'}`,
-                                        borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s',
-                                        boxShadow: esActivo ? `0 4px 12px ${cc.active}44` : '0 1px 4px rgba(0,0,0,.06)'
-                                    }}>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
-                                    {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {fmtKg(enCarrito.kilos)} kg</div>}
+                                <button key={mat.id} onClick={() => seleccionarMaterial(mat)} style={estiloMat(esActivo, enCarrito)}>
+                                    <ContenidoMat mat={mat} esActivo={esActivo} enCarrito={enCarrito} />
                                 </button>
                             );
                         })}
@@ -400,9 +425,9 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
                     {/* Carrito */}
                     {compraActiva?.items?.length > 0 && (
-                        <div style={{ margin: 12, background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden', flexShrink: 0 }}>
-                            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 700, fontSize: 14, color: '#1a5c2a' }}>
-                                🛒 Carrito #{compraActiva.numero || compraActiva.id}
+                        <div className="tarjeta" style={{ margin: 12, overflow: 'hidden', flexShrink: 0 }}>
+                            <div style={{ ...tituloTarjeta, marginBottom: 0, padding: '12px 16px', borderBottom: '1.5px solid var(--borde)', fontSize: 17 }}>
+                                🛒 Liquidación · #{compraActiva.numero || compraActiva.id}
                             </div>
                             {compraActiva.items.map(item => (
                                 <div key={item.id} style={{ padding: '10px 16px', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -411,20 +436,20 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                         <div style={{ fontSize: 12, color: '#888' }}>{fmtKg(item.kilos)} kg × ${fmt(item.precio_unitario)}</div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <span style={{ fontWeight: 700, color: '#1a5c2a', fontSize: 14 }}>${fmt(item.total)}</span>
+                                        <span style={{ fontWeight: 700, color: 'var(--verde-osc)', fontSize: 14 }}>${fmt(item.total)}</span>
                                         <button onClick={() => quitarItem(item.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 18, padding: 0 }}>✕</button>
                                     </div>
                                 </div>
                             ))}
-                            <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa' }}>
-                                <span style={{ fontSize: 14, fontWeight: 600, color: '#555' }}>TOTAL</span>
-                                <span style={{ fontSize: 22, fontWeight: 800, color: '#1a5c2a' }}>${fmt(totalCarrito)}</span>
+                            <div style={{ margin: 12, padding: '12px 14px', textAlign: 'center', border: '2px dashed var(--borde-fuerte)', borderRadius: 10, background: '#f8fafc' }}>
+                                <div className="etiqueta" style={{ color: 'var(--texto-2)' }}>Monto total liquidado</div>
+                                <div className="cifra" style={{ fontSize: 34, color: 'var(--texto)', lineHeight: 1.1 }}>${fmt(totalCarrito)}</div>
                             </div>
                             {msg && <div style={{ color: '#dc2626', fontSize: 12, padding: '0 16px 8px' }}>{msg}</div>}
                             <div style={{ padding: '0 12px 12px' }}>
                                 <button onClick={() => finalizar()} disabled={loading}
-                                    style={{ width: '100%', padding: '14px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-                                    {loading ? 'Procesando...' : '✅ Finalizar y Generar Recibo'}
+                                    style={{ ...botonVerde, width: '100%', height: 56, fontSize: 18 }}>
+                                    {loading ? 'Procesando...' : '🖨️ Finalizar y generar recibo'}
                                 </button>
                             </div>
                         </div>
@@ -434,7 +459,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     {resumen && (
                         <div style={{ margin: '0 12px 12px', background: '#e8f5e9', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ fontSize: 12, color: '#555' }}>Hoy: <strong>{resumen.totalCompras}</strong> compras · <strong>{fmt(resumen.totalKilos)} kg</strong></div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1a5c2a' }}>Pagado: ${fmt(resumen.totalNeto)}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--verde-osc)' }}>Pagado: ${fmt(resumen.totalNeto)}</div>
                         </div>
                     )}
                 </div>
@@ -444,50 +469,50 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
             {tabMobile === 'hoy' && (
                 <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <label style={{ fontSize: 13, color: '#555', fontWeight: 600, whiteSpace: 'nowrap' }}>📅 Ver día:</label>
-                        <input type="date" value={fechaVista} max={hoy()} onChange={e => setFechaVista(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13, flex: 1 }} />
-                        {fechaVista !== hoy() && <button onClick={() => setFechaVista(hoy())} style={{ padding: '7px 12px', background: '#e5e7eb', border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>Hoy</button>}
+                        <label className="etiqueta" style={{ fontSize: 12.5, color: 'var(--texto-2)', whiteSpace: 'nowrap' }}>Ver día</label>
+                        <input type="date" value={fechaVista} max={hoy()} onChange={e => setFechaVista(e.target.value)} style={{ height: 42, padding: '0 10px', borderRadius: 9, border: '1.5px solid var(--borde-fuerte)', fontSize: 14, flex: 1, minWidth: 0 }} />
+                        {fechaVista !== hoy() && <button onClick={() => setFechaVista(hoy())} style={{ height: 42, padding: '0 14px', background: 'var(--noche)', color: '#fff', border: 'none', borderRadius: 9, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>Hoy</button>}
                     </div>
                     {resumen && (
-                        <div style={{ background: '#1a5c2a', borderRadius: 12, padding: '14px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ background: 'var(--noche)', borderRadius: 12, padding: '14px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 10, borderLeft: '5px solid var(--verde)' }}>
                             <div style={{ color: '#fff' }}>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{comprasHoy.length} compras · {fechaVista === hoy() ? 'hoy' : fechaVista}</div>
+                                <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: 18 }}>{comprasHoy.length} compras · {fechaVista === hoy() ? 'hoy' : fechaVista}</div>
                                 <div style={{ fontSize: 12, opacity: .8, marginTop: 2 }}>{fmt(resumen.totalKilos)} kg recolectados</div>
                             </div>
                             <div style={{ color: '#fff', textAlign: 'right' }}>
-                                <div style={{ fontSize: 11, opacity: .7 }}>Total pagado</div>
-                                <div style={{ fontSize: 20, fontWeight: 800 }}>${fmt(resumen.totalNeto)}</div>
+                                <div className="etiqueta" style={{ fontSize: 11, color: 'var(--verde-vivo)' }}>Total pagado</div>
+                                <div className="cifra" style={{ fontSize: 22 }}>${fmt(resumen.totalNeto)}</div>
                             </div>
                         </div>
                     )}
                     {comprasHoy.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '60px 0', color: '#bbb' }}>
-                            <div style={{ fontSize: 48 }}>♻️</div>
+                        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--texto-3)' }}>
+                            <div style={{ fontSize: 40, opacity: .5 }}>♻️</div>
                             <p style={{ fontSize: 14, marginTop: 12 }}>No hay compras {fechaVista === hoy() ? 'hoy' : 'ese día'}</p>
                         </div>
                     ) : (
                         comprasHoy.map(c => (
                             <div key={c.id} onClick={() => setMostrarRecibo(c)}
-                                style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,.08)', cursor: 'pointer' }}>
+                                className="tarjeta" style={{ padding: '13px 14px', marginBottom: 9, cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
-                                        <div style={{ fontWeight: 700, fontSize: 15, color: '#1a5c2a' }}>👤 {c.reciclador?.nombre}</div>
-                                        <div style={{ fontSize: 12, color: '#888', marginTop: 3 }}>{c.bodega?.nombre} · #{c.numero || c.id}</div>
+                                        <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 700, fontSize: 17, color: 'var(--texto)' }}>{c.reciclador?.nombre}</div>
+                                        <div style={{ fontSize: 12.5, color: 'var(--texto-3)', marginTop: 2 }}>{c.bodega?.nombre} · #{c.numero || c.id}</div>
                                         {c.items?.length > 0 && (
-                                            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                            <div style={{ fontSize: 12.5, color: 'var(--texto-2)', marginTop: 4 }}>
                                                 {c.items.map(i => `${i.material?.nombre} ${fmtKg(i.kilos)}kg`).join(', ')}
                                             </div>
                                         )}
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: 18, fontWeight: 800, color: '#1a5c2a' }}>${fmt(c.neto)}</div>
+                                        <div className="cifra" style={{ fontSize: 19, color: 'var(--texto)' }}>${fmt(c.neto)}</div>
                                         {parseFloat(c.descuento_prestamo) > 0 && (
                                             <div style={{ fontSize: 11, color: '#dc2626' }}>-${fmt(c.descuento_prestamo)} préstamo</div>
                                         )}
                                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', marginTop: 4 }}>
-                                            <span style={{ fontSize: 11, color: '#888' }}>Ver recibo →</span>
+                                            <span style={{ fontSize: 12, color: 'var(--verde-osc)', fontWeight: 700 }}>Ver recibo ›</span>
                                             {puedeEliminar && (
-                                                <span onClick={(e) => borrarCompra(c, e)} title="Eliminar compra (admin)" style={{ cursor: 'pointer', color: '#dc2626', fontWeight: 700, fontSize: 12, background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, padding: '2px 8px' }}>✕ Eliminar</span>
+                                                <span onClick={(e) => borrarCompra(c, e)} title="Eliminar compra (admin)" style={{ cursor: 'pointer', color: 'var(--rojo)', fontWeight: 700, fontSize: 12.5, background: 'var(--rojo-suave)', border: '1px solid var(--rojo-borde)', borderRadius: 7, padding: '6px 10px' }}>✕ Eliminar</span>
                                             )}
                                         </div>
                                     </div>
@@ -500,14 +525,15 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
 
             {/* Bottom sheet para ingresar kg */}
             {materialActivo && c && (
-                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 300, background: '#fff', borderTop: `3px solid ${c.active}`, padding: '16px 16px 32px', boxShadow: '0 -4px 20px rgba(0,0,0,.15)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 300, background: '#fff', borderTop: '4px solid var(--noche)', borderRadius: '16px 16px 0 0', padding: '16px 16px 32px', boxShadow: '0 -8px 28px rgba(15,27,45,.22)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <div>
-                            <div style={{ fontWeight: 700, fontSize: 15, color: c.active }}>{materialActivo.nombre}</div>
-                            <div style={{ fontSize: 12, color: '#888' }}>${fmt(materialActivo.precio_compra)} / kg</div>
+                            <div className="etiqueta" style={{ color: 'var(--texto-3)', fontSize: 11 }}>¿Cuántos kilos?</div>
+                            <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: 22, color: 'var(--texto)', lineHeight: 1.1 }}>{materialActivo.nombre}</div>
+                            <div style={{ fontSize: 13, color: 'var(--texto-2)' }}>${fmt(materialActivo.precio_compra)} / kg</div>
                         </div>
-                        <button onClick={() => setMaterialActivo(null)}
-                            style={{ background: '#f5f5f5', border: 'none', borderRadius: 8, width: 36, height: 36, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button onClick={() => setMaterialActivo(null)} aria-label="Cerrar"
+                            style={{ background: '#f1f5f9', border: '1.5px solid var(--borde)', borderRadius: 10, width: 44, height: 44, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             ✕
                         </button>
                     </div>
@@ -544,9 +570,10 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
                 {!compraActiva ? (
-                    <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#1a5c2a' }}>♻️ Abrir cuenta de compra</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: esSuper ? '120px 1fr 1fr 140px 90px' : '120px 1fr 90px', gap: 10, alignItems: 'flex-end' }}>
+                    <div className="tarjeta" style={{ padding: 16, marginBottom: 12 }}>
+                        <div style={tituloTarjeta}>♻️ Abrir cuenta de compra</div>
+                        {/* Se acomoda en filas cuando el espacio es angosto (p. ej. dentro de Caja) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, alignItems: 'flex-end' }}>
                             {esSuper ? (
                             <label>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Sede</div>
@@ -558,14 +585,14 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                             ) : (
                             <div>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>Bodega</div>
-                                <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f0faf0', border: '1px solid #c8e6c9', fontSize: 13, fontWeight: 600, color: '#1a5c2a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 {nombreBodega || 'Tu bodega'}</div>
+                                <div style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--verde-suave)', border: '1px solid #c8e6c9', fontSize: 13, fontWeight: 600, color: 'var(--verde-osc)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 {nombreBodega || 'Tu bodega'}</div>
                             </div>
                             )}
-                            <div>
+                            <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
                                 <div style={{ fontSize: 11, color: '#666', marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
                                     <span>Reciclador*</span>
                                     <button type="button" onClick={() => setShowNuevoRec(!showNuevoRec)}
-                                        style={{ fontSize: 10, color: '#1a5c2a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
+                                        style={{ fontSize: 10, color: 'var(--verde-osc)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>+ Nuevo</button>
                                 </div>
                                 <PickerBuscable
                                     items={recicladores.filter(r => !filtroBodegaRec || String(r.bodega_id) === filtroBodegaRec)}
@@ -589,16 +616,17 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
                                 </label>
                             )}
-                            <button onClick={abrirCuenta} disabled={loading} style={{ padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Abrir</button>
+                            <button onClick={abrirCuenta} disabled={loading} style={{ ...botonVerde, height: 40, fontSize: 16 }}>Abrir</button>
                         </div>
                         {formNuevoRec}
                         {msg && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 8 }}>{msg}</div>}
                     </div>
                 ) : (
-                    <div style={{ background: '#1a5c2a', borderRadius: 10, padding: '10px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ color: '#fff' }}>
-                            <span style={{ fontWeight: 700, fontSize: 15 }}>👤 {compraActiva.reciclador?.nombre}</span>
-                            <span style={{ fontSize: 12, marginLeft: 12, opacity: .8 }}>{compraActiva.bodega?.nombre} · {compraActiva.fecha}</span>
+                    <div style={{ background: 'var(--noche)', borderRadius: 10, padding: '12px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '5px solid var(--verde)' }}>
+                        <div style={{ color: '#fff', display: 'flex', alignItems: 'baseline', gap: 12, minWidth: 0 }}>
+                            <span className="etiqueta" style={{ color: 'var(--verde-vivo)' }}>Cuenta abierta</span>
+                            <span style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: 20 }}>{compraActiva.reciclador?.nombre}</span>
+                            <span style={{ fontSize: 13, color: 'var(--noche-texto)' }}>{compraActiva.bodega?.nombre} · {compraActiva.fecha}</span>
                         </div>
                         <button onClick={cancelar} style={{ padding: '5px 12px', background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
                     </div>
@@ -615,7 +643,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                         const activa = catActiva === cat;
                         return (
                             <button key={cat} onClick={() => { setCatActiva(cat); setMaterialActivo(null); }}
-                                style={{ padding: '6px 14px', borderRadius: 20, border: `2px solid ${activa ? cc.active : '#ddd'}`, background: activa ? cc.bg : '#fff', color: activa ? cc.text : '#888', fontSize: 12, fontWeight: activa ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                style={estiloCat(activa, false)}>
                                 {CAT_ICONS[cat] || '📋'} {cat}
                             </button>
                         );
@@ -623,17 +651,15 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
                         {matsFiltrados.map(mat => {
                             const cc = CAT_COLORS[mat.categoria] || CAT_COLORS['Varios'];
                             const enCarrito = compraActiva?.items?.find(i => i.material_id === mat.id);
                             const esActivo = materialActivo?.id === mat.id;
                             return (
                                 <div key={mat.id}>
-                                    <button onClick={() => seleccionarMaterial(mat)}
-                                        style={{ width: '100%', padding: '12px 8px', background: esActivo ? cc.active : enCarrito ? cc.bg : '#fff', border: `2px solid ${esActivo ? cc.active : enCarrito ? cc.border : '#e5e7eb'}`, borderRadius: 10, cursor: 'pointer', textAlign: 'center', transition: 'all .12s' }}>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: esActivo ? '#fff' : '#222', lineHeight: 1.3 }}>{mat.nombre}</div>
-                                        {enCarrito && <div style={{ fontSize: 11, color: esActivo ? '#fff' : cc.active, fontWeight: 700, marginTop: 3 }}>✓ {fmtKg(enCarrito.kilos)} kg</div>}
+                                    <button onClick={() => seleccionarMaterial(mat)} style={estiloMat(esActivo, enCarrito)}>
+                                        <ContenidoMat mat={mat} esActivo={esActivo} enCarrito={enCarrito} />
                                     </button>
                                     {esActivo && (
                                         <div style={{ marginTop: 4, background: cc.bg, border: `2px solid ${cc.border}`, borderRadius: 8, padding: 10 }}>
@@ -669,17 +695,17 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     {fechaVista !== hoy() && <button onClick={() => setFechaVista(hoy())} style={{ padding: '5px 12px', background: '#e5e7eb', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Hoy</button>}
                 </div>
                 {resumen && (
-                    <div style={{ marginTop: 8, background: '#f0faf0', borderRadius: 8, padding: '8px 14px', display: 'flex', gap: 20, alignItems: 'center' }}>
+                    <div style={{ marginTop: 8, background: 'var(--verde-suave)', borderRadius: 8, padding: '8px 14px', display: 'flex', gap: 20, alignItems: 'center' }}>
                         <div style={{ fontSize: 12, color: '#555' }}>{fechaVista === hoy() ? 'Hoy' : fechaVista}: <strong>{comprasHoy.length}</strong> compras · <strong>{fmt(resumen.totalKilos)} kg</strong></div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1a5c2a', marginLeft: 'auto' }}>Pagado: ${fmt(resumen.totalNeto)}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--verde-osc)', marginLeft: 'auto' }}>Pagado: ${fmt(resumen.totalNeto)}</div>
                     </div>
                 )}
             </div>
 
             {/* ── PANEL DERECHO: carrito ────────────────────────────────────── */}
-            <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 700, fontSize: 15, color: '#1a5c2a' }}>
-                    🛒 Carrito {compraActiva ? `· #${compraActiva.numero || compraActiva.id}` : ''}
+            <div className="tarjeta" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ ...tituloTarjeta, marginBottom: 0, padding: '14px 16px', borderBottom: '1.5px solid var(--borde)', fontSize: 17 }}>
+                    🛒 Liquidación {compraActiva ? `· #${compraActiva.numero || compraActiva.id}` : ''}
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
@@ -696,7 +722,7 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                                     <div style={{ fontSize: 12, color: '#888' }}>{fmtKg(item.kilos)} kg × ${fmt(item.precio_unitario)}</div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ fontWeight: 700, color: '#1a5c2a' }}>${fmt(item.total)}</span>
+                                    <span style={{ fontWeight: 700, color: 'var(--verde-osc)' }}>${fmt(item.total)}</span>
                                     <button onClick={() => quitarItem(item.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
                                 </div>
                             </div>
@@ -704,26 +730,26 @@ export default function Compras({ onCajaChange, bodegaId: propBodegaId } = {}) {
                     )}
                 </div>
 
-                <div style={{ padding: 16, borderTop: '2px solid #f0f0f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: '#555' }}>TOTAL</span>
-                        <span style={{ fontSize: 24, fontWeight: 800, color: '#1a5c2a' }}>${fmt(totalCarrito)}</span>
+                <div style={{ padding: 14, borderTop: '1.5px solid var(--borde)' }}>
+                    <div style={{ padding: '10px 12px', marginBottom: 12, textAlign: 'center', border: '2px dashed var(--borde-fuerte)', borderRadius: 10, background: '#f8fafc' }}>
+                        <div className="etiqueta" style={{ color: 'var(--texto-2)' }}>Monto total liquidado</div>
+                        <div className="cifra" style={{ fontSize: 34, color: 'var(--texto)', lineHeight: 1.1 }}>${fmt(totalCarrito)}</div>
                     </div>
                     {msg && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{msg}</div>}
                     <button onClick={() => finalizar()} disabled={loading || !compraActiva?.items?.length}
-                        style={{ width: '100%', padding: '14px', background: compraActiva?.items?.length ? '#1a5c2a' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: compraActiva?.items?.length ? 'pointer' : 'default' }}>
-                        {loading ? 'Procesando...' : '✅ Finalizar y Generar Recibo'}
+                        style={{ ...botonVerde, width: '100%', height: 54, fontSize: 17, ...(compraActiva?.items?.length ? {} : { background: '#cbd5e1', borderColor: '#cbd5e1', cursor: 'default' }) }}>
+                        {loading ? 'Procesando...' : '🖨️ Finalizar y generar recibo'}
                     </button>
                 </div>
 
                 {comprasHoy.length > 0 && (
                     <div style={{ borderTop: '1px solid #f0f0f0', maxHeight: 360, overflowY: 'auto' }}>
-                        <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: .5 }}>COMPRAS {fechaVista === hoy() ? 'DE HOY' : 'DEL ' + fechaVista} ({comprasHoy.length})</div>
+                        <div className="tit-seccion" style={{ padding: '10px 16px 6px', fontSize: 14 }}>Compras {fechaVista === hoy() ? 'de hoy' : 'del ' + fechaVista} ({comprasHoy.length})</div>
                         {comprasHoy.map(c => (
-                            <div key={c.id} onClick={() => setMostrarRecibo(c)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 16px', borderTop: '1px solid #f5f5f5', fontSize: 12 }}>
-                                <span style={{ color: '#555' }}>{c.reciclador?.nombre}</span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ fontWeight: 700, color: '#1a5c2a' }}>${fmt(c.neto)}</span>
+                            <div key={c.id} onClick={() => setMostrarRecibo(c)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 16px', borderTop: '1px solid #eef1f4', fontSize: 13.5 }}>
+                                <span style={{ fontWeight: 600, color: 'var(--texto)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.reciclador?.nombre}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                    <span className="cifra" style={{ fontSize: 15, color: 'var(--texto)' }}>${fmt(c.neto)}</span>
                                     <span title="Imprimir recibo" style={{ fontSize: 13 }}>🖨️</span>
                                     {puedeEliminar && (
                                         <span onClick={(e) => borrarCompra(c, e)} title="Eliminar compra (admin)" style={{ cursor: 'pointer', color: '#dc2626', fontWeight: 800, fontSize: 15, lineHeight: 1, padding: '0 4px' }}>✕</span>
@@ -791,7 +817,7 @@ export function Recibo({ compra, onClose, onEliminado }) {
                 }
             `}</style>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                <button onClick={() => window.print()} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir recibo</button>
+                <button onClick={() => window.print()} style={{ padding: '9px 20px', background: 'var(--verde-osc)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🖨️ Imprimir recibo</button>
                 <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>← Volver</button>
                 {puedeEliminar && (
                     <button onClick={eliminarCompra} disabled={borrando} title="Eliminar compra (solo administrador)" style={{ padding: '9px 16px', background: borrando ? '#fca5a5' : '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: borrando ? 'default' : 'pointer', marginLeft: 'auto' }}>{borrando ? 'Eliminando…' : '🗑️ Eliminar'}</button>
@@ -801,10 +827,10 @@ export function Recibo({ compra, onClose, onEliminado }) {
             <div className="recibo-contenido" style={{ background: '#fff', borderRadius: 10, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 460, fontFamily: 'monospace' }}>
                 <div style={{ textAlign: 'center', marginBottom: 20, fontFamily: 'sans-serif' }}>
                     <img src={logo} alt="ASOERC" style={{ width: 80, marginBottom: 6 }} />
-                    <div style={{ fontWeight: 800, fontSize: 16, color: '#1a5c2a' }}>ASOERC ESP</div>
+                    <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--verde-osc)' }}>ASOERC ESP</div>
                     <div style={{ fontSize: 12, color: '#666' }}>NIT: 901.299.762-6</div>
                     <div style={{ fontWeight: 700, marginTop: 10, fontSize: 15 }}>COMPROBANTE DE COMPRA</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: '#1a5c2a', letterSpacing: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--verde-osc)', letterSpacing: 1 }}>
                         #{String(compra.numero_diario || compra.numero || compra.id).padStart(5, '0')}
                     </div>
                     <div style={{ fontSize: 12, color: '#888' }}>{compra.fecha} · {compra.updatedAt ? new Date(compra.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</div>
@@ -863,7 +889,7 @@ export function Recibo({ compra, onClose, onEliminado }) {
                             <span>- ${fmt(compra.descuento_prestamo)}</span>
                         </div>
                     )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 800, marginTop: 10, color: '#1a5c2a' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 800, marginTop: 10, color: 'var(--verde-osc)' }}>
                         <span>NETO A PAGAR:</span>
                         <span>${fmt(compra.neto)}</span>
                     </div>

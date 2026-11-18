@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import CajaOrigen from '../components/CajaOrigen';
+import {
+    EncabezadoPagina, Boton, Pestanas, Tarjeta, Kpi, RejillaKpi, Chip,
+    ContenedorTabla, estiloTabla, estiloTh, estiloTd, estiloTdNum, estiloInput,
+    Campo, Buscador, Modal, Vacio, Aviso
+} from '../components/ui';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 // Fecha de Colombia (con toISOString, después de las 7 pm ya daba "mañana" y la plata caía en la caja del día siguiente)
@@ -30,6 +35,10 @@ export default function Empleados() {
     const [bodegas, setBodegas] = useState([]);
     const [selected, setSelected] = useState(null);
     const [tab, setTab] = useState('prestamos');
+    // Celular: la ficha queda debajo de la lista; al elegir a alguien se baja hasta ella.
+    useEffect(() => {
+        if (selected && window.innerWidth < 900) document.getElementById('detalle-empleado')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [selected?.id]);
     const [prestamos, setPrestamos] = useState([]);
     const [dias, setDias] = useState([]);
     const [showEmp, setShowEmp] = useState(false);
@@ -215,149 +224,155 @@ export default function Empleados() {
         } catch (err) { setMsg(err.message); }
     };
 
-    const Btn = ({ active, onClick, children }) => (
-        <button onClick={onClick} style={{ padding: '6px 14px', background: active ? '#1a5c2a' : '#f5f5f5', color: active ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>{children}</button>
-    );
-
     return (
-        <div style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700 }}>👷 Empleados</h1>
-                    <p style={{ color: '#666', fontSize: 13 }}>Préstamos y días no laborados</p>
-                </div>
-                <button onClick={nuevoEmpleado} style={{ padding: '9px 18px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>+ Nuevo</button>
-            </div>
+        <div className="pagina">
+            <EncabezadoPagina titulo="Empleados" sub="Préstamos y días no laborados" icono="empleados" acciones={<Boton icono="agregar" onClick={nuevoEmpleado}>Nuevo</Boton>} />
 
             {showEmp && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>{editando ? '✏️ Editar empleado' : '👷 Nuevo empleado'}</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                <Modal titulo={editando ? 'Editar empleado' : 'Nuevo empleado'} onCerrar={() => { setShowEmp(false); setEditando(null); }}
+                    pie={<>
+                        <Boton variante="secundario" onClick={() => { setShowEmp(false); setEditando(null); }}>Cancelar</Boton>
+                        <Boton onClick={guardarEmpleado}>{editando ? 'Actualizar' : 'Guardar'}</Boton>
+                    </>}>
+                    <div className="rejilla-form">
                         {[['nombre','Nombre*'],['cedula','Cédula'],['telefono','Teléfono'],['cargo','Cargo'],['salario','Salario']].map(([k,l]) => (
-                            <label key={k}>
-                                <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{l}</div>
+                            <Campo key={k} etiqueta={l}>
                                 <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })}
-                                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                            </label>
+                                    style={estiloInput} />
+                            </Campo>
                         ))}
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Bodega</div>
+                        <Campo etiqueta="Bodega">
                             <select value={form.bodega_id} onChange={e => setForm({ ...form, bodega_id: e.target.value })}
-                                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                style={estiloInput}>
                                 <option value="">--</option>
                                 {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
                             </select>
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cómo se le paga</div>
+                        </Campo>
+                        <Campo etiqueta="Cómo se le paga">
                             <select value={form.tipo_salario} onChange={e => setForm({ ...form, tipo_salario: e.target.value })}
-                                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                style={estiloInput}>
                                 <option value="mensual">Sueldo mensual (se paga por quincena)</option>
                                 <option value="completo">Sueldo fijo por quincena</option>
                                 <option value="dia">Por día trabajado (jornal)</option>
                             </select>
-                        </label>
+                        </Campo>
                     </div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>
-                        💡 En <strong>Salario</strong>: si elegiste <strong>"Sueldo mensual"</strong> escribe el sueldo del MES (ej: 2.000.000) — el sistema paga la mitad cada quincena. Si es <strong>"por quincena"</strong>, escribe lo de UNA quincena. Si es <strong>"por día"</strong>, el valor de un día.
+                    <div style={{ fontSize: 13, color: 'var(--texto-2)', marginTop: 12, lineHeight: 1.45 }}>
+                        En <strong>Salario</strong>: si elegiste <strong>"Sueldo mensual"</strong> escribe el sueldo del MES (ej: 2.000.000) — el sistema paga la mitad cada quincena. Si es <strong>"por quincena"</strong>, escribe lo de UNA quincena. Si es <strong>"por día"</strong>, el valor de un día.
                     </div>
-                    {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
-                    <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                        <button onClick={guardarEmpleado} style={{ padding: '8px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13 }}>{editando ? 'Actualizar' : 'Guardar'}</button>
-                        <button onClick={() => { setShowEmp(false); setEditando(null); }} style={{ padding: '8px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>Cancelar</button>
-                    </div>
-                </div>
+                    {msg && <Aviso tipo="error">{msg}</Aviso>}
+                </Modal>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: 20 }}>
-                <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', opacity: .6, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
-                        <input value={busquedaEmp} onChange={e => setBusquedaEmp(e.target.value)} placeholder="Buscar empleado por nombre o cargo..."
-                            style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: selected ? 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))' : '1fr', gap: 14 }}>
+                <Tarjeta sinPadding>
+                    <div style={{ padding: 14, borderBottom: '1.5px solid var(--borde)' }}>
+                        <Buscador value={busquedaEmp} onChange={setBusquedaEmp} placeholder="Buscar empleado por nombre o cargo..." />
                     </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead><tr style={{ background: '#f0faf0' }}>
-                            {['Nombre','Cargo','Bodega',''].map(h => <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>)}
+                    {/* Celular: una tarjeta por empleado */}
+                    <div className="solo-movil">
+                        {empleados.filter(e => !busquedaEmp.trim() || `${e.nombre || ''} ${e.cargo || ''} ${e.cedula || ''}`.toLowerCase().includes(busquedaEmp.trim().toLowerCase())).map(e => (
+                            <div key={e.id} style={{ padding: '12px 14px', borderBottom: '1px solid #eef1f4', background: selected?.id === e.id ? 'var(--verde-suave)' : 'transparent' }}>
+                                <div onClick={() => seleccionar(e)} style={{ cursor: 'pointer', marginBottom: 10 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 15, textTransform: 'capitalize' }}>{e.nombre}</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--texto-3)', marginTop: 2 }}>{[e.cargo, e.bodega?.nombre].filter(Boolean).join(' · ')}</div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                                    <Boton tam="sm" variante="noche" onClick={() => seleccionar(e)}>Ver</Boton>
+                                    <Boton tam="sm" variante="secundario" onClick={() => editarEmpleado(e)}>Editar</Boton>
+                                    <Boton tam="sm" variante="peligro" onClick={() => eliminarEmpleado(e)}>Eliminar</Boton>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="solo-pc"><ContenedorTabla><table style={estiloTabla}>
+                        <thead><tr>
+                            {['Nombre','Cargo','Bodega',''].map(h => <th key={h} style={estiloTh}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                             {empleados.filter(e => !busquedaEmp.trim() || `${e.nombre || ''} ${e.cargo || ''} ${e.cedula || ''}`.toLowerCase().includes(busquedaEmp.trim().toLowerCase())).map(e => (
-                                <tr key={e.id} onClick={() => seleccionar(e)} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer', background: selected?.id === e.id ? '#f0faf0' : 'transparent' }}>
-                                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{e.nombre}</td>
-                                    <td style={{ padding: '10px 12px', color: '#666' }}>{e.cargo}</td>
-                                    <td style={{ padding: '10px 12px', fontSize: 12, color: '#888' }}>{e.bodega?.nombre}</td>
-                                    <td style={{ padding: '10px 12px' }}>
+                                <tr key={e.id} onClick={() => seleccionar(e)} style={{ cursor: 'pointer', background: selected?.id === e.id ? 'var(--verde-suave)' : 'transparent' }}>
+                                    <td style={{ ...estiloTd, fontWeight: 700 }}>{e.nombre}</td>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{e.cargo}</td>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{e.bodega?.nombre}</td>
+                                    <td style={estiloTd}>
                                         <div style={{ display: 'flex', gap: 6 }}>
-                                            <button onClick={ev => { ev.stopPropagation(); seleccionar(e); }} style={{ padding: '4px 10px', background: '#e0f2e9', color: '#1a5c2a', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Ver</button>
-                                            <button onClick={ev => { ev.stopPropagation(); editarEmpleado(e); }} style={{ padding: '4px 10px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
-                                            <button onClick={ev => { ev.stopPropagation(); eliminarEmpleado(e); }} style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Eliminar</button>
+                                            <Boton tam="sm" variante="secundario" onClick={ev => { ev.stopPropagation(); seleccionar(e); }}>Ver</Boton>
+                                            <Boton tam="sm" variante="fantasma" onClick={ev => { ev.stopPropagation(); editarEmpleado(e); }}>Editar</Boton>
+                                            <Boton tam="sm" variante="peligro" onClick={ev => { ev.stopPropagation(); eliminarEmpleado(e); }}>Eliminar</Boton>
                                         </div>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
-                </div>
+                    </table></ContenedorTabla></div>
+                    {empleados.filter(e => !busquedaEmp.trim() || `${e.nombre || ''} ${e.cargo || ''} ${e.cedula || ''}`.toLowerCase().includes(busquedaEmp.trim().toLowerCase())).length === 0 && <Vacio icono="empleados" texto="Sin empleados para mostrar" />}
+                </Tarjeta>
 
                 {selected && (
-                    <div style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
+                    <Tarjeta style={{ scrollMarginTop: 12 }}><span id="detalle-empleado" />
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, alignItems: 'flex-start', gap: 8 }}>
-                            <div>
-                                <h3 style={{ fontWeight: 700 }}>{selected.nombre}</h3>
-                                <div style={{ fontSize: 13, color: '#666' }}>{selected.cargo} • {selected.bodega?.nombre}</div>
+                            <div style={{ minWidth: 0 }}>
+                                <h2 className="tit-seccion">{selected.nombre}</h2>
+                                <div style={{ fontSize: 13, color: 'var(--texto-2)', marginTop: 4 }}>{selected.cargo} · {selected.bodega?.nombre}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                                <button onClick={() => editarEmpleado(selected)} style={{ padding: '6px 12px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏️ Editar</button>
-                                <button onClick={() => eliminarEmpleado(selected)} style={{ padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑️ Eliminar</button>
-                                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#888' }}>✕</button>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <Boton tam="sm" variante="secundario" onClick={() => editarEmpleado(selected)}>Editar</Boton>
+                                <Boton tam="sm" variante="peligro" onClick={() => eliminarEmpleado(selected)}>Eliminar</Boton>
+                                <Boton tam="sm" variante="fantasma" onClick={() => setSelected(null)} aria-label="Cerrar ficha">Cerrar</Boton>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                            <Btn active={tab === 'prestamos'} onClick={() => setTab('prestamos')}>💰 Préstamos</Btn>
-                            <Btn active={tab === 'dias'} onClick={() => setTab('dias')}>📅 Días no laborados</Btn>
-                            <Btn active={tab === 'nomina'} onClick={() => setTab('nomina')}>💵 Nómina</Btn>
-                        </div>
+                        <Pestanas activa={tab} onChange={setTab} items={[
+                            { id: 'prestamos', label: 'Préstamos', icono: 'prestamos' },
+                            { id: 'dias', label: 'Días no laborados', icono: 'calendario' },
+                            { id: 'nomina', label: 'Nómina', icono: 'caja' },
+                        ]} />
 
                         {tab === 'prestamos' && (
                             <>
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                                    <button onClick={() => setShowP(!showP)} style={{ padding: '7px 14px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Préstamo</button>
-                                    {esSuper && <button onClick={reiniciarPrestamosEmp} title="Marcar todos los préstamos como pagados (saldo en cero)" style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🔄 Poner en cero</button>}
+                                    <Boton tam="sm" variante="secundario" onClick={() => setShowP(!showP)}>Nuevo préstamo</Boton>
+                                    {esSuper && <Boton tam="sm" variante="peligro" onClick={reiniciarPrestamosEmp} title="Marcar todos los préstamos como pagados (saldo en cero)">Poner en cero</Boton>}
                                 </div>
                                 {showP && (
-                                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                                            <input type="number" placeholder="Monto" value={pForm.monto} onChange={e => setPForm({ ...pForm, monto: e.target.value })} style={{ padding: '7px', borderRadius: 6, border: '1px solid #fde68a', fontSize: 13 }} />
-                                            <input placeholder="Quincena (ej: 2026-05-1)" value={pForm.quincena} onChange={e => setPForm({ ...pForm, quincena: e.target.value })} style={{ padding: '7px', borderRadius: 6, border: '1px solid #fde68a', fontSize: 13 }} />
+                                    <Modal titulo="Registrar préstamo" onCerrar={() => setShowP(false)}
+                                        pie={<>
+                                            <Boton variante="secundario" onClick={() => setShowP(false)}>Cancelar</Boton>
+                                            <Boton onClick={guardarPrestamo}>Registrar</Boton>
+                                        </>}>
+                                        <div className="rejilla-form">
+                                            <Campo etiqueta="Monto">
+                                                <input type="number" value={pForm.monto} onChange={e => setPForm({ ...pForm, monto: e.target.value })} style={estiloInput} />
+                                            </Campo>
+                                            <Campo etiqueta="Quincena">
+                                                <input placeholder="Ej: 2026-05-1" value={pForm.quincena} onChange={e => setPForm({ ...pForm, quincena: e.target.value })} style={estiloInput} />
+                                            </Campo>
                                         </div>
-                                        <input placeholder="Descripción" value={pForm.descripcion} onChange={e => setPForm({ ...pForm, descripcion: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #fde68a', fontSize: 13, marginBottom: 8 }} />
-                                        <div style={{ marginBottom: 8 }}><CajaOrigen value={pForm.bodega_id} onChange={v => setPForm(f => ({ ...f, bodega_id: v }))} /></div>
-                                        <button onClick={guardarPrestamo} style={{ padding: '7px 16px', background: '#d97706', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12 }}>Registrar</button>
-                                    </div>
+                                        <Campo etiqueta="Descripción" style={{ marginTop: 12 }}>
+                                            <input value={pForm.descripcion} onChange={e => setPForm({ ...pForm, descripcion: e.target.value })} style={estiloInput} />
+                                        </Campo>
+                                        <div style={{ marginTop: 12 }}><CajaOrigen value={pForm.bodega_id} onChange={v => setPForm(f => ({ ...f, bodega_id: v }))} /></div>
+                                    </Modal>
                                 )}
                                 {prestamos.map(p => (
-                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
-                                        <div>
-                                            <div><span style={{ fontWeight: 600 }}>${fmt(p.monto)}</span> <span style={{ color: '#888', fontSize: 12 }}>{p.descripcion}</span></div>
-                                            <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 1 }}>🕒 {p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}{p.createdAt ? ' · ' + new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--borde)', fontSize: 13 }}>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div><span className="cifra" style={{ fontSize: 16 }}>${fmt(p.monto)}</span> <span style={{ color: 'var(--texto-2)' }}>{p.descripcion}</span></div>
+                                            <div style={{ color: 'var(--texto-3)', fontSize: 12, marginTop: 3 }}>{p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}{p.createdAt ? ' · ' + new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }) : ''}</div>
                                             {parseFloat(p.abonado || 0) > 0 && (
-                                                <div style={{ fontSize: 11, marginTop: 2 }}>
-                                                    <span style={{ color: '#059669' }}>Abonado ${fmt(p.abonado)}</span>
-                                                    {!p.descontado && <span style={{ color: '#dc2626', fontWeight: 700 }}> · Saldo ${fmt(saldoDe(p))}</span>}
+                                                <div style={{ fontSize: 12, marginTop: 3 }}>
+                                                    <span style={{ color: 'var(--verde-osc)' }}>Abonado ${fmt(p.abonado)}</span>
+                                                    {!p.descontado && <span style={{ color: 'var(--rojo)', fontWeight: 700 }}> · Saldo ${fmt(saldoDe(p))}</span>}
                                                 </div>
                                             )}
                                         </div>
-                                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                            <span style={{ color: '#888', fontSize: 12 }}>{p.quincena}</span>
-                                            <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: p.descontado ? '#d1fae5' : '#fee2e2', color: p.descontado ? '#059669' : '#dc2626' }}>{p.descontado ? 'Descontado' : 'Pendiente'}</span>
+                                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                            {p.quincena && <Chip tono="gris">{p.quincena}</Chip>}
+                                            <Chip tono={p.descontado ? 'verde' : 'rojo'}>{p.descontado ? 'Descontado' : 'Pendiente'}</Chip>
                                             {!p.descontado && (
-                                                <button onClick={() => abonarPrestamoEmp(p)} title="Registrar un abono (pago parcial)"
-                                                    style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#2563eb' }}>💵 Abonar</button>
+                                                <Boton tam="sm" variante="secundario" onClick={() => abonarPrestamoEmp(p)} title="Registrar un abono (pago parcial)">Abonar</Boton>
                                             )}
-                                            <button onClick={() => togglePrestamo(p)} title={p.descontado ? 'Marcar como pendiente' : 'Marcar como pagado / descontado'}
-                                                style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: p.descontado ? '1px solid #e5e7eb' : 'none', background: p.descontado ? '#f3f4f6' : '#1a5c2a', color: p.descontado ? '#6b7280' : '#fff' }}>
-                                                {p.descontado ? '↩' : '✅ Pagar'}
-                                            </button>
+                                            <Boton tam="sm" variante={p.descontado ? 'secundario' : 'primario'} onClick={() => togglePrestamo(p)} title={p.descontado ? 'Marcar como pendiente' : 'Marcar como pagado / descontado'}>{p.descontado ? 'Reabrir' : 'Pagar'}</Boton>
                                         </div>
                                     </div>
                                 ))}
@@ -367,37 +382,50 @@ export default function Empleados() {
                         {tab === 'dias' && (
                             <>
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                                    <button onClick={() => setShowD(!showD)} style={{ padding: '7px 14px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Días no laborados</button>
-                                    {esSuper && <button onClick={reiniciarDiasEmp} title="Archivar los días no laborados pendientes (quedan en el historial, dejan de contar para la nómina)" style={{ padding: '7px 14px', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗄️ Archivar / reiniciar</button>}
+                                    <Boton tam="sm" variante="secundario" onClick={() => setShowD(!showD)}>Registrar días no laborados</Boton>
+                                    {esSuper && <Boton tam="sm" variante="secundario" onClick={reiniciarDiasEmp} title="Archivar los días no laborados pendientes (quedan en el historial, dejan de contar para la nómina)">Archivar / reiniciar</Boton>}
                                 </div>
                                 {showD && (
-                                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-                                            <input type="date" value={dForm.fecha_inicio} onChange={e => setDForm({ ...dForm, fecha_inicio: e.target.value })} style={{ padding: '7px', borderRadius: 6, border: '1px solid #bfdbfe', fontSize: 13 }} />
-                                            <input type="date" value={dForm.fecha_fin} onChange={e => setDForm({ ...dForm, fecha_fin: e.target.value })} style={{ padding: '7px', borderRadius: 6, border: '1px solid #bfdbfe', fontSize: 13 }} />
-                                            <input type="number" placeholder="# Días" value={dForm.dias} onChange={e => setDForm({ ...dForm, dias: e.target.value })} step="0.5" style={{ padding: '7px', borderRadius: 6, border: '1px solid #bfdbfe', fontSize: 13 }} />
+                                    <Modal titulo="Registrar días no laborados" onCerrar={() => setShowD(false)}
+                                        pie={<>
+                                            <Boton variante="secundario" onClick={() => setShowD(false)}>Cancelar</Boton>
+                                            <Boton onClick={guardarDias}>Registrar</Boton>
+                                        </>}>
+                                        <div className="rejilla-form">
+                                            <Campo etiqueta="Desde">
+                                                <input type="date" value={dForm.fecha_inicio} onChange={e => setDForm({ ...dForm, fecha_inicio: e.target.value })} style={estiloInput} />
+                                            </Campo>
+                                            <Campo etiqueta="Hasta">
+                                                <input type="date" value={dForm.fecha_fin} onChange={e => setDForm({ ...dForm, fecha_fin: e.target.value })} style={estiloInput} />
+                                            </Campo>
+                                            <Campo etiqueta="Cantidad de días">
+                                                <input type="number" value={dForm.dias} onChange={e => setDForm({ ...dForm, dias: e.target.value })} step="0.5" style={estiloInput} />
+                                            </Campo>
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                                            <input placeholder="Motivo" value={dForm.motivo} onChange={e => setDForm({ ...dForm, motivo: e.target.value })} style={{ padding: '7px', borderRadius: 6, border: '1px solid #bfdbfe', fontSize: 13 }} />
-                                            <input placeholder="Quincena" value={dForm.quincena} onChange={e => setDForm({ ...dForm, quincena: e.target.value })} style={{ padding: '7px', borderRadius: 6, border: '1px solid #bfdbfe', fontSize: 13 }} />
+                                        <div className="rejilla-form" style={{ marginTop: 12 }}>
+                                            <Campo etiqueta="Motivo">
+                                                <input value={dForm.motivo} onChange={e => setDForm({ ...dForm, motivo: e.target.value })} style={estiloInput} />
+                                            </Campo>
+                                            <Campo etiqueta="Quincena">
+                                                <input value={dForm.quincena} onChange={e => setDForm({ ...dForm, quincena: e.target.value })} style={estiloInput} />
+                                            </Campo>
                                         </div>
-                                        <button onClick={guardarDias} style={{ padding: '7px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12 }}>Registrar</button>
-                                    </div>
+                                    </Modal>
                                 )}
-                                <div style={{ fontSize: 12, fontWeight: 700, color: '#555', margin: '4px 0 6px' }}>📋 Historial de días no laborados</div>
-                                {dias.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, padding: '8px 0' }}>Sin registros todavía.</div>}
+                                <div className="tit-seccion" style={{ fontSize: 15, margin: '4px 0 6px' }}>Historial de días no laborados</div>
+                                {dias.length === 0 && <Vacio icono="calendario" texto="Sin registros todavía." />}
                                 {dias.map(d => (
-                                    <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13, opacity: d.descontado ? .6 : 1 }}>
-                                        <div>
-                                            <div><span style={{ fontWeight: 600 }}>{d.dias} días</span> <span style={{ color: '#888', fontSize: 12 }}>{d.motivo}</span></div>
-                                            <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 1 }}>{d.fecha_inicio} → {d.fecha_fin}</div>
+                                    <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--borde)', fontSize: 13, opacity: d.descontado ? .6 : 1 }}>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div><span style={{ fontWeight: 700 }}>{d.dias} días</span> <span style={{ color: 'var(--texto-2)' }}>{d.motivo}</span></div>
+                                            <div style={{ color: 'var(--texto-3)', fontSize: 12, marginTop: 3 }}>{d.fecha_inicio} → {d.fecha_fin}</div>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
                                                 {fechasEntre(d.fecha_inicio, d.fecha_fin).map((f, i) => (
-                                                    <span key={i} style={{ padding: '2px 7px', borderRadius: 6, fontSize: 11, background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', textTransform: 'capitalize' }}>{etiquetaDia(f)}</span>
+                                                    <Chip key={i} tono="gris" style={{ textTransform: 'capitalize' }}>{etiquetaDia(f)}</Chip>
                                                 ))}
                                             </div>
                                         </div>
-                                        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, whiteSpace: 'nowrap', background: d.descontado ? '#e5e7eb' : '#dbeafe', color: d.descontado ? '#6b7280' : '#2563eb' }}>{d.descontado ? '🗄️ Archivado' : 'Cuenta'}</span>
+                                        <Chip tono={d.descontado ? 'gris' : 'azul'}>{d.descontado ? 'Archivado' : 'Cuenta'}</Chip>
                                     </div>
                                 ))}
                             </>
@@ -405,30 +433,30 @@ export default function Empleados() {
 
                         {tab === 'nomina' && (
                             <>
-                                <div style={{ background: '#f0faf0', border: '1px solid #cfe8d4', borderRadius: 8, padding: 12, marginBottom: 14 }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                <div style={{ background: '#f8fafc', border: '1.5px solid var(--borde)', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 10 }}>
                                         <label>
-                                            <div style={{ fontSize: 11, color: '#555', marginBottom: 3 }}>Desde</div>
-                                            <input type="date" value={nForm.desde} onChange={e => setNForm({ ...nForm, desde: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #cfe8d4', fontSize: 13, boxSizing: 'border-box' }} />
+                                            <div className="etiqueta" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 5 }}>Desde</div>
+                                            <input type="date" value={nForm.desde} onChange={e => setNForm({ ...nForm, desde: e.target.value })} style={estiloInput} />
                                         </label>
                                         <label>
-                                            <div style={{ fontSize: 11, color: '#555', marginBottom: 3 }}>Hasta</div>
-                                            <input type="date" value={nForm.hasta} onChange={e => setNForm({ ...nForm, hasta: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #cfe8d4', fontSize: 13, boxSizing: 'border-box' }} />
+                                            <div className="etiqueta" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 5 }}>Hasta</div>
+                                            <input type="date" value={nForm.hasta} onChange={e => setNForm({ ...nForm, hasta: e.target.value })} style={estiloInput} />
                                         </label>
                                         <label>
-                                            <div style={{ fontSize: 11, color: '#555', marginBottom: 3 }}>Días del periodo</div>
-                                            <input type="number" step="0.5" min="0" value={nForm.dias_periodo} onChange={e => setNForm({ ...nForm, dias_periodo: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #cfe8d4', fontSize: 13, boxSizing: 'border-box' }} />
+                                            <div className="etiqueta" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 5 }}>Días del periodo</div>
+                                            <input type="number" step="0.5" min="0" value={nForm.dias_periodo} onChange={e => setNForm({ ...nForm, dias_periodo: e.target.value })} style={estiloInput} />
                                         </label>
                                         <label>
-                                            <div style={{ fontSize: 11, color: '#555', marginBottom: 3 }}>Cómo se paga</div>
-                                            <select value={nForm.tipo} onChange={e => setNForm({ ...nForm, tipo: e.target.value })} style={{ width: '100%', padding: '7px', borderRadius: 6, border: '1px solid #cfe8d4', fontSize: 13, boxSizing: 'border-box' }}>
+                                            <div className="etiqueta" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 5 }}>Cómo se paga</div>
+                                            <select value={nForm.tipo} onChange={e => setNForm({ ...nForm, tipo: e.target.value })} style={estiloInput}>
                                                 <option value="mensual">Sueldo mensual (se paga por quincena)</option>
                                                 <option value="completo">Sueldo fijo por quincena</option>
                                                 <option value="dia">Por día trabajado (jornal)</option>
                                             </select>
                                         </label>
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#888' }}>
+                                    <div style={{ fontSize: 12.5, color: 'var(--texto-2)', lineHeight: 1.5 }}>
                                         {nForm.tipo === 'dia'
                                             ? <>Valor de un día: <strong>${fmt(salarioBase)}</strong> · Paga = días trabajados × ese valor.</>
                                             : nForm.tipo === 'mensual'
@@ -438,33 +466,33 @@ export default function Empleados() {
                                 </div>
 
                                 {[
-                                    ['Días del periodo', diasPeriodo, '#374151'],
-                                    ['Días no laborados', `− ${diasNoLab}`, '#dc2626'],
-                                    ['Días pagados', diasPagados, '#059669'],
-                                    ['Sueldo bruto', `$${fmt(Math.round(sueldoBruto))}`, '#111'],
-                                    [`Préstamos pendientes (${prestamosPend.length})`, `− $${fmt(Math.round(totalPrestamos))}`, '#dc2626'],
+                                    ['Días del periodo', diasPeriodo, 'var(--texto)'],
+                                    ['Días no laborados', `− ${diasNoLab}`, 'var(--rojo)'],
+                                    ['Días pagados', diasPagados, 'var(--verde-osc)'],
+                                    ['Sueldo bruto', `$${fmt(Math.round(sueldoBruto))}`, 'var(--texto)'],
+                                    [`Préstamos pendientes (${prestamosPend.length})`, `− $${fmt(Math.round(totalPrestamos))}`, 'var(--rojo)'],
                                 ].map(([l, v, c]) => (
-                                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
-                                        <span style={{ color: '#555' }}>{l}</span>
-                                        <span style={{ fontWeight: 600, color: c }}>{v}</span>
+                                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderBottom: '1px solid #eef1f4', fontSize: 14 }}>
+                                        <span style={{ color: 'var(--texto-2)' }}>{l}</span>
+                                        <span className="cifra" style={{ fontSize: 16, color: c }}>{v}</span>
                                     </div>
                                 ))}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, background: '#1a5c2a', borderRadius: 8, padding: '12px 16px' }}>
-                                    <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>NETO A PAGAR</span>
-                                    <span style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>${fmt(Math.round(netoPagar))}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 12, background: 'var(--noche)', borderRadius: 10, padding: '13px 16px', borderLeft: '5px solid var(--verde)' }}>
+                                    <span className="etiqueta" style={{ color: 'var(--verde-vivo)', fontSize: 14 }}>Neto a pagar</span>
+                                    <span className="cifra" style={{ color: '#fff', fontSize: 26 }}>${fmt(Math.round(netoPagar))}</span>
                                 </div>
                                 <button onClick={registrarNomina} disabled={!salarioBase}
-                                    style={{ width: '100%', marginTop: 12, padding: '11px', background: salarioBase ? '#1a5c2a' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salarioBase ? 'pointer' : 'default' }}>
-                                    ✅ Pagar y SALDAR TODO (préstamos en cero)
+                                    style={{ width: '100%', marginTop: 12, minHeight: 48, padding: '10px', background: salarioBase ? 'var(--verde)' : 'var(--borde-fuerte)', color: '#fff', border: salarioBase ? '2px solid var(--verde-osc)' : '2px solid transparent', borderRadius: 10, fontFamily: 'var(--fuente-tit)', fontSize: 16.5, fontWeight: 800, letterSpacing: .4, cursor: salarioBase ? 'pointer' : 'default' }}>
+                                    Pagar y saldar todo (préstamos en cero)
                                 </button>
                                 <button onClick={registrarNominaParcial} disabled={!salarioBase}
-                                    style={{ width: '100%', marginTop: 8, padding: '11px', background: salarioBase ? '#d97706' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salarioBase ? 'pointer' : 'default' }}>
-                                    💵 Pagar con abono parcial (queda saldo)
+                                    style={{ width: '100%', marginTop: 8, minHeight: 48, padding: '10px', background: salarioBase ? 'var(--ambar-suave)' : '#f1f5f9', color: salarioBase ? '#5c4100' : 'var(--texto-3)', border: salarioBase ? '2px solid var(--ambar)' : '2px solid var(--borde)', borderRadius: 10, fontFamily: 'var(--fuente-tit)', fontSize: 16.5, fontWeight: 800, letterSpacing: .4, cursor: salarioBase ? 'pointer' : 'default' }}>
+                                    Pagar con abono parcial (queda saldo)
                                 </button>
-                                {!salarioBase && <div style={{ fontSize: 12, color: '#d97706', marginTop: 8, textAlign: 'center' }}>⚠️ Este empleado no tiene salario registrado. Edítalo con el botón + Nuevo o desde su ficha.</div>}
+                                {!salarioBase && <div style={{ fontSize: 12.5, color: '#7a5600', background: 'var(--ambar-suave)', borderRadius: 8, padding: '8px 10px', marginTop: 8, textAlign: 'center' }}>⚠️ Este empleado no tiene salario registrado. Edítalo con el botón + Nuevo o desde su ficha.</div>}
                             </>
                         )}
-                    </div>
+                    </Tarjeta>
                 )}
             </div>
         </div>

@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../App';
 import { api } from '../api';
+import { EncabezadoPagina, Boton, Buscador, Tarjeta, ContenedorTabla, estiloTabla, estiloTh, estiloTd, estiloInput, Campo, Modal, Chip, Aviso, Vacio, iniciales } from '../components/ui';
 
 const ROLES = ['superadmin', 'admin', 'cajero', 'vendedor', 'operador'];
-const ROLE_COLORS = {
-    superadmin: '#f59e0b', admin: '#3b82f6', cajero: '#10b981',
-    vendedor: '#8b5cf6', operador: '#6b7280'
-};
+// Tono del chip de cada rol (ver Chip en components/ui.jsx)
+const ROLE_TONOS = { superadmin: 'ambar', admin: 'azul', cajero: 'verde', vendedor: 'noche', operador: 'gris' };
 
 const ROLE_LABELS = {
     superadmin: 'Super Admin', admin: 'Admin', cajero: 'Cajero',
@@ -94,144 +93,136 @@ export default function Usuarios() {
     );
 
     return (
-        <div style={{ padding: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>👥 Usuarios</h2>
-                    <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: 14 }}>
-                        Gestión de perfiles y accesos al sistema
-                    </p>
+        <div className="pagina">
+            <EncabezadoPagina titulo="Usuarios" sub="Perfiles y accesos al sistema" icono="usuarios"
+                acciones={<Boton onClick={abrirNuevo}>+ Nuevo usuario</Boton>} />
+
+            <Tarjeta sinPadding>
+                <div style={{ padding: 14, borderBottom: '1.5px solid var(--borde)' }}>
+                    <Buscador value={busqueda} onChange={setBusqueda} placeholder="Buscar por nombre o email..." style={{ maxWidth: 420 }} />
                 </div>
-                <button onClick={abrirNuevo} style={btnStyle('#1a5c2a')}>
-                    + Nuevo usuario
-                </button>
-            </div>
 
-            <input
-                placeholder="Buscar por nombre o email..."
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-                style={{ width: '100%', maxWidth: 380, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }}
-            />
+                {filtrados.length === 0 && <Vacio icono="usuarios" texto="Sin usuarios" />}
 
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                    <thead>
-                        <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                            <th style={th}>Nombre</th>
-                            <th style={th}>Email</th>
-                            <th style={th}>Rol</th>
-                            {user?.rol === 'superadmin' && <th style={th}>Bodega</th>}
-                            <th style={th}>Estado</th>
-                            <th style={th}>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtrados.length === 0 && (
-                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: '#9ca3af' }}>Sin usuarios</td></tr>
-                        )}
-                        {filtrados.map(u => (
-                            <tr key={u.id} style={{ borderBottom: '1px solid #f3f4f6', opacity: u.activo ? 1 : 0.5 }}>
-                                <td style={td}>
-                                    <div style={{ fontWeight: 600 }}>{u.nombre}</div>
-                                    {u.telegram_chat_id && (
-                                        <div style={{ fontSize: 11, color: '#229ed9', marginTop: 2 }}>
-                                            ✈️ Telegram vinculado
-                                        </div>
-                                    )}
-                                </td>
-                                <td style={td}>{u.email}</td>
-                                <td style={td}>
-                                    <span style={{ background: ROLE_COLORS[u.rol] || '#6b7280', color: '#fff', fontSize: 11, padding: '2px 10px', borderRadius: 12, fontWeight: 600 }}>
-                                        {ROLE_LABELS[u.rol] || u.rol}
-                                    </span>
-                                </td>
-                                {user?.rol === 'superadmin' && (
-                                    <td style={td}>{bodegaNombre(u.bodega_id)}</td>
-                                )}
-                                <td style={td}>
-                                    <span style={{ color: u.activo ? '#10b981' : '#ef4444', fontWeight: 600, fontSize: 12 }}>
-                                        {u.activo ? '● Activo' : '● Inactivo'}
-                                    </span>
-                                </td>
-                                <td style={td}>
-                                    <div style={{ display: 'flex', gap: 6 }}>
-                                        <button onClick={() => abrirEditar(u)} style={btnSm('#3b82f6')}>Editar</button>
-                                        <button onClick={() => toggleActivo(u)} style={btnSm(u.activo ? '#ef4444' : '#10b981')}>
-                                            {u.activo ? 'Desactivar' : 'Activar'}
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                {/* Computador: tabla */}
+                {filtrados.length > 0 && (
+                    <div className="solo-pc">
+                        <ContenedorTabla>
+                            <table style={estiloTabla}>
+                                <thead>
+                                    <tr>
+                                        <th style={estiloTh}>Nombre</th>
+                                        <th style={estiloTh}>Email</th>
+                                        <th style={estiloTh}>Rol</th>
+                                        {user?.rol === 'superadmin' && <th style={estiloTh}>Bodega</th>}
+                                        <th style={estiloTh}>Estado</th>
+                                        <th style={{ ...estiloTh, textAlign: 'right' }}>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filtrados.map(u => (
+                                        <tr key={u.id} style={{ opacity: u.activo ? 1 : 0.55 }}>
+                                            <td style={estiloTd}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <Avatar nombre={u.nombre} />
+                                                    <div>
+                                                        <div style={{ fontWeight: 700 }}>{u.nombre}</div>
+                                                        {u.telegram_chat_id && <div style={{ fontSize: 12, color: 'var(--azul)', marginTop: 1 }}>Telegram vinculado</div>}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{u.email}</td>
+                                            <td style={estiloTd}><Chip tono={ROLE_TONOS[u.rol] || 'gris'}>{ROLE_LABELS[u.rol] || u.rol}</Chip></td>
+                                            {user?.rol === 'superadmin' && <td style={estiloTd}>{bodegaNombre(u.bodega_id)}</td>}
+                                            <td style={estiloTd}><Chip tono={u.activo ? 'verde' : 'rojo'}>{u.activo ? '● Activo' : '● Inactivo'}</Chip></td>
+                                            <td style={{ ...estiloTd, textAlign: 'right' }}>
+                                                <div style={{ display: 'inline-flex', gap: 6 }}>
+                                                    <Boton tam="sm" variante="secundario" onClick={() => abrirEditar(u)}>Editar</Boton>
+                                                    <Boton tam="sm" variante={u.activo ? 'peligro' : 'primario'} onClick={() => toggleActivo(u)}>{u.activo ? 'Desactivar' : 'Activar'}</Boton>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </ContenedorTabla>
+                    </div>
+                )}
 
-            {modal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: '#fff', borderRadius: 10, padding: 28, width: 420, maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
-                        <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>
-                            {editId ? 'Editar usuario' : 'Nuevo usuario'}
-                        </h3>
+                {/* Celular: tarjetas */}
+                <div className="solo-movil">
+                    {filtrados.map(u => (
+                        <div key={u.id} style={{ padding: '12px 14px', borderBottom: '1px solid #eef1f4', opacity: u.activo ? 1 : 0.55 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Avatar nombre={u.nombre} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 15 }}>{u.nombre}</div>
+                                    <div style={{ fontSize: 13, color: 'var(--texto-2)', overflowWrap: 'anywhere' }}>{u.email}</div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '10px 0' }}>
+                                <Chip tono={ROLE_TONOS[u.rol] || 'gris'}>{ROLE_LABELS[u.rol] || u.rol}</Chip>
+                                <Chip tono={u.activo ? 'verde' : 'rojo'}>{u.activo ? '● Activo' : '● Inactivo'}</Chip>
+                                {user?.rol === 'superadmin' && <Chip tono="gris">{bodegaNombre(u.bodega_id)}</Chip>}
+                                {u.telegram_chat_id && <Chip tono="azul">Telegram</Chip>}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <Boton variante="secundario" onClick={() => abrirEditar(u)}>Editar</Boton>
+                                <Boton variante={u.activo ? 'peligro' : 'primario'} onClick={() => toggleActivo(u)}>{u.activo ? 'Desactivar' : 'Activar'}</Boton>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Tarjeta>
 
-                        <label style={lbl}>Nombre completo</label>
-                        <input style={inp} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej: Juan Pérez" />
-
-                        <label style={lbl}>Email</label>
-                        <input style={inp} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="correo@empresa.com" />
-
-                        <label style={lbl}>{editId ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}</label>
-                        <input style={inp} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
-
-                        <label style={lbl}>Rol</label>
-                        <select style={inp} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))}>
+            <Modal abierto={modal} titulo={editId ? 'Editar usuario' : 'Nuevo usuario'} onCerrar={() => setModal(false)}
+                pie={<>
+                    <Boton variante="secundario" onClick={() => setModal(false)}>Cancelar</Boton>
+                    <Boton onClick={guardar} disabled={loading}>{loading ? 'Guardando...' : (editId ? 'Guardar cambios' : 'Crear usuario')}</Boton>
+                </>}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <Campo etiqueta="Nombre completo">
+                        <input style={estiloInput} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej: Juan Pérez" />
+                    </Campo>
+                    <Campo etiqueta="Email">
+                        <input style={estiloInput} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="correo@empresa.com" />
+                    </Campo>
+                    <Campo etiqueta={editId ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}>
+                        <input style={estiloInput} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
+                    </Campo>
+                    <Campo etiqueta="Rol">
+                        <select style={estiloInput} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))}>
                             {rolesDisponibles.map(r => (
                                 <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                             ))}
                         </select>
-
-                        {user?.rol === 'superadmin' && (
-                            <>
-                                <label style={lbl}>Bodega / Sede * <span style={{ fontWeight: 400, color: '#9ca3af' }}>(obligatorio)</span></label>
-                                <select style={inp} value={form.bodega_id} onChange={e => setForm(f => ({ ...f, bodega_id: e.target.value }))}>
-                                    <option value="">-- Seleccionar bodega --</option>
-                                    {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                                </select>
-                                <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>
-                                    ⚠️ Esta persona quedará fija a esta bodega: todo lo que registre (compras, ventas, caja) se guarda aquí y no podrá cambiarla.
-                                </p>
-                            </>
-                        )}
-
-                        <label style={lbl}>
-                            Chat ID de Telegram <span style={{ fontWeight: 400, color: '#9ca3af' }}>(opcional — para usar el bot)</span>
-                        </label>
-                        <input style={inp} value={form.telegram_chat_id}
+                    </Campo>
+                    {user?.rol === 'superadmin' && (
+                        <Campo etiqueta="Bodega / Sede * (obligatorio)"
+                            ayuda="Esta persona quedará fija a esta bodega: todo lo que registre (compras, ventas, caja) se guarda aquí y no podrá cambiarla.">
+                            <select style={estiloInput} value={form.bodega_id} onChange={e => setForm(f => ({ ...f, bodega_id: e.target.value }))}>
+                                <option value="">-- Seleccionar bodega --</option>
+                                {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                            </select>
+                        </Campo>
+                    )}
+                    <Campo etiqueta="Chat ID de Telegram (opcional, para usar el bot)"
+                        ayuda="El usuario debe abrir el bot en Telegram y enviar /start para ver su Chat ID.">
+                        <input style={estiloInput} value={form.telegram_chat_id}
                             onChange={e => setForm(f => ({ ...f, telegram_chat_id: e.target.value }))}
-                            placeholder="Ej: 123456789 — se obtiene enviando /start al bot" />
-                        <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>
-                            El usuario debe abrir el bot en Telegram y enviar /start para ver su Chat ID.
-                        </p>
-
-                        {error && <p style={{ color: '#ef4444', fontSize: 13, margin: '8px 0' }}>{error}</p>}
-
-                        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                            <button onClick={guardar} disabled={loading} style={btnStyle('#1a5c2a', '1')}>
-                                {loading ? 'Guardando...' : (editId ? 'Guardar cambios' : 'Crear usuario')}
-                            </button>
-                            <button onClick={() => setModal(false)} style={btnStyle('#6b7280', '1')}>Cancelar</button>
-                        </div>
-                    </div>
+                            placeholder="Ej: 123456789" />
+                    </Campo>
+                    {error && <Aviso tipo="error">{error}</Aviso>}
                 </div>
-            )}
+            </Modal>
         </div>
     );
 }
 
-const th = { textAlign: 'left', padding: '10px 14px', fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .5 };
-const td = { padding: '12px 14px', verticalAlign: 'middle' };
-const lbl = { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4, marginTop: 12 };
-const inp = { width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', outline: 'none' };
-const btnStyle = (bg, flex) => ({ background: bg, color: '#fff', border: 'none', padding: '9px 18px', borderRadius: 6, fontSize: 14, cursor: 'pointer', fontWeight: 600, flex: flex || undefined });
-const btnSm = (bg) => ({ background: bg, color: '#fff', border: 'none', padding: '5px 10px', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontWeight: 600 });
+function Avatar({ nombre }) {
+    return (
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--noche)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--fuente-tit)', fontWeight: 700, fontSize: 13.5, flexShrink: 0 }}>
+            {iniciales(nombre)}
+        </div>
+    );
+}

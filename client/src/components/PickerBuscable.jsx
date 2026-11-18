@@ -34,14 +34,17 @@ export default function PickerBuscable({
     const elegir = (it) => { onChange(String(getId(it))); setOpen(false); setQ(''); };
 
     const inputStyle = {
-        width: '100%', padding: '9px 30px 9px 30px', borderRadius: 8,
-        border: '1px solid #ddd', fontSize, boxSizing: 'border-box',
-        background: disabled ? '#f5f5f5' : '#fff', color: '#111',
+        width: '100%', minHeight: 42, padding: '9px 34px 9px 36px', borderRadius: 9,
+        border: '1.5px solid var(--borde-fuerte)', fontSize, boxSizing: 'border-box',
+        background: disabled ? '#f1f5f9' : '#fff', color: 'var(--texto)',
     };
 
     return (
         <div ref={boxRef} style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', fontSize: fontSize - 1, pointerEvents: 'none', opacity: .6 }}>🔍</span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"
+                style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-3)', pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+            </svg>
             <input
                 type="text"
                 disabled={disabled}
@@ -53,16 +56,16 @@ export default function PickerBuscable({
             />
             {(seleccionado || open) && !disabled && (
                 <span onClick={e => { e.preventDefault(); onChange(''); setQ(''); setOpen(false); }}
-                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#999', fontSize: fontSize + 1, lineHeight: 1 }}>✕</span>
+                    style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: 'var(--texto-3)', fontSize: fontSize + 1, lineHeight: 1, padding: 6 }}>✕</span>
             )}
             {open && (
                 <div style={{
                     position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                    background: '#fff', border: '1px solid #ddd', borderRadius: 8, marginTop: 2,
-                    maxHeight: 240, overflowY: 'auto', boxShadow: '0 6px 20px rgba(0,0,0,.12)',
+                    background: '#fff', border: '1.5px solid var(--borde-fuerte)', borderRadius: 10, marginTop: 4,
+                    maxHeight: 260, overflowY: 'auto', boxShadow: 'var(--sombra-alta)',
                 }}>
                     {lista.length === 0 && (
-                        <div style={{ padding: '10px 12px', color: '#999', fontSize: fontSize - 1 }}>Sin resultados</div>
+                        <div style={{ padding: '12px', color: 'var(--texto-3)', fontSize: fontSize - 1 }}>Sin resultados</div>
                     )}
                     {lista.slice(0, 60).map(it => {
                         const activo = String(getId(it)) === String(value);
@@ -70,13 +73,13 @@ export default function PickerBuscable({
                             <div key={getId(it)}
                                 role="button"
                                 onClick={e => { e.preventDefault(); elegir(it); }}
-                                style={{ padding: '11px 12px', cursor: 'pointer', fontSize, background: activo ? '#f0faf0' : '#fff', color: '#222', borderBottom: '1px solid #f5f5f5', userSelect: 'none' }}>
+                                style={{ padding: '12px 13px', cursor: 'pointer', fontSize, fontWeight: activo ? 700 : 500, background: activo ? 'var(--verde-suave)' : '#fff', color: 'var(--texto)', borderBottom: '1px solid #eef1f4', userSelect: 'none' }}>
                                 {getLabel(it)}
                             </div>
                         );
                     })}
                     {lista.length > 60 && (
-                        <div style={{ padding: '8px 12px', color: '#999', fontSize: fontSize - 2 }}>Escribe para afinar la búsqueda…</div>
+                        <div style={{ padding: '9px 13px', color: 'var(--texto-3)', fontSize: fontSize - 2 }}>Escribe para afinar la búsqueda…</div>
                     )}
                 </div>
             )}

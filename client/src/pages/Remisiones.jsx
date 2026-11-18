@@ -3,88 +3,71 @@ import { api } from '../api';
 import { useAuth } from '../App';
 import { exportarCertificadoDisposicionFinal } from '../utils/exportar';
 import PickerBuscable from '../components/PickerBuscable';
+import { EncabezadoPagina, Boton, Pestanas, Tarjeta, Chip, ContenedorTabla, estiloTabla, estiloTh, estiloTd, estiloTdNum, estiloInput, Campo, Buscador, Modal, Aviso, Vacio } from '../components/ui';
+import Icono from '../components/Icono';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 const primerDiaMes = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; };
 const BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
 
+function Btn({ active, onClick, children }) {
+    return <Boton variante={active ? 'noche' : 'secundario'} onClick={onClick}>{children}</Boton>;
+}
+
 // ── Modal detalle remisión (fotos) ────────────────────────────────────────
 function ModalDetalle({ remision, onClose }) {
     if (!remision) return null;
     return (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 540, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}>
-                {remision.foto_url ? (
-                    <div style={{ position: 'relative' }}>
-                        <img src={`${BASE}${remision.foto_url}`} alt="remision" style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: '14px 14px 0 0' }} />
-                        <a href={`${BASE}${remision.foto_url}`} target="_blank" rel="noreferrer"
-                            style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,.6)', color: '#fff', padding: '5px 12px', borderRadius: 20, fontSize: 12, textDecoration: 'none', fontWeight: 600 }}>
-                            🔍 Ampliar
-                        </a>
-                    </div>
-                ) : (
-                    <div style={{ height: 120, background: '#f0faf0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, borderRadius: '14px 14px 0 0' }}>🚛</div>
-                )}
-                <div style={{ padding: 24 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                <div style={{ fontSize: 11, color: '#1a5c2a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Remisión #{remision.id}</div>
-                                {remision.tipo && (
-                                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: remision.tipo === 'venta' ? '#d1fae5' : '#dbeafe', color: remision.tipo === 'venta' ? '#065f46' : '#1e40af' }}>
-                                        {remision.tipo === 'venta' ? '📤 Venta' : '📥 Compra'}
-                                    </span>
-                                )}
-                            </div>
-                            <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{remision.conductor}</div>
-                        </div>
-                        <button onClick={onClose} style={{ background: '#f5f5f5', border: 'none', borderRadius: 20, width: 32, height: 32, cursor: 'pointer', fontSize: 16, fontWeight: 700 }}>✕</button>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                        {[
-                            ['📅 Fecha', remision.fecha],
-                            ['🕐 Hora llegada', remision.hora_llegada || '—'],
-                            ['🕐 Hora salida', remision.hora_salida || '—'],
-                            ['🚛 Vehículo / Placa', remision.vehiculo || '—'],
-                            ['🏪 Bodega', remision.bodega?.nombre || '—'],
-                            ['⚖️ Total kilos', remision.total_kilos ? `${Number(remision.total_kilos).toFixed(2)} kg` : '—'],
-                            ['👤 Cliente', remision.cliente?.nombre || '—'],
-                            ['📍 Sede', remision.sede?.nombre || '—'],
-                        ].map(([label, value]) => (
-                            <div key={label} style={{ background: '#f8f8f8', borderRadius: 8, padding: '10px 14px' }}>
-                                <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{label}</div>
-                                <div style={{ fontSize: 14, fontWeight: 600, color: '#222' }}>{value}</div>
-                            </div>
-                        ))}
-                    </div>
-                    {remision.items?.length > 0 && (
-                        <div style={{ marginBottom: 16 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1a5c2a', marginBottom: 8 }}>📦 Materiales</div>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead><tr style={{ background: '#f0faf0' }}>
-                                    <th style={{ padding: '8px 12px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Material</th>
-                                    <th style={{ padding: '8px 12px', textAlign: 'right', color: '#1a5c2a', fontWeight: 600 }}>Kilos</th>
-                                </tr></thead>
-                                <tbody>
-                                    {remision.items.map((item, i) => (
-                                        <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                            <td style={{ padding: '7px 12px' }}>{item.material?.nombre || '—'}</td>
-                                            <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600 }}>{Number(item.kilos).toFixed(2)} kg</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                    {remision.observaciones && (
-                        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px' }}>
-                            <div style={{ fontSize: 11, color: '#92400e', fontWeight: 700, marginBottom: 4 }}>📝 Observaciones</div>
-                            <div style={{ fontSize: 13, color: '#555' }}>{remision.observaciones}</div>
-                        </div>
-                    )}
+        <Modal titulo={`Remisión #${remision.id}`} onCerrar={onClose} ancho={640}>
+            {remision.foto_url ? (
+                <div style={{ position: 'relative', margin: '-16px -16px 16px' }}>
+                    <img src={`${BASE}${remision.foto_url}`} alt="remision" style={{ width: '100%', maxHeight: 320, objectFit: 'cover' }} />
+                    <a href={`${BASE}${remision.foto_url}`} target="_blank" rel="noreferrer"
+                        style={{
+                            position: 'absolute', bottom: 10, right: 10, background: 'var(--noche)', color: '#fff',
+                            padding: '7px 12px', borderRadius: 8, fontSize: 13, textDecoration: 'none', fontWeight: 700
+                        }}>
+                        Ampliar
+                    </a>
                 </div>
+            ) : (
+                <div style={{ height: 120, margin: '-16px -16px 16px', background: 'var(--verde-suave)', color: 'var(--verde-osc)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icono nombre="vehiculos" tam={42} />
+                </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <div className="cifra" style={{ fontSize: 20 }}>{remision.conductor}</div>
+                {remision.tipo && <Chip tono={remision.tipo === 'venta' ? 'verde' : 'azul'}>{remision.tipo === 'venta' ? 'Venta' : 'Compra'}</Chip>}
             </div>
-        </div>
+            <div className="rejilla-form" style={{ marginBottom: 16 }}>
+                {[
+                    ['Fecha', remision.fecha],
+                    ['Hora llegada', remision.hora_llegada || '—'],
+                    ['Hora salida', remision.hora_salida || '—'],
+                    ['Vehículo / Placa', remision.vehiculo || '—'],
+                    ['Bodega', remision.bodega?.nombre || '—'],
+                    ['Total kilos', remision.total_kilos ? `${Number(remision.total_kilos).toFixed(2)} kg` : '—'],
+                    ['Cliente', remision.cliente?.nombre || '—'],
+                    ['Sede', remision.sede?.nombre || '—'],
+                ].map(([label, value]) => (
+                    <div key={label} style={{ background: 'var(--fondo)', border: '1px solid var(--borde)', borderRadius: 8, padding: '10px 12px', minWidth: 0 }}>
+                        <div className="etiqueta" style={{ color: 'var(--texto-3)', marginBottom: 3 }}>{label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, overflowWrap: 'anywhere' }}>{value}</div>
+                    </div>
+                ))}
+            </div>
+            {remision.items?.length > 0 && (
+                <Tarjeta titulo="Materiales" icono="materiales" style={{ marginBottom: 16 }}>
+                    <ContenedorTabla>
+                        <table style={estiloTabla}>
+                            <thead><tr><th style={estiloTh}>Material</th><th style={{ ...estiloTh, textAlign: 'right' }}>Kilos</th></tr></thead>
+                            <tbody>{remision.items.map((item, i) => <tr key={i}><td style={estiloTd}>{item.material?.nombre || '—'}</td><td style={estiloTdNum}>{Number(item.kilos).toFixed(2)} kg</td></tr>)}</tbody>
+                        </table>
+                    </ContenedorTabla>
+                </Tarjeta>
+            )}
+            {remision.observaciones && <Aviso tipo="alerta"><div className="etiqueta" style={{ marginBottom: 4 }}>Observaciones</div>{remision.observaciones}</Aviso>}
+        </Modal>
     );
 }
 
@@ -129,11 +112,9 @@ function TabCertificados() {
     return (
         <div>
             {/* Formulario */}
-            <div style={{ background: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, color: '#1a5c2a' }}>📄 Generar Certificado de Disposición Final</h3>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <div>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cliente*</div>
+            <Tarjeta titulo="Generar Certificado de Disposición Final" icono="remisiones" style={{ marginBottom: 14 }}>
+                <div className="rejilla-form" style={{ alignItems: 'end' }}>
+                    <Campo etiqueta="Cliente*">
                         <PickerBuscable
                             items={clientes}
                             value={cliente_id}
@@ -141,71 +122,61 @@ function TabCertificados() {
                             placeholder="Buscar cliente..."
                             fontSize={13}
                         />
-                    </div>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Período desde</div>
-                        <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Hasta</div>
-                        <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Fecha del certificado</div>
-                        <input type="date" value={fechaCert} onChange={e => setFechaCert(e.target.value)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                    </label>
-                    <button onClick={generar} disabled={loading} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                        {loading ? 'Cargando...' : '🔍 Consultar datos'}
-                    </button>
+                    </Campo>
+                    <Campo etiqueta="Período desde">
+                        <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Hasta">
+                        <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Fecha del certificado">
+                        <input type="date" value={fechaCert} onChange={e => setFechaCert(e.target.value)} style={estiloInput} />
+                    </Campo>
+                    <Boton onClick={generar} disabled={loading} icono="informes">{loading ? 'Cargando...' : 'Consultar datos'}</Boton>
                 </div>
-                {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
-            </div>
+                {msg && <Aviso tipo="error" style={{ marginTop: 12 }}>{msg}</Aviso>}
+            </Tarjeta>
 
             {/* Preview del certificado */}
             {certificado && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 28, boxShadow: '0 2px 8px rgba(0,0,0,.08)', maxWidth: 720 }}>
+                <Tarjeta titulo="Vista previa" sub="Certificado de Disposición Final" icono="remisiones" style={{ maxWidth: 760 }}>
                     {/* Mini vista previa */}
-                    <div style={{ textAlign: 'center', marginBottom: 20, borderBottom: '2px solid #1a5c2a', paddingBottom: 16 }}>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: '#1a5c2a' }}>ASOCIACIÓN ECO RECICLAJE CAPITAL ERC (ASOERC)</div>
-                        <div style={{ fontSize: 12, color: '#666' }}>NIT. 901.299.762-6</div>
+                    <div style={{ textAlign: 'center', marginBottom: 20, borderBottom: '2px solid var(--verde-osc)', paddingBottom: 16 }}>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--verde-osc)' }}>ASOCIACIÓN ECO RECICLAJE CAPITAL ERC (ASOERC)</div>
+                        <div style={{ fontSize: 12, color: 'var(--texto-2)' }}>NIT. 901.299.762-6</div>
                         <div style={{ fontWeight: 700, fontSize: 14, marginTop: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Certificado de Disposición Final</div>
                     </div>
 
-                    <div style={{ fontSize: 13, color: '#333', marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, color: 'var(--texto-2)', marginBottom: 16 }}>
                         <strong>{certificado.cliente?.nombre}</strong>{certificado.cliente?.nit ? ` (NIT: ${certificado.cliente.nit})` : ''} · Período: <strong>{desde}</strong> al <strong>{hasta}</strong>
                     </div>
 
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16, border: '1px solid #ddd' }}>
-                        <thead><tr style={{ background: '#f0faf0' }}>
-                            {['Material','Industria Final','Kilos'].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#1a5c2a', fontWeight: 700, border: '1px solid #ddd' }}>{h}</th>)}
-                        </tr></thead>
+                    <ContenedorTabla style={{ marginBottom: 16 }}>
+                        <table style={estiloTabla}>
+                        <thead><tr>{['Material','Industria Final','Kilos'].map(h => <th key={h} style={estiloTh}>{h}</th>)}</tr></thead>
                         <tbody>
                             {(certificado.detalle || []).map(d => (
-                                <tr key={d.material} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '7px 12px', border: '1px solid #eee' }}>{d.material}</td>
-                                    <td style={{ padding: '7px 12px', color: '#666', border: '1px solid #eee' }}>${fmt(d.precio_promedio)}/kg</td>
-                                    <td style={{ padding: '7px 12px', fontWeight: 700, border: '1px solid #eee' }}>{Number(d.kilos).toFixed(1)} kg</td>
+                                <tr key={d.material}>
+                                    <td style={estiloTd}>{d.material}</td>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>${fmt(d.precio_promedio)}/kg</td>
+                                    <td style={estiloTdNum}>{Number(d.kilos).toFixed(1)} kg</td>
                                 </tr>
                             ))}
-                            <tr style={{ background: '#f0faf0', fontWeight: 700 }}>
-                                <td colSpan={2} style={{ padding: '9px 12px', border: '1px solid #ddd' }}>TOTAL</td>
-                                <td style={{ padding: '9px 12px', color: '#1a5c2a', border: '1px solid #ddd' }}>{Number(certificado.total || 0).toFixed(1)} kg</td>
+                            <tr style={{ background: 'var(--verde-suave)', fontWeight: 700 }}>
+                                <td colSpan={2} style={estiloTd}>TOTAL</td>
+                                <td style={{ ...estiloTdNum, color: 'var(--verde-osc)' }}>{Number(certificado.total || 0).toFixed(1)} kg</td>
                             </tr>
                         </tbody>
-                    </table>
+                        </table>
+                    </ContenedorTabla>
 
-                    <button onClick={descargarPDF} style={{ width: '100%', padding: '12px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                        📄 Descargar Certificado Oficial PDF
-                    </button>
-                    <p style={{ fontSize: 11, color: '#999', textAlign: 'center', marginTop: 8 }}>Genera el documento oficial firmado por Fredi Hernandez Jaime</p>
-                </div>
+                    <Boton onClick={descargarPDF} ancho icono="remisiones">Descargar Certificado Oficial PDF</Boton>
+                    <p style={{ fontSize: 12, color: 'var(--texto-3)', textAlign: 'center', marginTop: 8 }}>Genera el documento oficial firmado por Fredi Hernandez Jaime</p>
+                </Tarjeta>
             )}
 
             {!certificado && !loading && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 40, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                    <div style={{ fontSize: 40 }}>📄</div>
-                    <p style={{ color: '#999', marginTop: 12, fontSize: 13 }}>Selecciona un cliente y período para generar el certificado oficial</p>
-                </div>
+                <Tarjeta><Vacio icono="remisiones" texto="Selecciona un cliente y período para generar el certificado oficial" /></Tarjeta>
             )}
         </div>
     );
@@ -261,97 +232,65 @@ export default function Remisiones() {
         finally { setLoading(false); }
     };
 
-    const Btn = ({ active, onClick, children }) => (
-        <button onClick={onClick} style={{ padding: '8px 18px', background: active ? '#1a5c2a' : '#f5f5f5', color: active ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            {children}
-        </button>
-    );
-
     return (
-        <div style={{ padding: 24 }}>
+        <div className="pagina">
             <ModalDetalle remision={selected} onClose={() => setSelected(null)} />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700 }}>🚛 Remisiones</h1>
-                    <p style={{ color: '#666', fontSize: 13 }}>Fotos de Telegram y certificados generados</p>
-                </div>
-                {tab === 'fotos' && (
-                    <button onClick={() => setShowForm(!showForm)} style={{ padding: '9px 18px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                        + Nueva Remisión
-                    </button>
-                )}
-            </div>
+            <EncabezadoPagina titulo="Remisiones" sub="Fotos de Telegram y certificados generados" icono="remisiones"
+                acciones={tab === 'fotos' && <Boton onClick={() => setShowForm(!showForm)} icono="remisiones">Nueva Remisión</Boton>} />
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                <Btn active={tab === 'fotos'} onClick={() => setTab('fotos')}>📷 Fotos (Telegram)</Btn>
-                <Btn active={tab === 'certificados'} onClick={() => setTab('certificados')}>📄 Certificados</Btn>
-            </div>
+            <Pestanas
+                items={[{ id: 'fotos', label: 'Fotos (Telegram)', icono: 'remisiones' }, { id: 'certificados', label: 'Certificados', icono: 'informes' }]}
+                activa={tab}
+                onChange={setTab}
+            />
 
             {/* ── Tab Fotos ─────────────────────────────────────────────── */}
             {tab === 'fotos' && (
                 <>
                     {showForm && (
-                        <div style={{ background: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                            <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Nueva Remisión</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
+                        <Tarjeta titulo="Nueva Remisión" icono="remisiones" style={{ marginBottom: 14 }}>
+                            <div className="rejilla-form" style={{ marginBottom: 14 }}>
                                 {[['conductor','Conductor*'],['vehiculo','Placa / Vehículo']].map(([k,l]) => (
-                                    <label key={k}>
-                                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{l}</div>
-                                        <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                                    </label>
+                                    <Campo key={k} etiqueta={l}>
+                                        <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} style={estiloInput} />
+                                    </Campo>
                                 ))}
-                                <label>
-                                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Bodega</div>
-                                    <select value={form.bodega_id} onChange={e => setForm({ ...form, bodega_id: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                <Campo etiqueta="Bodega"><select value={form.bodega_id} onChange={e => setForm({ ...form, bodega_id: e.target.value })} style={estiloInput}>
                                         {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                                    </select>
-                                </label>
-                                <label>
-                                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Fecha</div>
-                                    <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                                </label>
-                                <label style={{ gridColumn: 'span 2' }}>
-                                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Observaciones</div>
-                                    <input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                                </label>
+                                    </select></Campo>
+                                <Campo etiqueta="Fecha"><input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} style={estiloInput} /></Campo>
+                                <Campo etiqueta="Observaciones">
+                                    <input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} style={estiloInput} />
+                                </Campo>
                             </div>
-                            <label style={{ display: 'block', marginBottom: 14 }}>
-                                <div style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>Foto de remisión</div>
+                            <Campo etiqueta="Foto de remisión" style={{ marginBottom: 14 }}>
                                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                                    <label style={{ cursor: 'pointer', padding: '8px 16px', background: '#f0faf0', border: '2px dashed #1a5c2a', borderRadius: 8, fontSize: 13, color: '#1a5c2a', fontWeight: 600 }}>
-                                        📷 Seleccionar foto
+                                    <label
+                                        style={{
+                                            cursor: 'pointer', minHeight: 42, padding: '9px 14px', background: 'var(--verde-suave)',
+                                            border: '1.5px dashed var(--verde)', borderRadius: 8, fontSize: 13,
+                                            color: 'var(--verde-osc)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 7
+                                        }}>
+                                        <Icono nombre="remisiones" tam={18} /> Seleccionar foto
                                         <input type="file" accept="image/*" onChange={handleFoto} style={{ display: 'none' }} />
                                     </label>
-                                    {preview && <img src={preview} alt="preview" style={{ height: 80, borderRadius: 6, border: '1px solid #ddd' }} />}
+                                    {preview && <img src={preview} alt="preview" style={{ height: 80, maxWidth: '100%', borderRadius: 8, border: '1px solid var(--borde)' }} />}
                                 </div>
-                            </label>
-                            {msg && <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 8 }}>{msg}</div>}
+                            </Campo>
+                            {msg && <Aviso tipo="error" style={{ marginBottom: 8 }}>{msg}</Aviso>}
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <button onClick={guardar} disabled={loading} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                                    {loading ? 'Guardando...' : 'Guardar'}
-                                </button>
-                                <button onClick={() => { setShowForm(false); setFoto(null); setPreview(null); }} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>Cancelar</button>
+                                <Boton onClick={guardar} disabled={loading}>{loading ? 'Guardando...' : 'Guardar'}</Boton>
+                                <Boton variante="secundario" onClick={() => { setShowForm(false); setFoto(null); setPreview(null); }}>Cancelar</Boton>
                             </div>
-                        </div>
+                        </Tarjeta>
                     )}
 
                     {/* Buscador */}
-                    <div style={{ position: 'relative', marginBottom: 16, maxWidth: 360 }}>
-                        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#888', pointerEvents: 'none' }}>🔍</span>
-                        <input
-                            value={busqueda}
-                            onChange={e => setBusqueda(e.target.value)}
-                            placeholder="Buscar por N° orden, conductor, remisión..."
-                            style={{ width: '100%', padding: '9px 12px 9px 38px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box', outline: 'none' }}
-                        />
-                        {busqueda && (
-                            <button onClick={() => setBusqueda('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#999' }}>✕</button>
-                        )}
-                    </div>
+                    <Buscador value={busqueda} onChange={setBusqueda} placeholder="Buscar por N° orden, conductor, remisión..." style={{ maxWidth: 420, marginBottom: 14 }} />
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
+                    <div className="rejilla-tarjetas">
                         {remisiones.filter(r => {
                             if (!busqueda) return true;
                             const q = busqueda.toLowerCase();
@@ -360,44 +299,56 @@ export default function Remisiones() {
                                 || (r.conductor || '').toLowerCase().includes(q)
                                 || (r.vehiculo || '').toLowerCase().includes(q);
                         }).map(r => (
-                            <div key={r.id} onClick={() => setSelected(r)}
-                                style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.08)', cursor: 'pointer', transition: 'transform .15s, box-shadow .15s', borderTop: r.tipo === 'venta' ? '3px solid #1a5c2a' : r.tipo === 'compra' ? '3px solid #2563eb' : '3px solid #ddd' }}
-                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,.13)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.08)'; }}>
+                            <Tarjeta key={r.id}
+                                style={{
+                                    padding: 0, overflow: 'hidden', cursor: 'pointer',
+                                    borderTop: r.tipo === 'venta' ? '3px solid var(--verde)' : r.tipo === 'compra' ? '3px solid var(--azul)' : '3px solid var(--borde-fuerte)'
+                                }}>
+                                <div onClick={() => setSelected(r)}>
                                 {r.foto_url
                                     ? <img src={`${BASE}${r.foto_url}`} alt="remision" style={{ width: '100%', height: 160, objectFit: 'cover' }} />
-                                    : <div style={{ width: '100%', height: 100, background: r.tipo === 'venta' ? '#f0faf0' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>
-                                        {r.tipo === 'venta' ? '📤' : r.tipo === 'compra' ? '📥' : '🚛'}
+                                    : <div
+                                        style={{
+                                            width: '100%', height: 100, background: r.tipo === 'venta' ? 'var(--verde-suave)' : 'var(--azul-suave)',
+                                            color: r.tipo === 'venta' ? 'var(--verde-osc)' : 'var(--azul)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                        <Icono nombre={r.tipo === 'venta' ? 'ventas' : r.tipo === 'compra' ? 'compras' : 'vehiculos'} tam={36} />
                                       </div>
                                 }
                                 <div style={{ padding: 14 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                                         <div style={{ fontWeight: 700, fontSize: 15 }}>{r.conductor}</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-                                            <div style={{ fontSize: 11, color: '#1a5c2a', fontWeight: 600, background: '#f0faf0', padding: '2px 8px', borderRadius: 10 }}>#{r.numero || r.id}</div>
-                                            {r.numero_orden && <div style={{ fontSize: 10, color: '#2563eb', fontWeight: 700, background: '#eff6ff', padding: '2px 7px', borderRadius: 10 }}>Orden #{r.numero_orden}</div>}
+                                            <Chip tono="verde">#{r.numero || r.id}</Chip>
+                                            {r.numero_orden && <Chip tono="azul">Orden #{r.numero_orden}</Chip>}
                                         </div>
                                     </div>
                                     {r.tipo && (
                                         <div style={{ marginBottom: 6 }}>
-                                            <span style={{
-                                                fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 10,
-                                                background: r.tipo === 'venta' ? '#d1fae5' : '#dbeafe',
-                                                color: r.tipo === 'venta' ? '#065f46' : '#1e40af'
-                                            }}>
-                                                {r.tipo === 'venta' ? '📤 Venta' : '📥 Compra'}
-                                            </span>
-                                            {r.tipo === 'venta' && r.venta && <span style={{ fontSize: 11, color: '#666', marginLeft: 6 }}>Venta #{r.venta.id}</span>}
-                                            {r.tipo === 'compra' && r.compra && <span style={{ fontSize: 11, color: '#666', marginLeft: 6 }}>{r.compra.reciclador?.nombre}</span>}
+                                            <Chip tono={r.tipo === 'venta' ? 'verde' : 'azul'}>{r.tipo === 'venta' ? 'Venta' : 'Compra'}</Chip>
+                                            {r.tipo === 'venta' && r.venta && <span style={{ fontSize: 12, color: 'var(--texto-2)', marginLeft: 6 }}>Venta #{r.venta.id}</span>}
+                                            {r.tipo === 'compra' && r.compra && <span style={{ fontSize: 12, color: 'var(--texto-2)', marginLeft: 6 }}>{r.compra.reciclador?.nombre}</span>}
                                         </div>
                                     )}
-                                    {r.vehiculo && <div style={{ fontSize: 12, color: '#666', marginTop: 3 }}>🚛 {r.vehiculo}</div>}
-                                    <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{r.fecha} · {r.bodega?.nombre}</div>
-                                    {r.total_kilos > 0 && <div style={{ fontSize: 12, color: '#1a5c2a', marginTop: 3, fontWeight: 600 }}>⚖️ {Number(r.total_kilos).toFixed(2)} kg</div>}
-                                    {r.observaciones && <div style={{ fontSize: 11, color: '#888', marginTop: 6, borderTop: '1px solid #f0f0f0', paddingTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.observaciones}</div>}
-                                    <div style={{ marginTop: 10, fontSize: 12, color: '#1a5c2a', fontWeight: 600 }}>Ver detalles →</div>
+                                    {r.vehiculo && (
+                                        <div style={{ fontSize: 13, color: 'var(--texto-2)', marginTop: 5, display: 'flex', gap: 6, alignItems: 'center' }}>
+                                            <Icono nombre="vehiculos" tam={16} /> {r.vehiculo}
+                                        </div>
+                                    )}
+                                    <div style={{ fontSize: 13, color: 'var(--texto-3)', marginTop: 5 }}>{r.fecha} · {r.bodega?.nombre}</div>
+                                    {r.total_kilos > 0 && <div className="cifra" style={{ fontSize: 15, color: 'var(--verde-osc)', marginTop: 5 }}>{Number(r.total_kilos).toFixed(2)} kg</div>}
+                                    {r.observaciones && (
+                                        <div style={{
+                                            fontSize: 12, color: 'var(--texto-3)', marginTop: 8, borderTop: '1px solid var(--borde)',
+                                            paddingTop: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                        }}>
+                                            {r.observaciones}
+                                        </div>
+                                    )}
+                                    <div className="etiqueta" style={{ marginTop: 10, color: 'var(--verde-osc)' }}>Ver detalles</div>
                                 </div>
-                            </div>
+                                </div>
+                            </Tarjeta>
                         ))}
                     </div>
 
@@ -405,17 +356,11 @@ export default function Remisiones() {
                         const q = busqueda.toLowerCase();
                         return String(r.numero || r.id).includes(q) || (r.numero_orden || '').toLowerCase().includes(q) || (r.conductor || '').toLowerCase().includes(q) || (r.vehiculo || '').toLowerCase().includes(q);
                     }).length === 0 && (
-                        <div style={{ background: '#fff', borderRadius: 10, padding: 30, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                            <div style={{ fontSize: 32 }}>🔍</div>
-                            <p style={{ color: '#999', marginTop: 8, fontSize: 13 }}>Sin resultados para "<strong>{busqueda}</strong>"</p>
-                        </div>
+                        <Tarjeta><Vacio icono="remisiones" texto={`Sin resultados para "${busqueda}"`} /></Tarjeta>
                     )}
 
                     {remisiones.length === 0 && !busqueda && (
-                        <div style={{ background: '#fff', borderRadius: 10, padding: 40, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                            <div style={{ fontSize: 40 }}>🚛</div>
-                            <p style={{ color: '#999', marginTop: 12, fontSize: 13 }}>No hay remisiones registradas. Las fotos enviadas por Telegram aparecen aquí automáticamente.</p>
-                        </div>
+                        <Tarjeta><Vacio icono="remisiones" texto="No hay remisiones registradas. Las fotos enviadas por Telegram aparecen aquí automáticamente." /></Tarjeta>
                     )}
                 </>
             )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import { EncabezadoPagina } from '../components/ui';
 
 export default function Configuracion() {
     const { user } = useAuth();
@@ -144,12 +145,12 @@ export default function Configuracion() {
     const logoActual = logoPreview || empresa.logo_url;
 
     return (
-        <div style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>⚙️ Configuración</h2>
+        <div className="pagina" style={{ maxWidth: 760 }}>
+            <EncabezadoPagina titulo="Configuración" sub="Empresa, bot de Telegram y tu perfil" icono="configuracion" />
 
             {/* ── Empresa ── */}
             <div style={s.card}>
-                <h3 style={s.cardTitle}>🏢 Datos de la empresa</h3>
+                <h3 style={s.cardTitle}>Datos de la empresa</h3>
                 <form onSubmit={guardarEmpresa}>
                     {/* Logo */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
@@ -189,7 +190,7 @@ export default function Configuracion() {
 
             {/* ── Telegram ── */}
             <div style={s.card}>
-                <h3 style={s.cardTitle}>🤖 Bot Telegram — chats autorizados</h3>
+                <h3 style={s.cardTitle}>Bot de Telegram · chats autorizados</h3>
                 <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
                     Solo los chats de esta lista pueden usar el bot. Si la lista está vacía, cualquiera con el enlace puede usarlo.<br />
                     Para saber tu chat ID, abre el bot en Telegram y envía <strong>/start</strong>.
@@ -198,10 +199,10 @@ export default function Configuracion() {
                 {telegramChats.length > 0 && (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 16 }}>
                         <thead>
-                            <tr style={{ background: '#f0faf0' }}>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Nombre</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Chat ID</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Rol</th>
+                            <tr style={{ background: '#f6f8fa' }}>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--verde-osc)', fontWeight: 600 }}>Nombre</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--verde-osc)', fontWeight: 600 }}>Chat ID</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--verde-osc)', fontWeight: 600 }}>Rol</th>
                                 <th style={{ width: 40 }}></th>
                             </tr>
                         </thead>
@@ -255,7 +256,7 @@ export default function Configuracion() {
 
             {/* ── Perfil ── */}
             <div style={s.card}>
-                <h3 style={s.cardTitle}>👤 Mi perfil</h3>
+                <h3 style={s.cardTitle}>Mi perfil</h3>
                 <form onSubmit={guardarPerfil}>
                     <label style={s.label}>
                         Nombre
@@ -294,8 +295,8 @@ export default function Configuracion() {
 
             {/* ── Auditoría de préstamos (solo superadmin) ── */}
             {user?.rol === 'superadmin' && (
-                <div style={{ ...s.card, border: '1px solid #bfdbfe' }}>
-                    <h3 style={{ ...s.cardTitle, color: '#2563eb' }}>🔍 Auditar saldos de préstamos</h3>
+                <div style={{ ...s.card, borderColor: 'var(--azul)' }}>
+                    <h3 style={{ ...s.cardTitle, color: 'var(--azul)' }}>Auditar saldos de préstamos</h3>
                     <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
                         Revisa que el <strong>saldo de préstamo</strong> de cada reciclador coincida con sus abonos y préstamos pendientes.
                         Corrige saldos que quedaron <strong>negativos o inflados</strong>. Primero muestra lo que encontró; <strong>no cambia nada</strong> hasta que confirmes.
@@ -317,13 +318,13 @@ export default function Configuracion() {
                                     </div>
                                 ))}
                             </div>
-                            <button type="button" onClick={repararPrestamos} disabled={auditando} style={{ ...s.btn, background: '#2563eb', marginTop: 12 }}>
+                            <button type="button" onClick={repararPrestamos} disabled={auditando} style={{ ...s.btn, background: 'var(--azul)', borderColor: 'transparent', marginTop: 12 }}>
                                 {auditando ? 'Corrigiendo...' : '✅ Corregir estos saldos'}
                             </button>
                         </div>
                     )}
 
-                    <button type="button" onClick={revisarPrestamos} disabled={auditando} style={{ ...s.btn, background: auditReporte ? '#6b7280' : '#2563eb' }}>
+                    <button type="button" onClick={revisarPrestamos} disabled={auditando} style={{ ...s.btn, background: auditReporte ? 'var(--texto-2)' : 'var(--azul)', borderColor: 'transparent' }}>
                         {auditando ? 'Revisando...' : (auditReporte ? '🔄 Revisar de nuevo' : '🔍 Revisar saldos')}
                     </button>
                 </div>
@@ -331,14 +332,14 @@ export default function Configuracion() {
 
             {/* ── Zona de peligro (solo superadmin) ── */}
             {user?.rol === 'superadmin' && (
-                <div style={{ ...s.card, border: '1px solid #fca5a5' }}>
-                    <h3 style={{ ...s.cardTitle, color: '#dc2626' }}>🧹 Limpiar datos de prueba</h3>
+                <div style={{ ...s.card, borderColor: 'var(--rojo)' }}>
+                    <h3 style={{ ...s.cardTitle, color: 'var(--rojo)' }}>Limpiar datos de prueba</h3>
                     <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
                         Borra <strong>todas las ventas, compras, cajas, movimientos, remisiones y préstamos</strong> de todas las bodegas, para dejar el sistema limpio antes de operar en real.
                         <strong> No</strong> borra clientes, recicladores, materiales ni empleados. Esta acción es <strong>irreversible</strong>.
                     </p>
                     {msgLimpiar && <div style={msgLimpiar.ok ? s.ok : s.err}>{msgLimpiar.texto}</div>}
-                    <button type="button" onClick={limpiarDatosPrueba} disabled={limpiando} style={{ ...s.btn, background: '#dc2626' }}>
+                    <button type="button" onClick={limpiarDatosPrueba} disabled={limpiando} style={{ ...s.btn, background: 'var(--rojo)', borderColor: 'transparent' }}>
                         {limpiando ? 'Limpiando...' : '🧹 Limpiar datos de prueba'}
                     </button>
                 </div>
@@ -348,11 +349,11 @@ export default function Configuracion() {
 }
 
 const s = {
-    card:      { background: '#fff', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,.08)' },
-    cardTitle: { fontSize: 15, fontWeight: 700, marginBottom: 20, color: '#111' },
-    label:     { display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 14 },
-    input:     { display: 'block', width: '100%', marginTop: 5, padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' },
-    btn:       { marginTop: 4, padding: '11px 24px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-    ok:        { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '10px 12px', color: '#166534', fontSize: 13, marginBottom: 12 },
-    err:       { background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '10px 12px', color: '#dc2626', fontSize: 13, marginBottom: 12 },
+    card:      { background: '#fff', borderRadius: 'var(--radio)', padding: 'clamp(16px, 3vw, 22px)', marginBottom: 14, border: '1.5px solid var(--borde)', boxShadow: 'var(--sombra)' },
+    cardTitle: { fontFamily: 'var(--fuente-tit)', fontSize: 17, fontWeight: 800, letterSpacing: .5, textTransform: 'uppercase', marginBottom: 16, color: 'var(--texto)' },
+    label:     { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--texto-2)', marginBottom: 14 },
+    input:     { display: 'block', width: '100%', marginTop: 5, height: 42, padding: '0 12px', border: '1.5px solid var(--borde-fuerte)', borderRadius: 9, fontSize: 14.5, boxSizing: 'border-box' },
+    btn:       { marginTop: 4, minHeight: 42, padding: '0 20px', background: 'var(--verde)', color: '#fff', border: '2px solid var(--verde-osc)', borderRadius: 10, fontFamily: 'var(--fuente-tit)', fontSize: 16, fontWeight: 700, letterSpacing: .4, cursor: 'pointer' },
+    ok:        { background: 'var(--verde-suave)', border: '1.5px solid var(--verde-borde)', borderRadius: 9, padding: '10px 12px', color: 'var(--verde-osc)', fontSize: 13.5, marginBottom: 12 },
+    err:       { background: 'var(--rojo-suave)', border: '1.5px solid var(--rojo-borde)', borderRadius: 9, padding: '10px 12px', color: '#991b1b', fontSize: 13.5, marginBottom: 12 },
 };

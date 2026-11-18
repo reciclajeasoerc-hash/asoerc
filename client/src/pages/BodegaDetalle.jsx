@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { EncabezadoPagina, Boton, Pestanas, Tarjeta, Kpi, RejillaKpi, Chip, ContenedorTabla, estiloTabla, estiloTh, estiloTd, Campo, estiloInput, Modal, Vacio, Cargando, Aviso } from '../components/ui';
 
 const TABS = [
-    { id: 'resumen',      label: 'Resumen',      icon: '📊' },
-    { id: 'compras',      label: 'Compras',       icon: '⚖️' },
-    { id: 'ventas',       label: 'Ventas',        icon: '📤' },
-    { id: 'recicladores', label: 'Recicladores',  icon: '♻️' },
-    { id: 'empleados',    label: 'Empleados',     icon: '👷' },
-    { id: 'caja',         label: 'Caja',          icon: '💰' },
-    { id: 'remisiones',   label: 'Remisiones',    icon: '🚛' },
-    { id: 'empaques',     label: 'Empaques',      icon: '🛍️' },
-    { id: 'usuarios',     label: 'Usuarios',      icon: '👥' },
+    { id: 'resumen',      label: 'Resumen',      icono: 'dashboard' },
+    { id: 'compras',      label: 'Compras',       icono: 'compras' },
+    { id: 'ventas',       label: 'Ventas',        icono: 'ventas' },
+    { id: 'recicladores', label: 'Recicladores',  icono: 'recicladores' },
+    { id: 'empleados',    label: 'Empleados',     icono: 'empleados' },
+    { id: 'caja',         label: 'Caja',          icono: 'caja' },
+    { id: 'remisiones',   label: 'Remisiones',    icono: 'remisiones' },
+    { id: 'empaques',     label: 'Empaques',      icono: 'empaques' },
+    { id: 'usuarios',     label: 'Usuarios',      icono: 'usuarios' },
 ];
 
 const ROLES = ['admin', 'cajero', 'vendedor', 'operador'];
-const ROLE_COLORS = { superadmin: '#f59e0b', admin: '#3b82f6', cajero: '#10b981', vendedor: '#8b5cf6', operador: '#6b7280' };
+const ROLE_COLORS = { superadmin: 'ambar', admin: 'azul', cajero: 'verde', vendedor: 'noche', operador: 'gris' };
 const ROLE_LABELS = { superadmin: 'Super Admin', admin: 'Admin', cajero: 'Cajero', vendedor: 'Vendedor', operador: 'Operador' };
 
 const fmt  = n => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n || 0);
@@ -86,41 +87,22 @@ export default function BodegaDetalle() {
 
     useEffect(() => { if (bodega) cargarTab(tab); }, [tab, bodega]);
 
-    if (!bodega) return <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Cargando bodega...</div>;
+    if (!bodega) return <div className="pagina"><Cargando texto="Cargando bodega..." /></div>;
 
     const d = data[tab] || {};
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="pagina">
             {/* Header */}
-            <div style={{ background: '#1a5c2a', color: '#fff', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                <button onClick={() => navigate('/bodegas')} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                    ← Bodegas
-                </button>
-                <div>
-                    <div style={{ fontSize: 20, fontWeight: 700 }}>🏭 {bodega.nombre}</div>
-                    {bodega.direccion && <div style={{ fontSize: 13, color: '#a8d5b5' }}>📍 {bodega.direccion}</div>}
-                </div>
-            </div>
+            <EncabezadoPagina titulo={bodega.nombre} sub={bodega.direccion} icono="bodegas"
+                volver={() => navigate('/bodegas')} textoVolver="Bodegas" />
 
             {/* Tabs */}
-            <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', overflowX: 'auto', flexShrink: 0 }}>
-                {TABS.map(t => (
-                    <button key={t.id} onClick={() => setTab(t.id)} style={{
-                        border: 'none', background: 'none', padding: '12px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                        color: tab === t.id ? '#1a5c2a' : '#6b7280',
-                        borderBottom: tab === t.id ? '2px solid #1a5c2a' : '2px solid transparent',
-                        whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6,
-                        transition: 'color .15s'
-                    }}>
-                        <span>{t.icon}</span> {t.label}
-                    </button>
-                ))}
-            </div>
+            <Pestanas items={TABS} activa={tab} onChange={setTab} />
 
             {/* Content */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-                {loading && <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</div>}
+            <div>
+                {loading && <Cargando />}
 
                 {!loading && tab === 'resumen' && <TabResumen d={d} fmt={fmt} fmtN={fmtN} />}
                 {!loading && tab === 'compras' && <TabCompras items={d.items || []} fmt={fmt} fmtN={fmtN} />}
@@ -142,16 +124,15 @@ function TabResumen({ d, fmt, fmtN }) {
     const c = dash.compras || {};
     const v = dash.ventas  || {};
     return (
-        <div>
-            <h3 style={secTitle}>Resumen del día — {dash.hoy || '...'}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
-                <StatCard label="Compras hoy" valor={fmt(c.pesos)} sub={`${c.cantidad || 0} compras · ${fmtN(c.kilos)} kg`} color="#1a5c2a" icon="⚖️" />
-                <StatCard label="Ventas hoy" valor={fmt(v.pesos)} sub={`${v.cantidad || 0} ventas · ${fmtN(v.kilos)} kg`} color="#3b82f6" icon="📤" />
-                <StatCard label="Recicladores" valor={d.recicladores?.filter(r => r.activo).length || 0} sub="activos" color="#10b981" icon="♻️" />
-                <StatCard label="Empleados" valor={d.empleados?.filter(e => e.activo).length || 0} sub="activos" color="#8b5cf6" icon="👷" />
-                <StatCard label="Usuarios" valor={d.usuarios?.filter(u => u.activo).length || 0} sub="con acceso" color="#f59e0b" icon="👥" />
-            </div>
-        </div>
+        <Tarjeta titulo={`Resumen del día — ${dash.hoy || '...'}`} icono="dashboard">
+            <RejillaKpi>
+                <Kpi titulo="Compras hoy" valor={fmt(c.pesos)} pie={`${c.cantidad || 0} compras · ${fmtN(c.kilos)} kg`} icono="compras" tono="verde" />
+                <Kpi titulo="Ventas hoy" valor={fmt(v.pesos)} pie={`${v.cantidad || 0} ventas · ${fmtN(v.kilos)} kg`} icono="ventas" tono="marco" />
+                <Kpi titulo="Recicladores" valor={d.recicladores?.filter(r => r.activo).length || 0} pie="activos" icono="recicladores" tono="verde" />
+                <Kpi titulo="Empleados" valor={d.empleados?.filter(e => e.activo).length || 0} pie="activos" icono="empleados" tono="claro" />
+                <Kpi titulo="Usuarios" valor={d.usuarios?.filter(u => u.activo).length || 0} pie="con acceso" icono="usuarios" tono="ambar" />
+            </RejillaKpi>
+        </Tarjeta>
     );
 }
 
@@ -159,7 +140,7 @@ function TabResumen({ d, fmt, fmtN }) {
 function TabCompras({ items, fmt, fmtN }) {
     return (
         <div>
-            <h3 style={secTitle}>Compras ({items.length})</h3>
+            <h3 className="tit-seccion" style={secTitle}>Compras ({items.length})</h3>
             <DataTable
                 cols={['#', 'Fecha', 'Reciclador', 'Total', 'Neto', 'Estado']}
                 rows={items.map(c => [
@@ -168,7 +149,7 @@ function TabCompras({ items, fmt, fmtN }) {
                     c.reciclador?.nombre || '—',
                     fmt(c.total),
                     fmt(c.neto),
-                    <Badge text={c.estado} color={c.estado === 'finalizada' ? '#10b981' : '#f59e0b'} />
+                    <Badge text={c.estado} color={c.estado === 'finalizada' ? 'verde' : 'ambar'} />
                 ])}
                 empty="No hay compras registradas"
             />
@@ -180,7 +161,7 @@ function TabCompras({ items, fmt, fmtN }) {
 function TabVentas({ items, fmt }) {
     return (
         <div>
-            <h3 style={secTitle}>Ventas ({items.length})</h3>
+            <h3 className="tit-seccion" style={secTitle}>Ventas ({items.length})</h3>
             <DataTable
                 cols={['#', 'Fecha', 'Cliente', 'Total', 'Pago', 'Estado']}
                 rows={items.map(v => [
@@ -189,7 +170,7 @@ function TabVentas({ items, fmt }) {
                     v.cliente?.nombre || '—',
                     fmt(v.total),
                     v.tipo_pago,
-                    <Badge text={v.estado} color={v.estado === 'pagada' ? '#10b981' : v.estado === 'facturada' ? '#3b82f6' : '#f59e0b'} />
+                    <Badge text={v.estado} color={v.estado === 'pagada' ? 'verde' : v.estado === 'facturada' ? 'azul' : 'ambar'} />
                 ])}
                 empty="No hay ventas registradas"
             />
@@ -201,7 +182,7 @@ function TabVentas({ items, fmt }) {
 function TabRecicladores({ items, fmt }) {
     return (
         <div>
-            <h3 style={secTitle}>Recicladores ({items.length})</h3>
+            <h3 className="tit-seccion" style={secTitle}>Recicladores ({items.length})</h3>
             <DataTable
                 cols={['Nombre', 'Cédula', 'Teléfono', 'Saldo préstamo', 'Estado']}
                 rows={items.map(r => [
@@ -209,7 +190,7 @@ function TabRecicladores({ items, fmt }) {
                     r.cedula || '—',
                     r.telefono || '—',
                     fmt(r.saldo_prestamo),
-                    <Badge text={r.activo ? 'Activo' : 'Inactivo'} color={r.activo ? '#10b981' : '#ef4444'} />
+                    <Badge text={r.activo ? 'Activo' : 'Inactivo'} color={r.activo ? 'verde' : 'rojo'} />
                 ])}
                 empty="No hay recicladores registrados"
             />
@@ -221,7 +202,7 @@ function TabRecicladores({ items, fmt }) {
 function TabEmpleados({ items, fmt }) {
     return (
         <div>
-            <h3 style={secTitle}>Empleados ({items.length})</h3>
+            <h3 className="tit-seccion" style={secTitle}>Empleados ({items.length})</h3>
             <DataTable
                 cols={['Nombre', 'Cédula', 'Cargo', 'Salario', 'Estado']}
                 rows={items.map(e => [
@@ -229,7 +210,7 @@ function TabEmpleados({ items, fmt }) {
                     e.cedula || '—',
                     e.cargo || '—',
                     fmt(e.salario),
-                    <Badge text={e.activo ? 'Activo' : 'Inactivo'} color={e.activo ? '#10b981' : '#ef4444'} />
+                    <Badge text={e.activo ? 'Activo' : 'Inactivo'} color={e.activo ? 'verde' : 'rojo'} />
                 ])}
                 empty="No hay empleados registrados"
             />
@@ -241,19 +222,19 @@ function TabEmpleados({ items, fmt }) {
 function TabCaja({ caja, historial, fmt }) {
     return (
         <div>
-            <h3 style={secTitle}>Caja actual</h3>
+            <h3 className="tit-seccion" style={secTitle}>Caja actual</h3>
             {caja ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14, marginBottom: 28 }}>
-                    <StatCard label="Saldo inicial"   valor={fmt(caja.saldo_inicial)}   color="#6b7280" icon="🏦" />
-                    <StatCard label="Ingresos"        valor={fmt(caja.total_ingresos)}  color="#10b981" icon="⬆️" />
-                    <StatCard label="Egresos"         valor={fmt(caja.total_egresos)}   color="#ef4444" icon="⬇️" />
-                    <StatCard label="Saldo actual"    valor={fmt(caja.saldo_final)}     color="#1a5c2a" icon="💰" />
-                </div>
+                <RejillaKpi>
+                    <Kpi titulo="Saldo inicial" valor={fmt(caja.saldo_inicial)} icono="caja" tono="claro" />
+                    <Kpi titulo="Ingresos" valor={fmt(caja.total_ingresos)} icono="subir" tono="verde" />
+                    <Kpi titulo="Egresos" valor={fmt(caja.total_egresos)} icono="bajar" tono="rojo" />
+                    <Kpi titulo="Saldo actual" valor={fmt(caja.saldo_final)} icono="caja" tono="noche" />
+                </RejillaKpi>
             ) : (
-                <div style={emptyStyle}>No hay caja abierta hoy</div>
+                <Tarjeta><Vacio icono="caja" texto="No hay caja abierta hoy" /></Tarjeta>
             )}
 
-            <h3 style={secTitle}>Historial de cajas</h3>
+            <h3 className="tit-seccion" style={secTitle}>Historial de cajas</h3>
             <DataTable
                 cols={['Fecha', 'Saldo inicial', 'Ingresos', 'Egresos', 'Saldo final', 'Estado']}
                 rows={historial.map(c => [
@@ -262,7 +243,7 @@ function TabCaja({ caja, historial, fmt }) {
                     fmt(c.total_ingresos),
                     fmt(c.total_egresos),
                     fmt(c.saldo_final),
-                    <Badge text={c.estado} color={c.estado === 'cerrada' ? '#6b7280' : '#10b981'} />
+                    <Badge text={c.estado} color={c.estado === 'cerrada' ? 'gris' : 'verde'} />
                 ])}
                 empty="Sin historial de cajas"
             />
@@ -274,7 +255,7 @@ function TabCaja({ caja, historial, fmt }) {
 function TabRemisiones({ items, fmtN }) {
     return (
         <div>
-            <h3 style={secTitle}>Remisiones ({items.length})</h3>
+            <h3 className="tit-seccion" style={secTitle}>Remisiones ({items.length})</h3>
             <DataTable
                 cols={['#', 'Fecha', 'Conductor', 'Cliente', 'Vehículo', 'Total kg']}
                 rows={items.map(r => [
@@ -295,7 +276,7 @@ function TabRemisiones({ items, fmtN }) {
 function TabEmpaques({ items }) {
     return (
         <div>
-            <h3 style={secTitle}>Empaques ({items.length})</h3>
+            <h3 className="tit-seccion" style={secTitle}>Empaques ({items.length})</h3>
             <DataTable
                 cols={['Fecha', 'Actor', 'Tipo', 'Entregados', 'Devueltos', 'Saldo']}
                 rows={items.map(e => [
@@ -304,7 +285,7 @@ function TabEmpaques({ items }) {
                     e.tipo_actor,
                     e.cantidad_entregada,
                     e.cantidad_devuelta,
-                    <span style={{ fontWeight: 700, color: e.saldo > 0 ? '#ef4444' : '#10b981' }}>{e.saldo}</span>
+                    <span className="cifra" style={{ fontSize: 15, color: e.saldo > 0 ? 'var(--rojo)' : 'var(--verde-osc)' }}>{e.saldo}</span>
                 ])}
                 empty="No hay registros de empaques"
             />
@@ -352,8 +333,8 @@ function TabUsuarios({ items, bodegaId, onRefresh }) {
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ ...secTitle, margin: 0 }}>Usuarios ({items.length})</h3>
-                <button onClick={() => abrir()} style={btnP}>+ Nuevo usuario</button>
+                <h3 className="tit-seccion" style={{ ...secTitle, margin: 0 }}>Usuarios ({items.length})</h3>
+                <Boton onClick={() => abrir()} icono="usuarios">Nuevo usuario</Boton>
             </div>
 
             <DataTable
@@ -361,96 +342,88 @@ function TabUsuarios({ items, bodegaId, onRefresh }) {
                 rows={items.map(u => [
                     <span style={{ fontWeight: 600 }}>{u.nombre}</span>,
                     u.email,
-                    <Badge text={ROLE_LABELS[u.rol] || u.rol} color={ROLE_COLORS[u.rol] || '#6b7280'} />,
-                    <Badge text={u.activo ? 'Activo' : 'Inactivo'} color={u.activo ? '#10b981' : '#ef4444'} />,
-                    <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => abrir(u)} style={btnSm('#3b82f6')}>Editar</button>
-                        <button onClick={() => toggleActivo(u)} style={btnSm(u.activo ? '#ef4444' : '#10b981')}>
+                    <Badge text={ROLE_LABELS[u.rol] || u.rol} color={ROLE_COLORS[u.rol] || 'gris'} />,
+                    <Badge text={u.activo ? 'Activo' : 'Inactivo'} color={u.activo ? 'verde' : 'rojo'} />,
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <Boton tam="sm" variante="secundario" onClick={() => abrir(u)}>Editar</Boton>
+                        <Boton tam="sm" variante={u.activo ? 'peligro' : 'primario'} onClick={() => toggleActivo(u)}>
                             {u.activo ? 'Desactivar' : 'Activar'}
-                        </button>
+                        </Boton>
                     </div>
                 ])}
                 empty="No hay usuarios para esta bodega"
             />
 
-            {modal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: '#fff', borderRadius: 10, padding: 28, width: 400, maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
-                        <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>
-                            {editId ? 'Editar usuario' : 'Nuevo usuario'}
-                        </h3>
-                        <label style={lbl}>Nombre</label>
-                        <input style={inp} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre completo" />
-                        <label style={lbl}>Email</label>
-                        <input style={inp} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="correo@empresa.com" />
-                        <label style={lbl}>{editId ? 'Nueva contraseña (vacío = sin cambio)' : 'Contraseña'}</label>
-                        <input style={inp} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
-                        <label style={lbl}>Rol</label>
-                        <select style={inp} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))}>
+            <Modal abierto={modal} titulo={editId ? 'Editar usuario' : 'Nuevo usuario'} onCerrar={() => setModal(false)}
+                pie={<>
+                    <Boton variante="secundario" onClick={() => setModal(false)}>Cancelar</Boton>
+                    <Boton onClick={guardar} disabled={saving}>{saving ? 'Guardando...' : (editId ? 'Guardar' : 'Crear usuario')}</Boton>
+                </>}>
+                <div className="rejilla-form">
+                    <Campo etiqueta="Nombre">
+                        <input style={estiloInput} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre completo" />
+                    </Campo>
+                    <Campo etiqueta="Email">
+                        <input style={estiloInput} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="correo@empresa.com" />
+                    </Campo>
+                    <Campo etiqueta={editId ? 'Nueva contraseña (vacío = sin cambio)' : 'Contraseña'}>
+                        <input style={estiloInput} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
+                    </Campo>
+                    <Campo etiqueta="Rol">
+                        <select style={estiloInput} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))}>
                             {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                         </select>
-                        {error && <p style={{ color: '#ef4444', fontSize: 13, margin: '8px 0' }}>{error}</p>}
-                        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                            <button onClick={guardar} disabled={saving} style={btnP}>
-                                {saving ? 'Guardando...' : (editId ? 'Guardar' : 'Crear usuario')}
-                            </button>
-                            <button onClick={() => setModal(false)} style={btnSec}>Cancelar</button>
-                        </div>
-                    </div>
+                    </Campo>
+                    {error && <Aviso tipo="error">{error}</Aviso>}
                 </div>
-            )}
+            </Modal>
         </div>
     );
 }
 
 // ── Componentes reutilizables ─────────────────────────────────────────────────
-function StatCard({ label, valor, sub, color, icon }) {
-    return (
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px', borderTop: `3px solid ${color}` }}>
-            <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color }}>{valor}</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{label}</div>
-            {sub && <div style={{ fontSize: 11, color: '#b0b7c3', marginTop: 2 }}>{sub}</div>}
-        </div>
-    );
-}
-
 function DataTable({ cols, rows, empty }) {
-    if (rows.length === 0) return <div style={emptyStyle}>{empty}</div>;
+    if (rows.length === 0) return <Tarjeta><Vacio texto={empty} /></Tarjeta>;
     return (
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                    <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                        {cols.map((c, i) => <th key={i} style={th}>{c}</th>)}
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((row, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                            {row.map((cell, j) => <td key={j} style={td}>{cell}</td>)}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+        <Tarjeta sinPadding>
+            <div className="solo-pc">
+                <ContenedorTabla>
+                    <table style={estiloTabla}>
+                        <thead>
+                            <tr>
+                                {cols.map((c, i) => <th key={i} style={estiloTh}>{c}</th>)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, i) => (
+                                <tr key={i}>
+                                    {row.map((cell, j) => <td key={j} style={estiloTd}>{cell}</td>)}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </ContenedorTabla>
+            </div>
+            <div className="solo-movil">
+                {rows.map((row, i) => (
+                    <div key={i} style={{ padding: '13px 14px', borderBottom: '1px solid var(--borde)' }}>
+                        {row.map((cell, j) => (
+                            <div key={j} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '4px 0' }}>
+                                <span className="etiqueta" style={{ color: 'var(--texto-3)', flexShrink: 0 }}>{cols[j]}</span>
+                                <div style={{ minWidth: 0, textAlign: 'right', overflowWrap: 'anywhere' }}>{cell}</div>
+                            </div>
+                        ))}
+                    </div>
+                ))}
+            </div>
+        </Tarjeta>
     );
 }
 
 function Badge({ text, color }) {
     return (
-        <span style={{ background: color, color: '#fff', fontSize: 11, padding: '2px 10px', borderRadius: 12, fontWeight: 600, display: 'inline-block' }}>
-            {text}
-        </span>
+        <Chip tono={color}>{text}</Chip>
     );
 }
 
-const secTitle = { fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 14, marginTop: 0 };
-const emptyStyle = { textAlign: 'center', padding: 40, color: '#9ca3af', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' };
-const th = { textAlign: 'left', padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .5 };
-const td = { padding: '11px 14px', verticalAlign: 'middle' };
-const lbl = { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4, marginTop: 12 };
-const inp = { width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' };
-const btnP   = { background: '#1a5c2a', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600 };
-const btnSec = { background: '#f3f4f6', color: '#374151', border: 'none', padding: '8px 16px', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600 };
-const btnSm  = (bg) => ({ background: bg, color: '#fff', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontWeight: 600 });
+const secTitle = { fontSize: 16, fontWeight: 700, color: 'var(--texto)', marginBottom: 14, marginTop: 0 };

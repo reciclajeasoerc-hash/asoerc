@@ -22,18 +22,18 @@ export default function InstalarApp() {
         <>
             <button
                 onClick={() => setMostrarIOS(v => !v)}
-                style={{ background: '#2d7a3f', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                📲 Instalar
+                style={{ background: 'var(--noche-2)', color: '#fff', border: '1.5px solid var(--noche-3)', borderRadius: 9, padding: '8px 12px', fontSize: 13, cursor: 'pointer', fontWeight: 600, width: '100%' }}>
+                Instalar la app
             </button>
             {mostrarIOS && (
-                <div style={{ position: 'fixed', bottom: 20, left: 16, right: 16, background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 8px 32px rgba(0,0,0,.25)', zIndex: 9999, border: '2px solid #1a5c2a' }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#1a5c2a' }}>📲 Instalar ASOERC en iPhone/iPad</div>
+                <div style={{ position: 'fixed', bottom: 20, left: 16, right: 16, background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 8px 32px rgba(0,0,0,.25)', zIndex: 9999, border: '2px solid var(--verde-osc)' }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: 'var(--verde-osc)' }}>📲 Instalar ASOERC en iPhone/iPad</div>
                     <div style={{ fontSize: 13, color: '#444', lineHeight: 1.6 }}>
                         1. Toca el botón <strong>Compartir</strong> (□↑) en Safari<br />
                         2. Baja y toca <strong>"Agregar a pantalla de inicio"</strong><br />
                         3. Toca <strong>Agregar</strong>
                     </div>
-                    <button onClick={() => setMostrarIOS(false)} style={{ marginTop: 14, width: '100%', padding: '10px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                    <button onClick={() => setMostrarIOS(false)} style={{ marginTop: 14, width: '100%', padding: '10px', background: 'var(--verde-osc)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                         Entendido
                     </button>
                 </div>
@@ -51,8 +51,8 @@ export default function InstalarApp() {
                 if (outcome === 'accepted') setInstalado(true);
                 setPrompt(null);
             }}
-            style={{ background: '#2d7a3f', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-            📲 Instalar App
+            style={{ background: 'var(--noche-2)', color: '#fff', border: '1.5px solid var(--noche-3)', borderRadius: 9, padding: '8px 12px', fontSize: 13, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
+            Instalar la app en este equipo
         </button>
     );
 }

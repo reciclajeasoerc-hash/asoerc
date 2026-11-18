@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import PickerBuscable from '../components/PickerBuscable';
 import CajaOrigen from '../components/CajaOrigen';
+import {
+    EncabezadoPagina, Boton, Pestanas, Tarjeta, Kpi, RejillaKpi, Chip, ContenedorTabla,
+    estiloTabla, estiloTh, estiloTd, estiloTdNum, estiloInput, Campo, Modal,
+    Vacio, Aviso
+} from '../components/ui';
 
 // Fecha de Colombia (con toISOString, después de las 7 pm ya daba "mañana" y la plata caía en la caja del día siguiente)
 const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
@@ -34,23 +39,19 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
     };
 
     return (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>+ Nuevo Préstamo</h3>
-                <div style={{ display: 'grid', gap: 12 }}>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Tipo</div>
+        <Modal titulo="Nuevo préstamo" onCerrar={onClose}
+            pie={<><Boton variante="secundario" onClick={onClose}>Cancelar</Boton><Boton onClick={guardar} disabled={loading}>{loading ? 'Guardando...' : 'Registrar préstamo'}</Boton></>}>
+                <div className="rejilla-form">
+                    <Campo etiqueta="Tipo">
                         <div style={{ display: 'flex', gap: 8 }}>
-                            {[['reciclador','♻️ Reciclador'],['empleado','👷 Empleado']].map(([k,l]) => (
-                                <button key={k} onClick={() => setTipo(k)}
-                                    style={{ flex: 1, padding: '8px', background: tipo === k ? '#1a5c2a' : '#f5f5f5', color: tipo === k ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                            {[['reciclador','Reciclador'],['empleado','Empleado']].map(([k,l]) => (
+                                <Boton key={k} variante={tipo === k ? 'primario' : 'secundario'} ancho onClick={() => setTipo(k)}>
                                     {l}
-                                </button>
+                                </Boton>
                             ))}
                         </div>
-                    </label>
-                    <div>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{tipo === 'reciclador' ? 'Reciclador' : 'Empleado'}*</div>
+                    </Campo>
+                    <Campo etiqueta={`${tipo === 'reciclador' ? 'Reciclador' : 'Empleado'} *`}>
                         <PickerBuscable
                             items={personas}
                             value={form.persona_id}
@@ -58,41 +59,29 @@ function ModalNuevoPrestamo({ onClose, onSaved }) {
                             placeholder={`Buscar ${tipo === 'reciclador' ? 'reciclador' : 'empleado'}...`}
                             fontSize={13}
                         />
-                    </div>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Monto ($)*</div>
+                    </Campo>
+                    <Campo etiqueta="Monto ($) *">
                         <input type="number" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Fecha</div>
+                            style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Fecha">
                         <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Descripción / Motivo</div>
+                            style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Descripción / Motivo">
                         <input value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                    </label>
+                            style={estiloInput} />
+                    </Campo>
                     <CajaOrigen value={form.bodega_id} onChange={v => setForm(f => ({ ...f, bodega_id: v }))} />
                     {tipo === 'empleado' && (
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Quincena (ej: 2026-05-15)</div>
+                        <Campo etiqueta="Quincena (ej: 2026-05-15)">
                             <input value={form.quincena} onChange={e => setForm({ ...form, quincena: e.target.value })}
-                                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                        </label>
+                                style={estiloInput} />
+                        </Campo>
                     )}
                 </div>
-                {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                    <button onClick={guardar} disabled={loading}
-                        style={{ flex: 1, padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                        {loading ? 'Guardando...' : 'Registrar préstamo'}
-                    </button>
-                    <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-                </div>
-            </div>
-        </div>
+                {msg && <Aviso tipo="error" style={{ marginTop: 8 }}>{msg}</Aviso>}
+        </Modal>
     );
 }
 
@@ -150,112 +139,123 @@ export default function Prestamos() {
     const totalPendRec = prestamosRec.filter(p => !p.pagado && !p.descontado).reduce((s, p) => s + saldoDe(p), 0);
     const totalPendEmp = prestamosEmp.filter(p => !p.pagado && !p.descontado).reduce((s, p) => s + saldoDe(p), 0);
 
-    const Btn = ({ active, onClick, children }) => (
-        <button onClick={onClick} style={{ padding: '7px 16px', background: active ? '#1a5c2a' : '#f5f5f5', color: active ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            {children}
-        </button>
-    );
-
     return (
-        <div style={{ padding: 24 }}>
+        <div className="pagina">
             {showModal && <ModalNuevoPrestamo onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); cargar(); }} />}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700 }}>💳 Préstamos</h1>
-                    <p style={{ color: '#666', fontSize: 13 }}>Recicladores y empleados con saldo pendiente</p>
-                </div>
-                <button onClick={() => setShowModal(true)} style={{ padding: '9px 18px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    + Nuevo préstamo
-                </button>
-            </div>
+            <EncabezadoPagina titulo="Préstamos" sub="Recicladores y empleados con saldo pendiente" icono="prestamos" acciones={<Boton icono="agregar" onClick={() => setShowModal(true)}>Nuevo préstamo</Boton>} />
 
-            {/* Resumen */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, marginBottom: 24 }}>
-                {[
-                    ['💳 Total pendiente', `$${fmt(totalPendRec + totalPendEmp)}`, '#dc2626', '#fef2f2'],
-                    ['♻️ Recicladores', `$${fmt(totalPendRec)}`, '#1a5c2a', '#f0faf0'],
-                    ['👷 Empleados', `$${fmt(totalPendEmp)}`, '#2563eb', '#eff6ff'],
-                    ['📋 Total préstamos', pendientes.length, '#7c3aed', '#f5f3ff'],
-                ].map(([t, v, c, bg]) => (
-                    <div key={t} style={{ background: bg, borderRadius: 10, padding: 16, borderLeft: `4px solid ${c}` }}>
-                        <div style={{ fontSize: 12, color: '#666' }}>{t}</div>
-                        <div style={{ fontSize: 22, fontWeight: 700, color: c, marginTop: 4 }}>{v}</div>
-                    </div>
-                ))}
-            </div>
+            <RejillaKpi>
+                <Kpi titulo="Total pendiente" valor={`$${fmt(totalPendRec + totalPendEmp)}`} tono="rojo" />
+                <Kpi titulo="Recicladores" valor={`$${fmt(totalPendRec)}`} tono="verde" />
+                <Kpi titulo="Empleados" valor={`$${fmt(totalPendEmp)}`} tono="marco" />
+                <Kpi titulo="Total préstamos" valor={pendientes.length} tono="claro" />
+            </RejillaKpi>
 
             {/* Filtros */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                <Btn active={tab === 'pendientes'} onClick={() => setTab('pendientes')}>⏳ Pendientes ({pendientes.length})</Btn>
-                <Btn active={tab === 'pagados'} onClick={() => setTab('pagados')}>✅ Pagados ({pagados.length})</Btn>
-                <div style={{ marginLeft: 16, display: 'flex', gap: 6 }}>
-                    {[['todos','Todos'],['reciclador','♻️ Recicladores'],['empleado','👷 Empleados']].map(([k,l]) => (
-                        <button key={k} onClick={() => setFiltroTipo(k)}
-                            style={{ padding: '7px 14px', background: filtroTipo === k ? '#374151' : '#f0f0f0', color: filtroTipo === k ? '#fff' : '#555', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+            <Pestanas
+                items={[
+                    { id: 'pendientes', label: `Pendientes (${pendientes.length})`, icono: 'prestamos' },
+                    { id: 'pagados', label: `Pagados (${pagados.length})`, icono: 'prestamos' },
+                ]}
+                activa={tab}
+                onChange={setTab}
+            />
+
+            <Tarjeta style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span className="etiqueta" style={{ color: 'var(--texto-2)' }}>Mostrar</span>
+                    {[['todos','Todos'],['reciclador','Recicladores'],['empleado','Empleados']].map(([k,l]) => (
+                        <Boton key={k} tam="sm" variante={filtroTipo === k ? 'noche' : 'secundario'} onClick={() => setFiltroTipo(k)}>
                             {l}
-                        </button>
+                        </Boton>
                     ))}
                 </div>
-            </div>
+            </Tarjeta>
 
             {/* Tabla */}
-            <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
+            <Tarjeta sinPadding>
                 {filtrados.length === 0 ? (
-                    <div style={{ padding: 40, textAlign: 'center', color: '#999', fontSize: 13 }}>
-                        <div style={{ fontSize: 36, marginBottom: 12 }}>💳</div>
-                        No hay préstamos {tab === 'pendientes' ? 'pendientes' : 'pagados'}
-                    </div>
+                    <Vacio icono="prestamos" texto={`No hay préstamos ${tab === 'pendientes' ? 'pendientes' : 'pagados'}`} />
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <>
+                    <div className="solo-pc">
+                    <ContenedorTabla><table style={estiloTabla}>
                         <thead>
-                            <tr style={{ background: '#f0faf0' }}>
+                            <tr>
                                 {['Persona','Tipo','Monto','Fecha','Descripción','Estado','Acción'].map(h => (
-                                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>
+                                    <th key={h} style={h === 'Monto' ? { ...estiloTh, textAlign: 'right' } : estiloTh}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {filtrados.map((p, i) => (
-                                <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{p.persona}</td>
-                                    <td style={{ padding: '10px 14px' }}>
-                                        <span style={{ background: p.tipo === 'reciclador' ? '#f0faf0' : '#eff6ff', color: p.tipo === 'reciclador' ? '#1a5c2a' : '#2563eb', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
-                                            {p.tipo === 'reciclador' ? '♻️ Reciclador' : '👷 Empleado'}
-                                        </span>
+                                <tr key={i}>
+                                    <td style={{ ...estiloTd, fontWeight: 700 }}>{p.persona}</td>
+                                    <td style={estiloTd}>
+                                        <Chip tono={p.tipo === 'reciclador' ? 'verde' : 'azul'}>
+                                            {p.tipo === 'reciclador' ? 'Reciclador' : 'Empleado'}
+                                        </Chip>
                                     </td>
-                                    <td style={{ padding: '10px 14px' }}>
-                                        <div style={{ fontWeight: 700, color: '#111' }}>${fmt(p.monto)}</div>
+                                    <td style={estiloTdNum}>
+                                        <div className="cifra">${fmt(p.monto)}</div>
                                         {parseFloat(p.abonado || 0) > 0 && (
                                             <div style={{ fontSize: 11, marginTop: 2 }}>
-                                                <span style={{ color: '#059669' }}>Abonado ${fmt(p.abonado)}</span>
-                                                {!(p.pagado || p.descontado) && <span style={{ color: '#dc2626', fontWeight: 700 }}> · Saldo ${fmt(saldoDe(p))}</span>}
+                                                <span style={{ color: 'var(--verde-osc)' }}>Abonado ${fmt(p.abonado)}</span>
+                                                {!(p.pagado || p.descontado) && <span style={{ color: 'var(--rojo)', fontWeight: 700 }}> · Saldo ${fmt(saldoDe(p))}</span>}
                                             </div>
                                         )}
                                     </td>
-                                    <td style={{ padding: '10px 14px', color: '#666', whiteSpace: 'nowrap' }}>{p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}{p.createdAt ? <span style={{ color: '#9ca3af' }}><br />🕒 {new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' })}</span> : ''}</td>
-                                    <td style={{ padding: '10px 14px', color: '#666' }}>{p.descripcion || '—'}</td>
-                                    <td style={{ padding: '10px 14px' }}>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-2)', whiteSpace: 'nowrap' }}>{p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}{p.createdAt ? <span style={{ color: 'var(--texto-3)' }}><br />{new Date(p.createdAt).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' })}</span> : ''}</td>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{p.descripcion || '—'}</td>
+                                    <td style={estiloTd}>
                                         {(p.pagado || p.descontado)
-                                            ? <span style={{ background: '#d1fae5', color: '#059669', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>✅ Pagado</span>
-                                            : <span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>⏳ Pendiente</span>
+                                            ? <Chip tono="verde">Pagado</Chip>
+                                            : <Chip tono="ambar">Pendiente</Chip>
                                         }
                                     </td>
-                                    <td style={{ padding: '10px 14px' }}>
+                                    <td style={estiloTd}>
                                         {(p.pagado || p.descontado)
-                                            ? <button onClick={() => marcarPagado(p, false)} style={{ padding: '4px 10px', background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>↩ Marcar pendiente</button>
+                                            ? <Boton tam="sm" variante="secundario" onClick={() => marcarPagado(p, false)}>Marcar pendiente</Boton>
                                             : <div style={{ display: 'flex', gap: 6 }}>
-                                                <button onClick={() => abonar(p)} style={{ padding: '4px 10px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>💵 Abonar</button>
-                                                <button onClick={() => marcarPagado(p, true)} style={{ padding: '4px 10px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>✅ Pagado</button>
+                                                <Boton tam="sm" variante="secundario" onClick={() => abonar(p)}>Abonar</Boton>
+                                                <Boton tam="sm" onClick={() => marcarPagado(p, true)}>Pagado</Boton>
                                               </div>
                                         }
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table></ContenedorTabla>
+                    </div>
+                    <div className="solo-movil">
+                        {filtrados.map((p, i) => (
+                            <div key={i} style={{ padding: '14px', borderBottom: '1px solid var(--borde)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: 15 }}>{p.persona}</div>
+                                        <div style={{ color: 'var(--texto-2)', fontSize: 13, marginTop: 3 }}>{p.fecha ? p.fecha.split('-').reverse().join('/') : '—'}</div>
+                                    </div>
+                                    <div className="cifra" style={{ fontSize: 18, whiteSpace: 'nowrap' }}>${fmt(p.monto)}</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                                    <Chip tono={p.tipo === 'reciclador' ? 'verde' : 'azul'}>{p.tipo === 'reciclador' ? 'Reciclador' : 'Empleado'}</Chip>
+                                    <Chip tono={p.pagado || p.descontado ? 'verde' : 'ambar'}>{p.pagado || p.descontado ? 'Pagado' : 'Pendiente'}</Chip>
+                                </div>
+                                {p.descripcion && <div style={{ color: 'var(--texto-2)', fontSize: 13, marginTop: 9, overflowWrap: 'anywhere' }}>{p.descripcion}</div>}
+                                {parseFloat(p.abonado || 0) > 0 && <div style={{ color: 'var(--verde-osc)', fontSize: 13, marginTop: 8 }}>Abonado ${fmt(p.abonado)}{!(p.pagado || p.descontado) && ` · Saldo $${fmt(saldoDe(p))}`}</div>}
+                                <div style={{ display: 'grid', gridTemplateColumns: p.pagado || p.descontado ? '1fr' : '1fr 1fr', gap: 8, marginTop: 12 }}>
+                                    {(p.pagado || p.descontado)
+                                        ? <Boton variante="secundario" onClick={() => marcarPagado(p, false)}>Marcar pendiente</Boton>
+                                        : <><Boton variante="secundario" onClick={() => abonar(p)}>Abonar</Boton><Boton onClick={() => marcarPagado(p, true)}>Pagado</Boton></>
+                                    }
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    </>
                 )}
-            </div>
+            </Tarjeta>
         </div>
     );
 }

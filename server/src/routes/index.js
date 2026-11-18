@@ -192,6 +192,7 @@ router.delete('/vehiculos/:id/gastos/:gasto_id', vehiculosCtrl.eliminarGasto);
 
 // Informes
 router.get('/informes/dashboard',          informesCtrl.dashboard);
+router.get('/informes/resumen',            require('../controllers/resumenController').resumen);
 router.get('/informes/compras-periodo',    informesCtrl.comprasPorPeriodo);
 router.get('/informes/certificado-cliente',informesCtrl.certificadoCliente);
 

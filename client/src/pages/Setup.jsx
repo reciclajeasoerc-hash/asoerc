@@ -34,14 +34,14 @@ export default function Setup({ onListo }) {
                 {/* Logo */}
                 <div style={{ textAlign: 'center', marginBottom: 28 }}>
                     <div style={{ fontSize: 52 }}>♻️</div>
-                    <h1 style={{ color: '#1a5c2a', fontSize: 22, fontWeight: 800, margin: '8px 0 4px' }}>ASOERC</h1>
+                    <h1 style={{ color: 'var(--verde-osc)', fontSize: 22, fontWeight: 800, margin: '8px 0 4px' }}>ASOERC</h1>
                     <p style={{ color: '#888', fontSize: 13 }}>Configuración inicial del sistema</p>
                 </div>
 
                 {/* Indicador de pasos */}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 28, width: '100%' }}>
                     {[1, 2].map(n => (
-                        <div key={n} style={{ flex: 1, height: 4, borderRadius: 2, background: paso >= n ? '#1a5c2a' : '#e5e7eb' }} />
+                        <div key={n} style={{ flex: 1, height: 4, borderRadius: 2, background: paso >= n ? 'var(--verde-osc)' : '#e5e7eb' }} />
                     ))}
                 </div>
 
@@ -129,7 +129,7 @@ const s = {
     subtitulo:   { fontSize: 13, color: '#888', margin: '0 0 20px' },
     label:       { display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 14, width: '100%' },
     input:       { display: 'block', width: '100%', marginTop: 5, padding: '11px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', outline: 'none' },
-    btnPrimario: { width: '100%', padding: '12px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+    btnPrimario: { width: '100%', padding: '12px', background: 'var(--verde-osc)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
     btnSecundario:{ padding: '12px 18px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
     err:         { background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '10px 12px', color: '#dc2626', fontSize: 13, marginTop: 12, width: '100%' },
 };

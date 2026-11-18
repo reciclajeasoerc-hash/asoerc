@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { EncabezadoPagina, Boton, Pestanas, Tarjeta, Chip, ContenedorTabla, estiloTabla, estiloTh, estiloTd, estiloTdNum, estiloInput, Campo, Buscador, Aviso, Vacio } from '../components/ui';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
@@ -72,147 +73,118 @@ export default function Clientes() {
     );
 
     return (
-        <div style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700 }}>🏢 Clientes</h1>
-                    <p style={{ color: '#666', fontSize: 13 }}>Gestión de clientes, sedes y precios especiales</p>
-                </div>
-                <button onClick={() => setShowForm(!showForm)}
-                    style={{ padding: '9px 18px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
-                    + Nuevo cliente
-                </button>
-            </div>
+        <div className="pagina">
+            <EncabezadoPagina titulo="Clientes" sub="Gestión de clientes, sedes y precios especiales" icono="clientes"
+                acciones={<Boton icono="agregar" onClick={() => setShowForm(!showForm)}>Nuevo cliente</Boton>} />
 
             {showForm && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                    <h3 style={{ marginBottom: 14, fontSize: 15 }}>Nuevo Cliente</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                <Tarjeta titulo="Nuevo cliente" icono="clientes" style={{ marginBottom: 16 }}>
+                    <div className="rejilla-form">
                         {[['nombre','Nombre*'],['nit','NIT'],['telefono','Teléfono'],['email','Email'],['contacto','Contacto']].map(([k,l]) => (
-                            <label key={k}>
-                                <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{l}</div>
+                            <Campo key={k} etiqueta={l}>
                                 <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })}
-                                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                            </label>
+                                    style={estiloInput} />
+                            </Campo>
                         ))}
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Tipo precio</div>
+                        <Campo etiqueta="Tipo precio">
                             <select value={form.tipo_precio} onChange={e => setForm({ ...form, tipo_precio: e.target.value })}
-                                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                                style={estiloInput}>
                                 <option value="fijo">Fijo</option>
                                 <option value="semanal">Semanal</option>
                             </select>
-                        </label>
+                        </Campo>
                     </div>
-                    {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
+                    {msg && <Aviso tipo="error" style={{ marginTop: 12 }}>{msg}</Aviso>}
                     <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                        <button onClick={guardar}
-                            style={{ padding: '8px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13 }}>
-                            Guardar
-                        </button>
-                        <button onClick={() => { setShowForm(false); setMsg(''); }}
-                            style={{ padding: '8px 20px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>
-                            Cancelar
-                        </button>
+                        <Boton onClick={guardar}>Guardar</Boton>
+                        <Boton variante="secundario" onClick={() => { setShowForm(false); setMsg(''); }}>Cancelar</Boton>
                     </div>
-                </div>
+                </Tarjeta>
             )}
 
             {/* Buscador */}
-            <div style={{ marginBottom: 12 }}>
-                <input placeholder="Buscar por nombre, NIT o teléfono..." value={buscar} onChange={e => setBuscar(e.target.value)}
-                    style={{ padding: '8px 14px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, width: 300 }} />
-            </div>
+            <Buscador placeholder="Buscar por nombre, NIT o teléfono..." value={buscar} onChange={setBuscar} style={{ maxWidth: 420, marginBottom: 12 }} />
 
-            <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: selected ? 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))' : 'minmax(0, 1fr)', gap: 16 }}>
                 {/* Lista de clientes */}
-                <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <Tarjeta titulo="Clientes" sub={`${clientesFiltrados.length} registrados`} sinPadding>
+                    {/* Celular: una tarjeta por cliente */}
+                    <div className="solo-movil">
+                        {clientesFiltrados.map(c => (
+                            <div key={c.id} onClick={() => seleccionar(c)}
+                                style={{ padding: '12px 14px', borderTop: '1px solid #eef1f4', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: selected?.id === c.id ? 'var(--verde-suave)' : 'transparent' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 15 }}>{c.nombre}</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--texto-3)', marginTop: 2 }}>
+                                        {[c.nit && `NIT ${c.nit}`, c.telefono, `${(c.sedes || []).length} sede${(c.sedes || []).length !== 1 ? 's' : ''}`].filter(Boolean).join(' · ')}
+                                    </div>
+                                </div>
+                                <span style={{ color: 'var(--texto-3)', fontSize: 20 }}>›</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="solo-pc"><ContenedorTabla>
+                    <table style={estiloTabla}>
                         <thead>
-                            <tr style={{ background: '#f0faf0' }}>
+                            <tr>
                                 {['Nombre','NIT','Teléfono','Sedes',''].map(h => (
-                                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>
+                                    <th key={h} style={estiloTh}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {clientesFiltrados.map(c => (
                                 <tr key={c.id} onClick={() => seleccionar(c)}
-                                    style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer', background: selected?.id === c.id ? '#f0faf0' : 'transparent' }}>
-                                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{c.nombre}</td>
-                                    <td style={{ padding: '10px 12px', color: '#666' }}>{c.nit || '—'}</td>
-                                    <td style={{ padding: '10px 12px', color: '#666' }}>{c.telefono || '—'}</td>
-                                    <td style={{ padding: '10px 12px', color: '#888', fontSize: 12 }}>
+                                    style={{ cursor: 'pointer', background: selected?.id === c.id ? 'var(--verde-suave)' : 'transparent' }}>
+                                    <td style={{ ...estiloTd, fontWeight: 700 }}>{c.nombre}</td>
+                                    <td style={estiloTd}>{c.nit || '—'}</td>
+                                    <td style={estiloTd}>{c.telefono || '—'}</td>
+                                    <td style={estiloTd}>
                                         {(c.sedes || []).length} sede{(c.sedes || []).length !== 1 ? 's' : ''}
                                     </td>
-                                    <td style={{ padding: '10px 12px' }}>
-                                        <button onClick={e => { e.stopPropagation(); seleccionar(c); }}
-                                            style={{ padding: '4px 10px', background: '#e0f2e9', color: '#1a5c2a', border: 'none', borderRadius: 4, fontSize: 11 }}>
-                                            Ver
-                                        </button>
+                                    <td style={estiloTd}>
+                                        <Boton tam="sm" variante="secundario" onClick={e => { e.stopPropagation(); seleccionar(c); }}>Ver</Boton>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table></ContenedorTabla></div>
                     {clientesFiltrados.length === 0 && (
-                        <p style={{ color: '#999', textAlign: 'center', padding: 20, fontSize: 13 }}>
-                            {buscar ? 'Sin resultados' : 'No hay clientes registrados'}
-                        </p>
+                        <Vacio icono="clientes" texto={buscar ? 'Sin resultados' : 'No hay clientes registrados'} />
                     )}
-                </div>
+                </Tarjeta>
 
                 {/* Panel de detalle */}
                 {selected && (
-                    <div style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
+                    <Tarjeta>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                             <div>
                                 <h3 style={{ fontSize: 16, fontWeight: 700 }}>{selected.nombre}</h3>
-                                <div style={{ fontSize: 13, color: '#666' }}>
+                                <div style={{ fontSize: 13, color: 'var(--texto-2)' }}>
                                     {selected.nit && <span>NIT: {selected.nit} · </span>}
                                     {selected.telefono && <span>📞 {selected.telefono}</span>}
                                 </div>
                                 {selected.email && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{selected.email}</div>}
                             </div>
-                            <button onClick={() => setSelected(null)}
-                                style={{ padding: '6px 10px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 12 }}>
-                                ✕
-                            </button>
+                            <Boton tam="sm" variante="secundario" icono="cerrar" onClick={() => setSelected(null)}>Cerrar</Boton>
                         </div>
 
                         {/* Tabs */}
-                        <div style={{ display: 'flex', borderBottom: '2px solid #f0f0f0', marginBottom: 14, gap: 4 }}>
-                            {[['sedes','📍 Sedes'],['precios','🏷️ Precios especiales']].map(([k,l]) => (
-                                <button key={k} onClick={() => setTabDetalle(k)}
-                                    style={{ padding: '7px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12,
-                                        fontWeight: tabDetalle === k ? 700 : 400,
-                                        color: tabDetalle === k ? '#1a5c2a' : '#888',
-                                        borderBottom: tabDetalle === k ? '2px solid #1a5c2a' : '2px solid transparent',
-                                        marginBottom: -2 }}>
-                                    {l}
-                                </button>
-                            ))}
-                        </div>
+                        <Pestanas items={[{ id: 'sedes', label: 'Sedes', icono: 'bodegas' }, { id: 'precios', label: 'Precios especiales', icono: 'ventas' }]} activa={tabDetalle} onChange={setTabDetalle} />
 
                         {/* Tab: Sedes */}
                         {tabDetalle === 'sedes' && (
                             <>
-                                <button onClick={() => setShowSedeForm(!showSedeForm)}
-                                    style={{ padding: '6px 12px', background: '#e0f2e9', color: '#1a5c2a', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
-                                    + Nueva sede
-                                </button>
+                                <Boton tam="sm" variante="secundario" icono="agregar" onClick={() => setShowSedeForm(!showSedeForm)} style={{ marginBottom: 12 }}>Nueva sede</Boton>
                                 {showSedeForm && (
-                                    <div style={{ background: '#f0faf0', border: '1px solid #a7d7a7', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                    <div style={{ background: 'var(--verde-suave)', border: '1px solid var(--verde-borde)', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                                        <div className="rejilla-form" style={{ marginBottom: 8 }}>
                                             <input placeholder="Nombre sede*" value={sedeForm.nombre} onChange={e => setSedeForm({ ...sedeForm, nombre: e.target.value })}
-                                                style={{ padding: '8px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }} />
+                                                style={estiloInput} />
                                             <input placeholder="Dirección" value={sedeForm.direccion} onChange={e => setSedeForm({ ...sedeForm, direccion: e.target.value })}
-                                                style={{ padding: '8px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }} />
+                                                style={estiloInput} />
                                         </div>
-                                        <button onClick={guardarSede}
-                                            style={{ padding: '7px 16px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13 }}>
-                                            Agregar sede
-                                        </button>
+                                        <Boton tam="sm" onClick={guardarSede}>Agregar sede</Boton>
                                     </div>
                                 )}
                                 {sedes.length === 0 ? (
@@ -233,11 +205,11 @@ export default function Clientes() {
                         {/* Tab: Precios especiales */}
                         {tabDetalle === 'precios' && (
                             <>
-                                <div style={{ background: '#f0faf0', borderRadius: 8, padding: 12, marginBottom: 14 }}>
+                                <div style={{ background: 'var(--verde-suave)', border: '1px solid var(--verde-borde)', borderRadius: 8, padding: 12, marginBottom: 14 }}>
                                     <div style={{ fontSize: 12, color: '#555', marginBottom: 8, fontWeight: 600 }}>Asignar precio especial de venta</div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px auto', gap: 8, alignItems: 'center' }}>
+                                    <div className="rejilla-form">
                                         <select value={precioForm.material_id} onChange={e => setPrecioForm({ ...precioForm, material_id: e.target.value })}
-                                            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }}>
+                                            style={estiloInput}>
                                             <option value="">-- Material --</option>
                                             {materiales.filter(m => m.activo !== false).map(m => (
                                                 <option key={m.id} value={m.id}>{m.nombre}</option>
@@ -245,43 +217,39 @@ export default function Clientes() {
                                         </select>
                                         <input type="number" placeholder="$/kg" value={precioForm.precio}
                                             onChange={e => setPrecioForm({ ...precioForm, precio: e.target.value })}
-                                            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #a7d7a7', fontSize: 13 }} />
-                                        <button onClick={guardarPrecio}
-                                            style={{ padding: '7px 14px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                                            Guardar
-                                        </button>
+                                            style={estiloInput} />
+                                        <Boton tam="sm" onClick={guardarPrecio}>Guardar</Boton>
                                     </div>
                                 </div>
                                 {precios.length === 0 ? (
                                     <p style={{ color: '#999', fontSize: 13 }}>Sin precios especiales. Se usa el precio general de cada material.</p>
                                 ) : (
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                    <ContenedorTabla><table style={estiloTabla}>
                                         <thead>
-                                            <tr style={{ background: '#f0faf0' }}>
-                                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>Material</th>
-                                                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#1a5c2a', fontWeight: 600 }}>Precio especial</th>
-                                                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#1a5c2a', fontWeight: 600 }}>Precio general</th>
+                                            <tr>
+                                                <th style={estiloTh}>Material</th>
+                                                <th style={{ ...estiloTh, textAlign: 'right' }}>Precio especial</th>
+                                                <th style={{ ...estiloTh, textAlign: 'right' }}>Precio general</th>
                                                 <th style={{ width: 40 }}></th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {precios.map(p => (
-                                                <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                                    <td style={{ padding: '8px 10px', fontWeight: 600 }}>{p.material?.nombre}</td>
-                                                    <td style={{ padding: '8px 10px', textAlign: 'right', color: '#1a5c2a', fontWeight: 700 }}>${fmt(p.precio)}/kg</td>
-                                                    <td style={{ padding: '8px 10px', textAlign: 'right', color: '#888' }}>${fmt(p.material?.precio_compra)}/kg</td>
-                                                    <td style={{ padding: '8px 10px' }}>
-                                                        <button onClick={() => eliminarPrecio(p.material_id)}
-                                                            style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 15 }}>✕</button>
+                                                <tr key={p.id}>
+                                                    <td style={{ ...estiloTd, fontWeight: 600 }}>{p.material?.nombre}</td>
+                                                    <td style={{ ...estiloTdNum, color: 'var(--verde-osc)', fontWeight: 700 }}>${fmt(p.precio)}/kg</td>
+                                                    <td style={estiloTdNum}>${fmt(p.material?.precio_compra)}/kg</td>
+                                                    <td style={estiloTd}>
+                                                        <Boton tam="sm" variante="peligro" icono="cerrar" onClick={() => eliminarPrecio(p.material_id)} aria-label="Eliminar" />
                                                     </td>
                                                 </tr>
                                             ))}
                                         </tbody>
-                                    </table>
+                                    </table></ContenedorTabla>
                                 )}
                             </>
                         )}
-                    </div>
+                    </Tarjeta>
                 )}
             </div>
         </div>

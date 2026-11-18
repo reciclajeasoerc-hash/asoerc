@@ -2,15 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import CajaOrigen from '../components/CajaOrigen';
 import PickerBuscable from '../components/PickerBuscable';
+import Icono from '../components/Icono';
+import {
+    EncabezadoPagina, Boton, Tarjeta, Kpi, RejillaKpi, Chip, ContenedorTabla,
+    estiloTabla, estiloTh, estiloTd, estiloTdNum, estiloInput, Campo, Modal,
+    Vacio, Aviso
+} from '../components/ui';
 
 // Fecha de Colombia (con toISOString, después de las 7 pm ya daba "mañana" y la plata caía en la caja del día siguiente)
 const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 const primerDiaMes = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; };
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
-const TIPO_LABELS = { camion: '🚛 Camión', furgon: '🚐 Furgón', moto: '🏍️ Moto', otro: '🚗 Otro' };
-const GASTO_LABELS = { gasolina: '⛽ Gasolina', viatico: '🍽️ Viático', mantenimiento: '🔧 Mantenimiento', otro: '📋 Otro' };
-const GASTO_COLORS = { gasolina: '#f59e0b', viatico: '#3b82f6', mantenimiento: '#8b5cf6', otro: '#6b7280' };
+const TIPO_LABELS = { camion: 'Camión', furgon: 'Furgón', moto: 'Moto', otro: 'Otro' };
+const GASTO_LABELS = { gasolina: 'Gasolina', viatico: 'Viático', mantenimiento: 'Mantenimiento', otro: 'Otro' };
+const GASTO_TONOS = { gasolina: 'ambar', viatico: 'azul', mantenimiento: 'rojo', otro: 'gris' };
 
 function ModalVehiculo({ vehiculo, onClose, onSaved }) {
     const [form, setForm] = useState(vehiculo || { placa: '', descripcion: '', conductor: '', tipo: 'camion' });
@@ -29,34 +35,27 @@ function ModalVehiculo({ vehiculo, onClose, onSaved }) {
     };
 
     return (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 440, boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{vehiculo ? 'Editar vehículo' : '+ Nuevo vehículo'}</h3>
-                <div style={{ display: 'grid', gap: 12 }}>
+        <Modal titulo={vehiculo ? 'Editar vehículo' : 'Nuevo vehículo'} onCerrar={onClose}
+            pie={<>
+                <Boton variante="secundario" onClick={onClose}>Cancelar</Boton>
+                <Boton onClick={guardar} disabled={loading}>{loading ? 'Guardando...' : 'Guardar'}</Boton>
+            </>}>
+                <div className="rejilla-form">
                     {[['placa','Placa*'],['descripcion','Descripción / Modelo'],['conductor','Conductor habitual']].map(([k,l]) => (
-                        <label key={k}>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{l}</div>
+                        <Campo key={k} etiqueta={l}>
                             <input value={form[k] || ''} onChange={e => setForm({ ...form, [k]: e.target.value })}
-                                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                        </label>
+                                style={estiloInput} />
+                        </Campo>
                     ))}
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Tipo</div>
+                    <Campo etiqueta="Tipo">
                         <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                            style={estiloInput}>
                             {Object.entries(TIPO_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
-                    </label>
+                    </Campo>
                 </div>
-                {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                    <button onClick={guardar} disabled={loading} style={{ flex: 1, padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                        {loading ? 'Guardando...' : 'Guardar'}
-                    </button>
-                    <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-                </div>
-            </div>
-        </div>
+                {msg && <Aviso tipo="error" style={{ marginTop: 12 }}>{msg}</Aviso>}
+        </Modal>
     );
 }
 
@@ -76,55 +75,47 @@ function ModalGasto({ vehiculo, onClose, onSaved }) {
     };
 
     return (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Registrar gasto</h3>
-                <div style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>{vehiculo.placa} — {vehiculo.descripcion || ''}</div>
-                <div style={{ display: 'grid', gap: 12 }}>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Tipo de gasto</div>
+        <Modal titulo="Registrar gasto" onCerrar={onClose}
+            pie={<>
+                <Boton variante="secundario" onClick={onClose}>Cancelar</Boton>
+                <Boton onClick={guardar} disabled={loading}>{loading ? 'Guardando...' : 'Registrar gasto'}</Boton>
+            </>}>
+                <div style={{ color: 'var(--texto-2)', marginBottom: 16 }}>
+                    <strong>{vehiculo.placa}</strong>{vehiculo.descripcion && ` — ${vehiculo.descripcion}`}
+                </div>
+                <div className="rejilla-form">
+                    <Campo etiqueta="Tipo de gasto">
                         <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                            style={estiloInput}>
                             {Object.entries(GASTO_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Fecha</div>
+                    </Campo>
+                    <Campo etiqueta="Fecha">
                         <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Monto ($)*</div>
+                            style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Monto ($)*">
                         <input type="number" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Descripción</div>
+                            style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Descripción">
                         <input value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                    </label>
-                    <label>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Km actuales (opcional)</div>
+                            style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Km actuales (opcional)">
                         <input type="number" value={form.km_actual} onChange={e => setForm({ ...form, km_actual: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
-                    </label>
+                            style={estiloInput} />
+                    </Campo>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
                         <input type="checkbox" checked={form.sale_de_caja} onChange={e => setForm({ ...form, sale_de_caja: e.target.checked })} style={{ width: 18, height: 18 }} />
                         ¿Se pagó con plata de la caja?
                     </label>
                     {form.sale_de_caja
                         ? <CajaOrigen value={form.bodega_id} onChange={v => setForm(f => ({ ...f, bodega_id: v }))} />
-                        : <div style={{ fontSize: 12, color: '#6b7280' }}>No se descuenta de la caja (pagado por transferencia u otro medio).</div>}
+                        : <div style={{ fontSize: 13, color: 'var(--texto-2)' }}>No se descuenta de la caja (pagado por transferencia u otro medio).</div>}
                 </div>
-                {msg && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{msg}</div>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                    <button onClick={guardar} disabled={loading} style={{ flex: 1, padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                        {loading ? 'Guardando...' : 'Registrar gasto'}
-                    </button>
-                    <button onClick={onClose} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-                </div>
-            </div>
-        </div>
+                {msg && <Aviso tipo="error" style={{ marginTop: 12 }}>{msg}</Aviso>}
+        </Modal>
     );
 }
 
@@ -159,7 +150,7 @@ export default function Vehiculos() {
     };
 
     return (
-        <div style={{ padding: 24 }}>
+        <div className="pagina">
             {modalVehiculo && (
                 <ModalVehiculo
                     vehiculo={modalVehiculo === 'nuevo' ? null : modalVehiculo}
@@ -175,58 +166,52 @@ export default function Vehiculos() {
                 />
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700 }}>🚛 Vehículos</h1>
-                    <p style={{ color: '#666', fontSize: 13 }}>Camiones, gastos de gasolina y viáticos</p>
-                </div>
-                <button onClick={() => setModalVehiculo('nuevo')} style={{ padding: '9px 18px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    + Nuevo vehículo
-                </button>
-            </div>
+            <EncabezadoPagina titulo="Vehículos" sub="Camiones, gastos de gasolina y viáticos" icono="vehiculos" acciones={<Boton icono="agregar" onClick={() => setModalVehiculo('nuevo')}>Nuevo vehículo</Boton>} />
 
             {/* Tarjetas de vehículos */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, marginBottom: 24 }}>
+            <div className="rejilla-tarjetas" style={{ marginBottom: 16 }}>
                 {vehiculos.map(v => (
                     <div key={v.id} onClick={() => setSeleccionado(seleccionado?.id === v.id ? null : v)}
-                        style={{ background: seleccionado?.id === v.id ? '#f0faf0' : '#fff', borderRadius: 10, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,.08)', cursor: 'pointer', border: seleccionado?.id === v.id ? '2px solid #1a5c2a' : '2px solid transparent', transition: 'all .15s' }}>
-                        <div style={{ fontSize: 28, marginBottom: 8 }}>{v.tipo === 'camion' ? '🚛' : v.tipo === 'furgon' ? '🚐' : v.tipo === 'moto' ? '🏍️' : '🚗'}</div>
-                        <div style={{ fontWeight: 700, fontSize: 16, color: '#1a1a1a' }}>{v.placa}</div>
-                        {v.descripcion && <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{v.descripcion}</div>}
-                        {v.conductor && <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>👤 {v.conductor}</div>}
-                        <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                            <button onClick={e => { e.stopPropagation(); setModalGasto(v); }}
-                                style={{ flex: 1, padding: '6px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                                ⛽ Gasto
-                            </button>
-                            <button onClick={e => { e.stopPropagation(); setModalVehiculo(v); }}
-                                style={{ padding: '6px 10px', background: '#f0f0f0', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer' }}>
-                                ✏️
-                            </button>
+                        className="tarjeta"
+                        style={{ background: seleccionado?.id === v.id ? 'var(--verde-suave)' : '#fff', borderColor: seleccionado?.id === v.id ? 'var(--verde)' : 'var(--borde)', cursor: 'pointer', padding: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--noche)', color: 'var(--verde-vivo)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Icono nombre="vehiculos" tam={21} />
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    <div className="cifra" style={{ fontSize: 19 }}>{v.placa}</div>
+                                    <Chip tono="gris" style={{ marginTop: 4 }}>{TIPO_LABELS[v.tipo] || v.tipo}</Chip>
+                                </div>
+                            </div>
+                            {seleccionado?.id === v.id && <Chip tono="verde">Seleccionado</Chip>}
+                        </div>
+                        {v.descripcion && <div style={{ fontSize: 13, color: 'var(--texto-2)', marginTop: 12 }}>{v.descripcion}</div>}
+                        {v.conductor && <div style={{ fontSize: 13, color: 'var(--texto-3)', marginTop: 4 }}>Conductor: {v.conductor}</div>}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, marginTop: 14 }}>
+                            <Boton variante="noche" icono="caja" onClick={e => { e.stopPropagation(); setModalGasto(v); }}>Registrar gasto</Boton>
+                            <Boton variante="secundario" onClick={e => { e.stopPropagation(); setModalVehiculo(v); }}>Editar</Boton>
                         </div>
                     </div>
                 ))}
                 {vehiculos.length === 0 && (
-                    <div style={{ gridColumn: '1/-1', background: '#fff', borderRadius: 10, padding: 40, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                        <div style={{ fontSize: 40 }}>🚛</div>
-                        <p style={{ color: '#999', marginTop: 12, fontSize: 13 }}>No hay vehículos registrados</p>
-                    </div>
+                    <Tarjeta style={{ gridColumn: '1/-1' }}>
+                        <Vacio icono="vehiculos" texto="No hay vehículos registrados" />
+                    </Tarjeta>
                 )}
             </div>
 
             {/* Filtros de gastos */}
-            <div style={{ background: '#fff', borderRadius: 10, padding: 16, marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,.08)', display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div>
-                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Desde</div>
-                    <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                </div>
-                <div>
-                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Hasta</div>
-                    <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                </div>
+            <Tarjeta titulo="Consultar gastos" icono="calendario" style={{ marginBottom: 16 }}>
+                <div className="rejilla-form">
+                    <Campo etiqueta="Desde">
+                        <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={estiloInput} />
+                    </Campo>
+                    <Campo etiqueta="Hasta">
+                        <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={estiloInput} />
+                    </Campo>
                 {!seleccionado && (
-                    <div>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Vehículo</div>
+                    <Campo etiqueta="Vehículo">
                         <PickerBuscable
                             items={vehiculos}
                             value={filtroVehiculo}
@@ -235,70 +220,87 @@ export default function Vehiculos() {
                             placeholder="Buscar placa..."
                             fontSize={13}
                         />
-                    </div>
+                    </Campo>
                 )}
-                <div style={{ fontSize: 13, color: '#555', paddingBottom: 2 }}>
-                    {seleccionado && <span style={{ background: '#f0faf0', color: '#1a5c2a', padding: '4px 10px', borderRadius: 20, fontWeight: 600 }}>📌 {seleccionado.placa} — <button onClick={() => setSeleccionado(null)} style={{ background: 'none', border: 'none', color: '#1a5c2a', cursor: 'pointer', fontWeight: 700 }}>✕</button></span>}
+                    {seleccionado && (
+                        <Campo etiqueta="Vehículo seleccionado">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 42 }}>
+                                <Chip tono="verde">{seleccionado.placa}</Chip>
+                                <Boton tam="sm" variante="fantasma" onClick={() => setSeleccionado(null)}>Quitar filtro</Boton>
+                            </div>
+                        </Campo>
+                    )}
                 </div>
-            </div>
+            </Tarjeta>
 
             {/* Resumen de gastos */}
             {gastos.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, marginBottom: 16 }}>
-                    <div style={{ background: '#fff', borderRadius: 8, padding: 14, boxShadow: '0 1px 4px rgba(0,0,0,.08)', borderLeft: '4px solid #1a5c2a' }}>
-                        <div style={{ fontSize: 12, color: '#666' }}>Total gastos</div>
-                        <div style={{ fontSize: 20, fontWeight: 700, color: '#1a5c2a' }}>${fmt(totalGastos)}</div>
-                    </div>
+                <RejillaKpi>
+                    <Kpi titulo="Total gastos" valor={`$${fmt(totalGastos)}`} icono="caja" tono="verde" />
                     {Object.entries(gastosPorTipo).map(([tipo, monto]) => (
-                        <div key={tipo} style={{ background: '#fff', borderRadius: 8, padding: 14, boxShadow: '0 1px 4px rgba(0,0,0,.08)', borderLeft: `4px solid ${GASTO_COLORS[tipo] || '#6b7280'}` }}>
-                            <div style={{ fontSize: 12, color: '#666' }}>{GASTO_LABELS[tipo]}</div>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: GASTO_COLORS[tipo] || '#6b7280' }}>${fmt(monto)}</div>
-                        </div>
+                        <Kpi key={tipo} titulo={GASTO_LABELS[tipo] || tipo} valor={`$${fmt(monto)}`} icono="caja" tono={GASTO_TONOS[tipo] || 'gris'} />
                     ))}
-                </div>
+                </RejillaKpi>
             )}
 
             {/* Tabla de gastos */}
-            <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 14 }}>
-                    Gastos registrados ({gastos.length})
-                </div>
+            <Tarjeta titulo={`Gastos registrados (${gastos.length})`} icono="caja" sinPadding>
                 {gastos.length === 0 ? (
-                    <div style={{ padding: 32, textAlign: 'center', color: '#999', fontSize: 13 }}>No hay gastos en este período</div>
+                    <Vacio icono="caja" texto="No hay gastos en este período" />
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <>
+                    <div className="solo-pc">
+                    <ContenedorTabla><table style={estiloTabla}>
                         <thead>
-                            <tr style={{ background: '#f0faf0' }}>
+                            <tr>
                                 {['Fecha','Vehículo','Tipo','Monto','Descripción','Km',''].map(h => (
-                                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>
+                                    <th key={h} style={h === 'Monto' ? { ...estiloTh, textAlign: 'right' } : estiloTh}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {gastos.map(g => (
-                                <tr key={g.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                    <td style={{ padding: '9px 14px', color: '#666' }}>{g.fecha}</td>
-                                    <td style={{ padding: '9px 14px', fontWeight: 600 }}>{g.vehiculo?.placa || '—'}</td>
-                                    <td style={{ padding: '9px 14px' }}>
-                                        <span style={{ background: `${GASTO_COLORS[g.tipo]}20`, color: GASTO_COLORS[g.tipo] || '#666', padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>
-                                            {GASTO_LABELS[g.tipo] || g.tipo}
-                                        </span>
+                                <tr key={g.id}>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{g.fecha}</td>
+                                    <td style={{ ...estiloTd, fontWeight: 700 }}>{g.vehiculo?.placa || '—'}</td>
+                                    <td style={estiloTd}>
+                                        <Chip tono={GASTO_TONOS[g.tipo] || 'gris'}>{GASTO_LABELS[g.tipo] || g.tipo}</Chip>
                                     </td>
-                                    <td style={{ padding: '9px 14px', fontWeight: 700, color: '#1a5c2a' }}>${fmt(g.monto)}</td>
-                                    <td style={{ padding: '9px 14px', color: '#666' }}>{g.descripcion || '—'}</td>
-                                    <td style={{ padding: '9px 14px', color: '#888' }}>{g.km_actual ? `${g.km_actual.toLocaleString()} km` : '—'}</td>
-                                    <td style={{ padding: '9px 14px' }}>
-                                        <button onClick={() => eliminarGasto(g.vehiculo_id, g.id)}
-                                            style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 8px', fontSize: 12, cursor: 'pointer' }}>
-                                            🗑️
-                                        </button>
+                                    <td style={{ ...estiloTdNum, fontWeight: 700, color: 'var(--verde-osc)' }}>${fmt(g.monto)}</td>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{g.descripcion || '—'}</td>
+                                    <td style={{ ...estiloTd, color: 'var(--texto-3)' }}>{g.km_actual ? `${g.km_actual.toLocaleString()} km` : '—'}</td>
+                                    <td style={estiloTd}>
+                                        <Boton tam="sm" variante="peligro" onClick={() => eliminarGasto(g.vehiculo_id, g.id)}>Eliminar</Boton>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table></ContenedorTabla>
+                    </div>
+                    <div className="solo-movil">
+                        {gastos.map(g => (
+                            <div key={g.id} style={{ padding: '14px 16px', borderBottom: '1px solid var(--borde)' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                                    <div>
+                                        <div style={{ fontWeight: 700 }}>{g.vehiculo?.placa || '—'}</div>
+                                        <div style={{ color: 'var(--texto-3)', fontSize: 13, marginTop: 2 }}>{g.fecha}</div>
+                                    </div>
+                                    <div className="cifra" style={{ color: 'var(--verde-osc)', fontSize: 18 }}>${fmt(g.monto)}</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10 }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <Chip tono={GASTO_TONOS[g.tipo] || 'gris'}>{GASTO_LABELS[g.tipo] || g.tipo}</Chip>
+                                        {g.descripcion && <div style={{ color: 'var(--texto-2)', fontSize: 13, marginTop: 7 }}>{g.descripcion}</div>}
+                                        {g.km_actual && <div style={{ color: 'var(--texto-3)', fontSize: 13, marginTop: 3 }}>{g.km_actual.toLocaleString()} km</div>}
+                                    </div>
+                                    <Boton tam="sm" variante="peligro" onClick={() => eliminarGasto(g.vehiculo_id, g.id)}>Eliminar</Boton>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    </>
                 )}
-            </div>
+            </Tarjeta>
         </div>
     );
 }

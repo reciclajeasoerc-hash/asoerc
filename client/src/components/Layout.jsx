@@ -2,30 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, puedePasar } from '../App';
 import { api } from '../api';
-import InstalarApp from './InstalarApp';
+import InstalarApp from './InstalarApp';
+import Icono from './Icono';
 import AvisoLicencia from '../pages/AvisoLicencia.jsx';
 
+// grupo: separa el menú en bloques (Operación / Personas y activos / Administración)
 const TODOS_NAV = [
-    { to: '/',             icon: '📊', label: 'Dashboard',    modulo: 'dashboard'     },
-    { to: '/compras',      icon: '⚖️',  label: 'Compras',      modulo: 'compras'       },
-    { to: '/ventas',       icon: '📤', label: 'Ventas',       modulo: 'ventas'        },
-    { to: '/caja',         icon: '💰', label: 'Caja',         modulo: 'caja'          },
-    { to: '/recicladores', icon: '♻️',  label: 'Recicladores', modulo: 'recicladores'  },
-    { to: '/clientes',     icon: '🏢', label: 'Clientes',      modulo: 'clientes'      },
-    { to: '/empleados',    icon: '👷', label: 'Empleados',    modulo: 'empleados'     },
-    { to: '/remisiones',   icon: '🚛', label: 'Remisiones',   modulo: 'remisiones'    },
-    { to: '/vehiculos',    icon: '🚚', label: 'Vehículos',    modulo: 'vehiculos'     },
-    { to: '/prestamos',    icon: '💳', label: 'Préstamos',    modulo: 'prestamos'     },
-    { to: '/empaques',     icon: '🛍️',  label: 'Empaques',     modulo: 'empaques'      },
-    { to: '/materiales',   icon: '📋', label: 'Materiales',   modulo: 'materiales'    },
-    { to: '/informes',     icon: '📈', label: 'Informes',     modulo: 'informes'      },
-    { to: '/usuarios',     icon: '👥', label: 'Usuarios',     modulo: 'usuarios'      },
-    { to: '/bodegas',      icon: '🏭', label: 'Bodegas',      modulo: 'bodegas'       },
-    { to: '/configuracion',icon: '⚙️',  label: 'Configuración', modulo: 'configuracion' },
-    { to: '/manual',       icon: '📖', label: 'Manual',        modulo: null, externo: '/manual.html' },
+    { to: '/',             icono: 'dashboard',     label: 'Inicio',        modulo: 'dashboard',     grupo: 'Operación' },
+    { to: '/compras',      icono: 'compras',       label: 'Compras',       modulo: 'compras',       grupo: 'Operación' },
+    { to: '/ventas',       icono: 'ventas',        label: 'Ventas',        modulo: 'ventas',        grupo: 'Operación' },
+    { to: '/caja',         icono: 'caja',          label: 'Caja',          modulo: 'caja',          grupo: 'Operación' },
+    { to: '/remisiones',   icono: 'remisiones',    label: 'Remisiones',    modulo: 'remisiones',    grupo: 'Operación' },
+    { to: '/empaques',     icono: 'empaques',      label: 'Empaques',      modulo: 'empaques',      grupo: 'Operación' },
+    { to: '/recicladores', icono: 'recicladores',  label: 'Recicladores',  modulo: 'recicladores',  grupo: 'Personas y activos' },
+    { to: '/clientes',     icono: 'clientes',      label: 'Clientes',      modulo: 'clientes',      grupo: 'Personas y activos' },
+    { to: '/empleados',    icono: 'empleados',     label: 'Empleados',     modulo: 'empleados',     grupo: 'Personas y activos' },
+    { to: '/prestamos',    icono: 'prestamos',     label: 'Préstamos',     modulo: 'prestamos',     grupo: 'Personas y activos' },
+    { to: '/vehiculos',    icono: 'vehiculos',     label: 'Vehículos',     modulo: 'vehiculos',     grupo: 'Personas y activos' },
+    { to: '/materiales',   icono: 'materiales',    label: 'Materiales',    modulo: 'materiales',    grupo: 'Administración' },
+    { to: '/informes',     icono: 'informes',      label: 'Informes',      modulo: 'informes',      grupo: 'Administración' },
+    { to: '/usuarios',     icono: 'usuarios',      label: 'Usuarios',      modulo: 'usuarios',      grupo: 'Administración' },
+    { to: '/bodegas',      icono: 'bodegas',       label: 'Bodegas',       modulo: 'bodegas',       grupo: 'Administración' },
+    { to: '/configuracion',icono: 'configuracion', label: 'Configuración', modulo: 'configuracion', grupo: 'Administración' },
+    { to: '/manual',       icono: 'manual',        label: 'Manual',        modulo: null, externo: '/manual.html', grupo: 'Administración' },
 ];
 
-// Tabs principales del bottom nav por rol (máx 4)
+// Pestañas de la barra inferior en el celular, por rol (máx 4 + "Más")
 const BOTTOM_TABS = {
     superadmin: ['/', '/compras', '/ventas', '/caja'],
     admin:      ['/', '/compras', '/ventas', '/caja'],
@@ -35,11 +37,11 @@ const BOTTOM_TABS = {
 };
 
 const ROLE_LABELS = {
-    superadmin: { label: 'Super Admin', color: '#f59e0b' },
-    admin:      { label: 'Admin',       color: '#3b82f6' },
-    cajero:     { label: 'Cajero',      color: '#10b981' },
-    vendedor:   { label: 'Vendedor',    color: '#8b5cf6' },
-    operador:   { label: 'Operador',    color: '#6b7280' },
+    superadmin: { label: 'Super Admin', fondo: 'var(--ambar)', texto: '#1f1600' },
+    admin:      { label: 'Admin',       fondo: '#3b82f6', texto: '#fff' },
+    cajero:     { label: 'Cajero',      fondo: '#10b981', texto: '#fff' },
+    vendedor:   { label: 'Vendedor',    fondo: '#8b5cf6', texto: '#fff' },
+    operador:   { label: 'Operador',    fondo: '#64748b', texto: '#fff' },
 };
 
 function useMobile() {
@@ -50,6 +52,94 @@ function useMobile() {
         return () => window.removeEventListener('resize', fn);
     }, []);
     return isMobile;
+}
+
+const iniciales = n => (n || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+const esActiva = (to, path) => to === '/' ? path === '/' : path.startsWith(to);
+
+// ── Piezas compartidas ────────────────────────────────────────────────────────
+function Marca({ config, subtitulo, compacta }) {
+    const tam = compacta ? 36 : 46;
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: compacta ? 10 : 12, minWidth: 0 }}>
+            {config.logo_url
+                ? <img src={config.logo_url} alt="Logo" style={{ width: tam, height: tam, objectFit: 'contain', borderRadius: '50%', background: '#fff', flexShrink: 0 }} />
+                : <div style={{ width: tam, height: tam, borderRadius: '50%', background: 'var(--verde)', border: '2px solid #fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: compacta ? 13 : 16, flexShrink: 0 }}>ASO</div>}
+            <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 800, fontSize: compacta ? 19 : 23, color: '#fff', lineHeight: 1, letterSpacing: .4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {(config.nombre || 'ASOERC').toUpperCase()}
+                </div>
+                <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 600, fontSize: compacta ? 11 : 12, color: 'var(--noche-tenue)', marginTop: 3, letterSpacing: .8, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {subtitulo}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SelectorBodega({ bodegas, valor, onChange }) {
+    return (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--noche-2)', border: '1.5px solid var(--noche-3)', borderRadius: 10, padding: '0 12px', height: 46, cursor: 'pointer' }}>
+            <Icono nombre="bodegas" tam={19} style={{ color: 'var(--verde-vivo)' }} />
+            <select value={valor} onChange={e => onChange(e.target.value)} aria-label="Bodega"
+                style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: '#fff', fontFamily: 'var(--fuente-tit)', fontWeight: 700, fontSize: 16, letterSpacing: .3, cursor: 'pointer', boxShadow: 'none', outline: 'none', padding: '10px 0' }}>
+                <option value="" style={{ color: '#000' }}>Todas las bodegas</option>
+                {bodegas.map(b => <option key={b.id} value={b.id} style={{ color: '#000' }}>{b.nombre}</option>)}
+            </select>
+        </label>
+    );
+}
+
+function ItemMenu({ item, activo, alto = 46 }) {
+    const base = {
+        display: 'flex', alignItems: 'center', gap: 14, height: alto, padding: '0 14px', margin: '2px 0',
+        borderRadius: 10, textDecoration: 'none', fontFamily: 'var(--fuente-tit)', fontSize: 18, letterSpacing: .3,
+        transition: 'background-color .15s, color .15s',
+    };
+    const estilo = activo
+        ? { ...base, background: 'var(--verde)', color: '#fff', fontWeight: 800, textTransform: 'uppercase', border: '2px solid #fff', boxShadow: '0 4px 14px rgba(22,163,74,.35)' }
+        : { ...base, color: 'var(--noche-texto)', fontWeight: 600, border: '2px solid transparent' };
+    const contenido = (
+        <>
+            <Icono nombre={item.icono} tam={21} />
+            <span style={{ flex: 1, whiteSpace: 'nowrap' }}>{item.label}</span>
+            {activo && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />}
+        </>
+    );
+    if (item.externo) return <a href={item.externo} target="_blank" rel="noopener noreferrer" className="item-menu" style={estilo}>{contenido}</a>;
+    return <NavLink to={item.to} end={item.to === '/'} className="item-menu" style={estilo}>{contenido}</NavLink>;
+}
+
+function MenuAgrupado({ nav, path, alto }) {
+    const grupos = [];
+    nav.forEach(n => {
+        const g = grupos.find(x => x.nombre === n.grupo);
+        if (g) g.items.push(n); else grupos.push({ nombre: n.grupo, items: [n] });
+    });
+    return grupos.map(g => (
+        <div key={g.nombre} style={{ marginBottom: 8 }}>
+            <div style={{ fontFamily: 'var(--fuente-tit)', fontWeight: 700, fontSize: 12, color: 'var(--noche-tenue)', letterSpacing: 1.4, textTransform: 'uppercase', padding: '10px 14px 4px' }}>{g.nombre}</div>
+            {g.items.map(item => <ItemMenu key={item.to} item={item} activo={!item.externo && esActiva(item.to, path)} alto={alto} />)}
+        </div>
+    ));
+}
+
+function PieUsuario({ user, roleInfo, onSalir }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderTop: '1px solid var(--noche-3)' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--noche-2)', border: '1.5px solid var(--noche-3)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--fuente-tit)', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
+                {iniciales(user?.nombre)}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nombre}</div>
+                <span className="chip" style={{ background: roleInfo.fondo, color: roleInfo.texto, marginTop: 3, padding: '2px 8px', fontSize: 11.5, borderRadius: 5 }}>{roleInfo.label}</span>
+            </div>
+            <button onClick={onSalir} title="Cerrar sesión"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(220,38,38,.12)', border: '1.5px solid #b91c1c', color: '#fecaca', borderRadius: 9, padding: '8px 11px', fontFamily: 'var(--fuente-tit)', fontWeight: 700, fontSize: 13.5, letterSpacing: .5 }}>
+                <Icono nombre="salir" tam={17} /> SALIR
+            </button>
+        </div>
+    );
 }
 
 export default function Layout() {
@@ -87,163 +177,77 @@ export default function Layout() {
 
     useEffect(() => { setMenuAbierto(false); }, [location.pathname]);
 
+    const esSuper = user?.rol === 'superadmin';
     const nav = TODOS_NAV.filter(n => n.modulo === null || puedePasar(user?.rol, n.modulo));
     const handleLogout = () => { logout(); navigate('/login'); };
-    const roleInfo = ROLE_LABELS[user?.rol] || { label: user?.rol, color: '#6b7280' };
+    const roleInfo = ROLE_LABELS[user?.rol] || { label: user?.rol, fondo: '#64748b', texto: '#fff' };
+    const subtitulo = bodegaActual?.nombre || (esSuper ? 'Centro de acopio' : 'Sistema');
 
     const bottomTabs = (BOTTOM_TABS[user?.rol] || ['/']).map(path =>
         TODOS_NAV.find(n => n.to === path)
     ).filter(Boolean).filter(n => puedePasar(user?.rol, n.modulo));
-
     const extraNav = nav.filter(n => !bottomTabs.find(t => t.to === n.to));
 
-    // ── MÓVIL ──────────────────────────────────────────────────────────────────
+    // ── CELULAR ────────────────────────────────────────────────────────────────
     if (isMobile) return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#f0faf0' }}>
-
-            {/* Header fijo arriba */}
-            <header style={{
-                background: '#1a5c2a', color: '#fff', flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px',
-                boxShadow: '0 2px 8px rgba(0,0,0,.25)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {config.logo_url
-                        ? <img src={config.logo_url} alt="Logo" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
-                        : <span style={{ fontSize: 22 }}>♻️</span>
-                    }
-                    <div>
-                        <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1 }}>{config.nombre || 'ASOERC'}</div>
-                        <div style={{ fontSize: 10, color: '#8fcca0', marginTop: 1 }}>
-                            {bodegaActual?.nombre || (user?.rol === 'superadmin' ? 'Bodega Principal' : 'Sistema')}
-                        </div>
-                    </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.nombre?.split(' ')[0]}</div>
-                        <span style={{ fontSize: 9, background: roleInfo.color, color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 700 }}>
-                            {roleInfo.label}
-                        </span>
-                    </div>
-                    <button onClick={() => setMenuAbierto(true)}
-                        style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', width: 38, height: 38, borderRadius: 10, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        ☰
-                    </button>
-                </div>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: 'var(--fondo)' }}>
+            <header style={{ background: 'var(--noche)', color: '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 14px', boxShadow: '0 2px 10px rgba(15,27,45,.3)' }}>
+                <Marca config={config} subtitulo={subtitulo} compacta />
+                <button onClick={() => setMenuAbierto(true)} aria-label="Abrir menú"
+                    style={{ background: 'var(--noche-2)', border: '1.5px solid var(--noche-3)', color: '#fff', width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icono nombre="menu" tam={22} />
+                </button>
             </header>
 
-            {/* Contenido principal */}
             <main style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
                 <AvisoLicencia sistema="Sistema ASOERC" />
                 <Outlet />
             </main>
 
-            {/* Bottom tab bar */}
-            <nav style={{
-                background: '#fff', flexShrink: 0,
-                display: 'flex', borderTop: '1px solid #e5e7eb',
-                boxShadow: '0 -2px 12px rgba(0,0,0,.08)'
-            }}>
-                {bottomTabs.map(({ to, icon, label }) => {
-                    const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
+            {/* Barra inferior */}
+            <nav className="barra-inferior" style={{ background: '#fff', flexShrink: 0, display: 'flex', borderTop: '1.5px solid var(--borde)', boxShadow: '0 -4px 16px rgba(15,27,45,.08)' }}>
+                {bottomTabs.map(({ to, icono, label }) => {
+                    const activo = esActiva(to, location.pathname);
                     return (
                         <NavLink key={to} to={to} end={to === '/'}
-                            style={{
-                                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                                justifyContent: 'center', padding: '8px 4px 10px',
-                                textDecoration: 'none', color: isActive ? '#1a5c2a' : '#9ca3af',
-                                borderTop: isActive ? '2px solid #1a5c2a' : '2px solid transparent',
-                                background: isActive ? '#f0faf0' : 'transparent',
-                                transition: 'all .15s'
-                            }}>
-                            <span style={{ fontSize: 22 }}>{icon}</span>
-                            <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 400, marginTop: 2 }}>{label}</span>
+                            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '8px 2px 9px', minHeight: 60, textDecoration: 'none', color: activo ? 'var(--verde-osc)' : '#7b8799', position: 'relative' }}>
+                            {activo && <span style={{ position: 'absolute', top: 0, left: '22%', right: '22%', height: 3, borderRadius: '0 0 3px 3px', background: 'var(--verde)' }} />}
+                            <span style={{ width: 44, height: 30, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: activo ? 'var(--verde-suave)' : 'transparent' }}>
+                                <Icono nombre={icono} tam={22} grosor={activo ? 2.2 : 1.9} />
+                            </span>
+                            <span style={{ fontFamily: 'var(--fuente-tit)', fontSize: 13, fontWeight: activo ? 800 : 600, letterSpacing: .3 }}>{label}</span>
                         </NavLink>
                     );
                 })}
-                {/* Botón "Más" si hay secciones extra */}
                 {extraNav.length > 0 && (
                     <button onClick={() => setMenuAbierto(true)}
-                        style={{
-                            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                            justifyContent: 'center', padding: '8px 4px 10px', background: 'none', border: 'none',
-                            color: '#9ca3af', cursor: 'pointer', borderTop: '2px solid transparent'
-                        }}>
-                        <span style={{ fontSize: 22 }}>⋯</span>
-                        <span style={{ fontSize: 10, marginTop: 2 }}>Más</span>
+                        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '8px 2px 9px', minHeight: 60, background: 'none', border: 'none', color: '#7b8799' }}>
+                        <span style={{ width: 44, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icono nombre="mas" tam={22} /></span>
+                        <span style={{ fontFamily: 'var(--fuente-tit)', fontSize: 13, fontWeight: 600, letterSpacing: .3 }}>Más</span>
                     </button>
                 )}
             </nav>
 
-            {/* Drawer lateral (menú completo) */}
+            {/* Menú completo deslizable */}
             {menuAbierto && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex' }}>
-                    {/* Overlay */}
-                    <div onClick={() => setMenuAbierto(false)}
-                        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }} />
-                    {/* Panel */}
-                    <div style={{
-                        position: 'relative', zIndex: 1, width: 280, height: '100%',
-                        background: '#1a5c2a', color: '#fff', display: 'flex', flexDirection: 'column',
-                        overflowY: 'auto'
-                    }}>
-                        {/* Perfil */}
-                        <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid #2d7a3f' }}>
-                            <div style={{ width: 48, height: 48, background: '#2d7a3f', borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 10 }}>
-                                {user?.nombre?.charAt(0).toUpperCase()}
+                    <div onClick={() => setMenuAbierto(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(8,14,24,.6)' }} />
+                    <div style={{ position: 'relative', zIndex: 1, width: 'min(86vw, 320px)', height: '100%', background: 'var(--noche)', color: '#fff', display: 'flex', flexDirection: 'column', boxShadow: 'var(--sombra-alta)' }}>
+                        <div style={{ padding: '16px 14px 14px', borderBottom: '1px solid var(--noche-3)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                <Marca config={config} subtitulo={subtitulo} compacta />
+                                <button onClick={() => setMenuAbierto(false)} aria-label="Cerrar menú"
+                                    style={{ background: 'none', border: 'none', color: 'var(--noche-texto)', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Icono nombre="cerrar" tam={22} />
+                                </button>
                             </div>
-                            <div style={{ fontWeight: 700, fontSize: 16 }}>{user?.nombre}</div>
-                            <span style={{ fontSize: 11, background: roleInfo.color, color: '#fff', padding: '2px 10px', borderRadius: 10, fontWeight: 600 }}>
-                                {roleInfo.label}
-                            </span>
-                            {bodegaActual && <div style={{ fontSize: 11, color: '#8fcca0', marginTop: 6 }}>📍 {bodegaActual.nombre}</div>}
-
-                            {user?.rol === 'superadmin' && bodegas.length > 0 && (
-                                <select value={bodegaFiltro} onChange={e => setBodegaFiltro(e.target.value)}
-                                    style={{ marginTop: 10, width: '100%', padding: '6px 8px', borderRadius: 6, border: 'none', fontSize: 12, background: '#2d7a3f', color: '#fff' }}>
-                                    <option value="">Todas las bodegas</option>
-                                    {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                                </select>
-                            )}
+                            {esSuper && bodegas.length > 0 && <SelectorBodega bodegas={bodegas} valor={bodegaFiltro} onChange={setBodegaFiltro} />}
                         </div>
-
-                        {/* Todas las secciones */}
-                        <div style={{ flex: 1, padding: '8px 0' }}>
-                            {nav.map(({ to, icon, label, externo }) => {
-                                if (externo) return (
-                                    <a key={to} href={externo} target="_blank" rel="noopener noreferrer"
-                                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', textDecoration: 'none', color: '#a8d5b5', fontSize: 15, borderLeft: '3px solid transparent' }}>
-                                        <span style={{ fontSize: 20 }}>{icon}</span>
-                                        <span>{label}</span>
-                                    </a>
-                                );
-                                const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
-                                return (
-                                    <NavLink key={to} to={to} end={to === '/'}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 14,
-                                            padding: '13px 20px', textDecoration: 'none',
-                                            color: isActive ? '#fff' : '#a8d5b5', fontSize: 15,
-                                            background: isActive ? '#2d7a3f' : 'transparent',
-                                            borderLeft: isActive ? '3px solid #6fcf8a' : '3px solid transparent',
-                                        }}>
-                                        <span style={{ fontSize: 20 }}>{icon}</span>
-                                        <span style={{ fontWeight: isActive ? 700 : 400 }}>{label}</span>
-                                    </NavLink>
-                                );
-                            })}
-                        </div>
-
-                        {/* Acciones */}
-                        <div style={{ padding: '16px 20px', borderTop: '1px solid #2d7a3f', display: 'flex', gap: 8 }}>
-                            <InstalarApp />
-                            <button onClick={handleLogout}
-                                style={{ flex: 1, background: 'none', border: '1px solid #4a9e5c', color: '#a8d5b5', padding: '10px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
-                                Cerrar sesión
-                            </button>
-                        </div>
+                        <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 10px' }}>
+                            <MenuAgrupado nav={nav} path={location.pathname} alto={48} />
+                        </nav>
+                        <div style={{ padding: '0 14px 10px' }}><InstalarApp /></div>
+                        <PieUsuario user={user} roleInfo={roleInfo} onSalir={handleLogout} />
                     </div>
                 </div>
             )}
@@ -253,61 +257,16 @@ export default function Layout() {
     // ── ESCRITORIO ─────────────────────────────────────────────────────────────
     return (
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-            <aside style={{ width: 220, background: '#1a5c2a', color: '#fff', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-                <div style={{ padding: '16px', borderBottom: '1px solid #2d7a3f' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 20, fontWeight: 700 }}>
-                        {config.logo_url
-                            ? <img src={config.logo_url} alt="Logo" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
-                            : '♻️'
-                        }
-                        {config.nombre || 'ASOERC'}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#8fcca0', marginTop: 2 }}>
-                        {bodegaActual?.nombre || (user?.rol === 'superadmin' ? 'Bodega Principal' : 'Sistema')}
-                    </div>
-                    {user?.rol === 'superadmin' && bodegas.length > 0 && (
-                        <select value={bodegaFiltro} onChange={e => setBodegaFiltro(e.target.value)}
-                            style={{ marginTop: 8, width: '100%', padding: '4px 6px', borderRadius: 4, border: 'none', fontSize: 12, background: '#2d7a3f', color: '#fff' }}>
-                            <option value="">Todas las bodegas</option>
-                            {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                        </select>
-                    )}
+            <aside style={{ width: 268, background: 'var(--noche)', color: '#fff', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                <div style={{ padding: '18px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16, borderBottom: '1px solid var(--noche-3)' }}>
+                    <Marca config={config} subtitulo={subtitulo} />
+                    {esSuper && bodegas.length > 0 && <SelectorBodega bodegas={bodegas} valor={bodegaFiltro} onChange={setBodegaFiltro} />}
                 </div>
-                <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-                    {nav.map(({ to, icon, label, externo }) => externo ? (
-                        <a key={to} href={externo} target="_blank" rel="noopener noreferrer" style={{
-                            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
-                            color: '#a8d5b5', textDecoration: 'none', fontSize: 14,
-                            background: 'transparent', borderLeft: '3px solid transparent', transition: 'all .15s'
-                        }}>
-                            <span style={{ fontSize: 18 }}>{icon}</span> {label}
-                        </a>
-                    ) : (
-                        <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
-                            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
-                            color: isActive ? '#fff' : '#a8d5b5', textDecoration: 'none', fontSize: 14,
-                            background: isActive ? '#2d7a3f' : 'transparent',
-                            borderLeft: isActive ? '3px solid #6fcf8a' : '3px solid transparent',
-                            transition: 'all .15s'
-                        })}>
-                            <span style={{ fontSize: 18 }}>{icon}</span> {label}
-                        </NavLink>
-                    ))}
+                <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 12px' }}>
+                    <MenuAgrupado nav={nav} path={location.pathname} />
                 </nav>
-                <div style={{ padding: '12px 16px', borderTop: '1px solid #2d7a3f', fontSize: 13 }}>
-                    <div style={{ color: '#fff', fontWeight: 600, marginBottom: 2 }}>{user?.nombre}</div>
-                    <div style={{ marginBottom: 8 }}>
-                        <span style={{ background: roleInfo.color, color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
-                            {roleInfo.label}
-                        </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                        <InstalarApp />
-                        <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #4a9e5c', color: '#a8d5b5', padding: '5px 12px', borderRadius: 4, fontSize: 12, cursor: 'pointer', flex: 1 }}>
-                            Salir
-                        </button>
-                    </div>
-                </div>
+                <div style={{ padding: '0 16px 8px' }}><InstalarApp /></div>
+                <PieUsuario user={user} roleInfo={roleInfo} onSalir={handleLogout} />
             </aside>
             <main style={{ flex: 1, overflow: 'auto', position: 'relative', minHeight: 0 }}>
                 <AvisoLicencia sistema="Sistema ASOERC" />

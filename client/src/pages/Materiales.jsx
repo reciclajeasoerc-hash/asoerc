@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { EncabezadoPagina, Tarjeta, Boton, Campo, Buscador, Aviso, Chip, ContenedorTabla, estiloTabla, estiloTh, estiloTd, estiloTdNum, estiloInput } from '../components/ui';
 
 const fmt = n => Number(n || 0).toLocaleString('es-CO');
 
 const CATEGORIAS = ['Metales', 'Electrónicos', 'Plásticos', 'Papel y Cartón', 'Vidrio', 'Madera', 'Otros'];
-const CAT_ICON = { 'Metales': '🔩', 'Electrónicos': '📱', 'Plásticos': '♻️', 'Papel y Cartón': '📦', 'Vidrio': '🍶', 'Madera': '🪵', 'Otros': '🔧', 'Varios': '🔧' };
 const VACIO = { codigo: '', nombre: '', precio_compra: '', unidad: 'kg', categoria: 'Otros', orden: '' };
 
 export default function Materiales() {
@@ -42,84 +42,102 @@ export default function Materiales() {
         cargar();
     };
 
+    const lista = busqueda.trim() ? materiales.filter(m => `${m.nombre || ''} ${m.codigo || ''}`.toLowerCase().includes(busqueda.trim().toLowerCase())) : materiales;
+
     return (
-        <div style={{ padding: 24 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>📋 Materiales</h1>
-            <p style={{ color: '#666', fontSize: 13, marginBottom: 20 }}>Precios de compra por material (precios fijos)</p>
+        <div className="pagina">
+            <EncabezadoPagina titulo="Materiales" sub="Precios de compra por material (precios fijos)" icono="materiales" />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20 }}>
-                <div style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)', height: 'fit-content' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{editando ? 'Editar Material' : 'Nuevo Material'}</h3>
-                    {[['codigo','Código*'],['nombre','Nombre*']].map(([k,l]) => (
-                        <label key={k} style={{ display: 'block', marginBottom: 10 }}>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>{l}</div>
-                            <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })}
-                                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                        </label>
-                    ))}
-                    <label style={{ display: 'block', marginBottom: 10 }}>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Precio compra ($/kg)</div>
-                        <input type="number" value={form.precio_compra} onChange={e => setForm({ ...form, precio_compra: e.target.value })} min="0"
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                    </label>
-                    <label style={{ display: 'block', marginBottom: 10 }}>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Familia</div>
-                        <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                            {CATEGORIAS.map(c => <option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}
-                        </select>
-                    </label>
-                    <label style={{ display: 'block', marginBottom: 10 }}>
-                        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Orden dentro de la familia</div>
-                        <input type="number" value={form.orden} onChange={e => setForm({ ...form, orden: e.target.value })} min="0" placeholder="ej: 1, 2, 3…"
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                        <div style={{ fontSize: 11, color: '#999', marginTop: 3 }}>Menor número = aparece primero. Déjalo vacío para el final.</div>
-                    </label>
-                    {msg && <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 8 }}>{msg}</div>}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={guardar} style={{ flex: 1, padding: '9px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
-                            {editando ? 'Actualizar' : 'Guardar'}
-                        </button>
-                        {editando && <button onClick={() => { setEditando(null); setForm(VACIO); }} style={{ padding: '9px 14px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>✕</button>}
+            <div className="rejilla-form-lista">
+                <Tarjeta titulo={editando ? 'Editar material' : 'Nuevo material'} icono={editando ? 'editar' : 'agregar'}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {[['codigo', 'Código*'], ['nombre', 'Nombre*']].map(([k, l]) => (
+                            <Campo key={k} etiqueta={l}>
+                                <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} style={estiloInput} />
+                            </Campo>
+                        ))}
+                        <Campo etiqueta="Precio compra ($/kg)">
+                            <input type="number" value={form.precio_compra} onChange={e => setForm({ ...form, precio_compra: e.target.value })} min="0" style={estiloInput} />
+                        </Campo>
+                        <Campo etiqueta="Familia">
+                            <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} style={estiloInput}>
+                                {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </Campo>
+                        <Campo etiqueta="Orden dentro de la familia" ayuda="Menor número = aparece primero. Déjalo vacío para el final.">
+                            <input type="number" value={form.orden} onChange={e => setForm({ ...form, orden: e.target.value })} min="0" placeholder="ej: 1, 2, 3…" style={estiloInput} />
+                        </Campo>
+                        {msg && <Aviso tipo="error">{msg}</Aviso>}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <Boton onClick={guardar} style={{ flex: 1 }}>{editando ? 'Actualizar' : 'Guardar'}</Boton>
+                            {editando && <Boton variante="secundario" onClick={() => { setEditando(null); setForm(VACIO); }}>Cancelar</Boton>}
+                        </div>
                     </div>
-                </div>
+                </Tarjeta>
 
-                <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: 22, top: '50%', transform: 'translateY(-50%)', opacity: .6, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
-                        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar material por nombre o código..."
-                            style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, boxSizing: 'border-box' }} />
+                <Tarjeta titulo="Materiales" sub={`${materiales.length} activos`} sinPadding style={{ minWidth: 0 }}>
+                    <div style={{ padding: '0 14px 12px', borderBottom: '1.5px solid var(--borde)' }}>
+                        <Buscador value={busqueda} onChange={setBusqueda} placeholder="Buscar material por nombre o código..." />
                     </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead>
-                            <tr style={{ background: '#f0faf0' }}>
-                                {['Familia','#','Código','Nombre','Precio compra',''].map(h => (
-                                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(busqueda.trim() ? materiales.filter(m => `${m.nombre || ''} ${m.codigo || ''}`.toLowerCase().includes(busqueda.trim().toLowerCase())) : materiales).map((m, i, arr) => {
-                                const nuevaFamilia = i === 0 || arr[i - 1].categoria !== m.categoria;
-                                return (
-                                <tr key={m.id} style={{ borderBottom: '1px solid #f5f5f5', borderTop: nuevaFamilia && i > 0 ? '2px solid #e0efe0' : undefined }}>
-                                    <td style={{ padding: '10px 14px', color: '#666', fontSize: 12 }}>{nuevaFamilia ? `${CAT_ICON[m.categoria] || '📋'} ${m.categoria || '—'}` : ''}</td>
-                                    <td style={{ padding: '10px 14px', color: '#aaa', fontSize: 12 }}>{m.orden === 999 ? '—' : m.orden}</td>
-                                    <td style={{ padding: '10px 14px', color: '#666' }}>{m.codigo}</td>
-                                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{m.nombre}</td>
-                                    <td style={{ padding: '10px 14px', color: '#1a5c2a', fontWeight: 700 }}>${fmt(m.precio_compra)}</td>
-                                    <td style={{ padding: '10px 14px' }}>
-                                        <div style={{ display: 'flex', gap: 6 }}>
-                                            <button onClick={() => editar(m)} style={{ padding: '4px 10px', background: '#e0f2e9', color: '#1a5c2a', border: 'none', borderRadius: 4, fontSize: 11 }}>Editar</button>
-                                            <button onClick={() => eliminar(m.id)} style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 4, fontSize: 11 }}>Quitar</button>
+
+                    {/* Computador: tabla agrupada por familia */}
+                    <div className="solo-pc">
+                        <ContenedorTabla>
+                            <table style={estiloTabla}>
+                                <thead>
+                                    <tr>
+                                        {['Familia', '#', 'Código', 'Nombre', 'Precio compra', ''].map(h => (
+                                            <th key={h} style={{ ...estiloTh, textAlign: h === 'Precio compra' ? 'right' : 'left' }}>{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {lista.map((m, i, arr) => {
+                                        const nuevaFamilia = i === 0 || arr[i - 1].categoria !== m.categoria;
+                                        return (
+                                            <tr key={m.id} style={{ borderTop: nuevaFamilia && i > 0 ? '2px solid var(--borde-fuerte)' : undefined }}>
+                                                <td style={estiloTd}>{nuevaFamilia ? <Chip tono="noche">{m.categoria || '—'}</Chip> : ''}</td>
+                                                <td style={{ ...estiloTd, color: 'var(--texto-3)' }}>{m.orden === 999 ? '—' : m.orden}</td>
+                                                <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{m.codigo}</td>
+                                                <td style={{ ...estiloTd, fontWeight: 700 }}>{m.nombre}</td>
+                                                <td style={{ ...estiloTdNum, fontWeight: 700 }}>${fmt(m.precio_compra)}</td>
+                                                <td style={{ ...estiloTd, textAlign: 'right' }}>
+                                                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                                                        <Boton tam="sm" variante="secundario" onClick={() => editar(m)}>Editar</Boton>
+                                                        <Boton tam="sm" variante="peligro" onClick={() => eliminar(m.id)}>Quitar</Boton>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </ContenedorTabla>
+                    </div>
+
+                    {/* Celular: lista por familia */}
+                    <div className="solo-movil">
+                        {lista.map((m, i, arr) => {
+                            const nuevaFamilia = i === 0 || arr[i - 1].categoria !== m.categoria;
+                            return (
+                                <React.Fragment key={m.id}>
+                                    {nuevaFamilia && <div className="etiqueta" style={{ padding: '10px 14px 6px', background: '#f6f8fa', color: 'var(--texto-2)', borderTop: '1px solid var(--borde)' }}>{m.categoria || '—'}</div>}
+                                    <div style={{ padding: '11px 14px', borderTop: '1px solid #eef1f4', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 700, fontSize: 15 }}>{m.nombre}</div>
+                                            <div style={{ fontSize: 12.5, color: 'var(--texto-3)' }}>Código {m.codigo}{m.orden !== 999 && m.orden != null ? ` · orden ${m.orden}` : ''}</div>
                                         </div>
-                                    </td>
-                                </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                                        <div className="cifra" style={{ fontSize: 16, flexShrink: 0 }}>${fmt(m.precio_compra)}</div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '0 14px 11px' }}>
+                                        <Boton variante="secundario" tam="sm" onClick={() => { editar(m); window.scrollTo({ top: 0, behavior: 'smooth' }); document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' }); }}>Editar</Boton>
+                                        <Boton variante="peligro" tam="sm" onClick={() => eliminar(m.id)}>Quitar</Boton>
+                                    </div>
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
+                </Tarjeta>
             </div>
         </div>
     );

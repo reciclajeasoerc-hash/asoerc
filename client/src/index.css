@@ -1,25 +1,187 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ASOERC — sistema visual "Operación" (azul noche + verde de marca)
+   Todos los colores salen de estas variables: cambiar aquí cambia todo el sistema.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+    /* Marca */
+    --verde:        #16a34a;   /* acción principal, activo */
+    --verde-vivo:   #22c55e;   /* puntos, indicadores sobre oscuro */
+    --verde-osc:    #15803d;   /* texto verde y botones (contraste AA con blanco) */
+    --verde-suave:  #ecfdf3;   /* fondos verdes claros */
+    --verde-borde:  #bbe5c8;
+
+    /* Azul noche (estructura) */
+    --noche:        #0f1b2d;   /* barra lateral, tarjeta de saldo */
+    --noche-2:      #17263d;   /* hover / campos sobre oscuro */
+    --noche-3:      #24364f;   /* bordes sobre oscuro */
+    --noche-texto:  #c3cddb;   /* texto del menú */
+    --noche-tenue:  #7f8da3;
+
+    /* Semánticos */
+    --rojo:         #dc2626;
+    --rojo-suave:   #fef2f2;
+    --rojo-borde:   #f5b5b5;
+    --ambar:        #f5b301;   /* dorado: superadmin, cerrar caja */
+    --ambar-suave:  #fff8e1;
+    --azul:         #2563eb;
+    --azul-suave:   #eff6ff;
+
+    /* Superficies y texto */
+    --fondo:        #eef1f5;
+    --tarjeta:      #ffffff;
+    --borde:        #dbe1e8;
+    --borde-fuerte: #c5cdd8;
+    --texto:        #0f1b2d;
+    --texto-2:      #475569;
+    --texto-3:      #8592a6;
+
+    --radio:        10px;
+    --radio-sm:     7px;
+    --sombra:       0 1px 2px rgba(15,27,45,.06), 0 1px 1px rgba(15,27,45,.04);
+    --sombra-alta:  0 10px 30px rgba(15,27,45,.16);
+
+    --fuente:       'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --fuente-tit:   'Barlow Condensed', 'Barlow', system-ui, sans-serif;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f0faf0;
-    color: #1a1a1a;
-    /* Evitar rebote en iOS */
+    font-family: var(--fuente);
+    font-size: 14.5px;
+    background: var(--fondo);
+    color: var(--texto);
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
 }
-button { cursor: pointer; }
-input, select, textarea { font-family: inherit; }
 
-/* Scroll suave en móvil */
-* { -webkit-overflow-scrolling: touch; }
+/* Títulos con la letra condensada del diseño */
+h1, h2, h3, h4 { font-family: var(--fuente-tit); color: var(--texto); letter-spacing: .2px; line-height: 1.15; }
+h1 { font-size: 26px; font-weight: 700; }
+h2 { font-size: 20px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 700; }
+
+/* Botones: lo que la pantalla no defina, lo pone esto */
+button {
+    cursor: pointer; font-family: inherit; font-weight: 600;
+    transition: filter .15s, background-color .15s, border-color .15s, transform .05s;
+}
+button:hover:not(:disabled) { filter: brightness(.96); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { cursor: not-allowed; opacity: .55; }
+button:focus-visible, a:focus-visible { outline: 3px solid rgba(22,163,74,.35); outline-offset: 2px; }
+
+/* Campos */
+input, select, textarea { font-family: inherit; color: var(--texto); }
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]), select, textarea {
+    border-color: var(--borde-fuerte);
+    transition: border-color .15s, box-shadow .15s;
+}
+input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--verde) !important;
+    box-shadow: 0 0 0 3px rgba(22,163,74,.18);
+}
+input[type=checkbox], input[type=radio] { accent-color: var(--verde); }
+::placeholder { color: var(--texto-3); }
+
+/* Tablas: encabezado condensado en mayúsculas, filas con separador suave */
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+thead th {
+    font-family: var(--fuente-tit);
+    font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    font-size: 12.5px; color: var(--texto-2);
+}
+tbody tr { transition: background-color .12s; }
+tbody tr:hover { background-color: #f7f9fb; }
+
+a { color: var(--verde-osc); }
+
+/* Barras de desplazamiento discretas */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #c9d1dc; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Menú lateral: realce al pasar el mouse (el activo trae su propio fondo) */
+.item-menu:hover { background-color: var(--noche-2); color: #fff !important; }
+
+/* ── Piezas reutilizables ─────────────────────────────────────────────────── */
+.tarjeta { background: var(--tarjeta); border: 1.5px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra); }
+.tit-seccion {
+    font-family: var(--fuente-tit); font-weight: 700; font-size: 16px;
+    text-transform: uppercase; letter-spacing: .6px; color: var(--texto);
+    display: flex; align-items: center; gap: 8px;
+}
+.sub-seccion { font-size: 12.5px; color: var(--texto-3); margin-top: 2px; }
+.cifra { font-family: var(--fuente-tit); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .2px; }
+.etiqueta { font-family: var(--fuente-tit); font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: .6px; }
+.chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    font-family: var(--fuente-tit); font-weight: 700; font-size: 12px; letter-spacing: .5px; text-transform: uppercase;
+}
+.pagina { padding: 22px 26px 32px; max-width: 1600px; margin: 0 auto; }
+.encabezado-pagina { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.encabezado-pagina h1 { font-size: 28px; }
+.encabezado-pagina p { color: var(--texto-3); font-size: 13.5px; margin-top: 2px; }
+
+/* Ventanas (modal): centradas en computador, suben desde abajo en el celular */
+.modal-fondo { position: fixed; inset: 0; z-index: 1500; background: rgba(8,14,24,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal-caja { background: #fff; border-radius: 14px; width: 100%; max-height: calc(100dvh - 32px); display: flex; flex-direction: column; box-shadow: var(--sombra-alta); border-top: 4px solid var(--noche); }
+@media (max-width: 768px) {
+    .modal-fondo { align-items: flex-end; padding: 0; }
+    .modal-caja { max-width: none !important; border-radius: 16px 16px 0 0; max-height: 92dvh; padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* Mostrar una cosa en computador y otra en el celular (p. ej. tabla vs. tarjetas) */
+.solo-movil { display: none; }
+@media (max-width: 768px) {
+    .solo-pc { display: none !important; }
+    .solo-movil { display: block; }
+}
+
+/* Rejillas genéricas para formularios y tarjetas */
+/* Formulario angosto a la izquierda + lista ancha (Materiales, etc.) */
+.rejilla-form-lista { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .rejilla-form-lista { grid-template-columns: minmax(0, 1fr); } }
+.rejilla-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.rejilla-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+@media (max-width: 768px) { .rejilla-tarjetas { grid-template-columns: minmax(0, 1fr); gap: 10px; } }
+
+/* Rejillas del panel de inicio */
+.rejilla-kpi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.rejilla-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
+.rejilla-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+
+@media (max-width: 1200px) {
+    .rejilla-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rejilla-2-1, .rejilla-3 { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* Safe area para iPhone con notch */
 @supports (padding: env(safe-area-inset-bottom)) {
     header { padding-top: max(10px, env(safe-area-inset-top)); }
+    .barra-inferior { padding-bottom: env(safe-area-inset-bottom); }
 }
 
-/* Inputs más grandes en móvil (evitar zoom automático en iOS) */
+/* ── Celular ──────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+    /* 16px evita el zoom automático de iOS al tocar un campo */
     input, select, textarea { font-size: 16px !important; }
     table { font-size: 13px; }
+    /* Tablas anchas: se deslizan de lado en vez de quedar cortadas por su tarjeta */
+    div:has(> table) { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+    .pagina { padding: 14px 12px 24px; }
+    .encabezado-pagina h1 { font-size: 23px; }
+    .rejilla-kpi { gap: 10px; }
+    h1 { font-size: 22px; }
+    .ocultar-movil { display: none; }
+}
+@media (max-width: 380px) {
+    .rejilla-kpi { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
 }

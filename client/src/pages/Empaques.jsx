@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import PickerBuscable from '../components/PickerBuscable';
+import { EncabezadoPagina, Boton, Tarjeta, Campo, estiloInput, Buscador, ContenedorTabla, estiloTabla, estiloTh, estiloTd, estiloTdNum, Chip, Aviso, Vacio } from '../components/ui';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
@@ -56,9 +57,6 @@ export default function Empaques() {
         finally { setLoading(false); }
     };
 
-    const tipoEntrega = { bg: '#d1fae5', color: '#059669' };
-    const tipoDevol  = { bg: '#fee2e2', color: '#dc2626' };
-
     const empFiltrados = filtro
         ? empaques.filter(e => e.reciclador?.nombre?.toLowerCase().includes(filtro.toLowerCase()) || e.conductor?.toLowerCase().includes(filtro.toLowerCase()))
         : empaques;
@@ -74,29 +72,23 @@ export default function Empaques() {
     }, {});
 
     return (
-        <div style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700 }}>📦 Empaques</h1>
-                    <p style={{ color: '#666', fontSize: 13 }}>Control de empaques entregados y devueltos</p>
-                </div>
-                <button onClick={() => setShowForm(!showForm)} style={{ padding: '9px 18px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>+ Registrar</button>
-            </div>
+        <div className="pagina">
+            <EncabezadoPagina titulo="Empaques" sub="Control de empaques entregados y devueltos" icono="empaques"
+                acciones={<Boton icono="agregar" onClick={() => setShowForm(!showForm)}>Registrar</Boton>} />
 
             {showForm && (
-                <div style={{ background: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Nuevo movimiento de empaque</h3>
+                <Tarjeta titulo="Nuevo movimiento de empaque" icono="empaques" style={{ marginBottom: 20 }}>
 
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                        {[['entrega','📤 Entrega'], ['devolucion','📥 Devolución']].map(([v, l]) => (
-                            <button key={v} onClick={() => setForm({ ...form, tipo: v })}
-                                style={{ flex: 1, padding: '9px', background: form.tipo === v ? (v === 'entrega' ? '#d1fae5' : '#fee2e2') : '#f5f5f5', color: form.tipo === v ? (v === 'entrega' ? '#059669' : '#dc2626') : '#888', border: `2px solid ${form.tipo === v ? (v === 'entrega' ? '#059669' : '#dc2626') : '#ddd'}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{l}</button>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                        {[['entrega', 'Entrega'], ['devolucion', 'Devolución']].map(([v, l]) => (
+                            <Boton key={v} onClick={() => setForm({ ...form, tipo: v })}
+                                variante={form.tipo === v ? (v === 'entrega' ? 'primario' : 'peligro') : 'secundario'}
+                                style={{ flex: '1 1 160px' }}>{l}</Boton>
                         ))}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
-                        <div>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Reciclador</div>
+                    <div className="rejilla-form" style={{ marginBottom: 14 }}>
+                        <Campo etiqueta="Reciclador">
                             <PickerBuscable
                                 items={recicladores}
                                 value={form.reciclador_id}
@@ -104,93 +96,111 @@ export default function Empaques() {
                                 placeholder="Buscar reciclador..."
                                 fontSize={13}
                             />
-                        </div>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>O conductor externo</div>
-                            <input value={form.conductor} onChange={e => setForm({ ...form, conductor: e.target.value, reciclador_id: '' })} placeholder="Nombre conductor" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Cantidad*</div>
-                            <input type="number" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} min="1" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Bodega</div>
-                            <select value={form.bodega_id} onChange={e => setForm({ ...form, bodega_id: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                        </Campo>
+                        <Campo etiqueta="O conductor externo">
+                            <input value={form.conductor} onChange={e => setForm({ ...form, conductor: e.target.value, reciclador_id: '' })} placeholder="Nombre conductor" style={estiloInput} />
+                        </Campo>
+                        <Campo etiqueta="Cantidad *">
+                            <input type="number" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} min="1" style={estiloInput} />
+                        </Campo>
+                        <Campo etiqueta="Bodega">
+                            <select value={form.bodega_id} onChange={e => setForm({ ...form, bodega_id: e.target.value })} style={estiloInput}>
                                 {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
                             </select>
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Fecha</div>
-                            <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                        </label>
-                        <label>
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Observaciones</div>
-                            <input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
-                        </label>
+                        </Campo>
+                        <Campo etiqueta="Fecha">
+                            <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} style={estiloInput} />
+                        </Campo>
+                        <Campo etiqueta="Observaciones">
+                            <input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} style={estiloInput} />
+                        </Campo>
                     </div>
 
-                    {msg && <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 8 }}>{msg}</div>}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={guardar} disabled={loading} style={{ padding: '9px 20px', background: '#1a5c2a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>{loading ? 'Guardando...' : 'Registrar'}</button>
-                        <button onClick={() => setShowForm(false)} style={{ padding: '9px 16px', background: '#f5f5f5', border: 'none', borderRadius: 6, fontSize: 13 }}>Cancelar</button>
+                    {msg && <Aviso tipo="error" style={{ marginBottom: 8 }}>{msg}</Aviso>}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Boton onClick={guardar} disabled={loading}>{loading ? 'Guardando...' : 'Registrar'}</Boton>
+                        <Boton variante="secundario" onClick={() => setShowForm(false)}>Cancelar</Boton>
                     </div>
-                </div>
+                </Tarjeta>
             )}
 
             {/* Saldo por persona */}
             {Object.values(resumen).length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 600, color: '#555', marginBottom: 10 }}>Saldo por persona</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 10 }}>
+                <Tarjeta titulo="Saldo por persona" icono="empaques" style={{ marginBottom: 20 }}>
+                    <div className="rejilla-tarjetas">
                         {Object.values(resumen).map(r => {
                             const saldo = r.entregado - r.devuelto;
                             return (
-                                <div key={r.nombre} style={{ background: '#fff', borderRadius: 8, padding: 14, boxShadow: '0 1px 4px rgba(0,0,0,.08)' }}>
-                                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>{r.nombre}</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                                        <span style={{ color: '#059669' }}>Entregados: {r.entregado}</span>
-                                        <span style={{ color: '#dc2626' }}>Devueltos: {r.devuelto}</span>
+                                <div key={r.nombre} className="tarjeta" style={{ padding: 14, boxShadow: 'none' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, overflowWrap: 'anywhere' }}>{r.nombre}</div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 }}>
+                                        <span style={{ color: 'var(--verde-osc)' }}>Entregados: {r.entregado}</span>
+                                        <span style={{ color: 'var(--rojo)' }}>Devueltos: {r.devuelto}</span>
                                     </div>
-                                    <div style={{ marginTop: 6, fontWeight: 700, color: saldo > 0 ? '#d97706' : '#059669', fontSize: 14 }}>
+                                    <div className="cifra" style={{ marginTop: 10, color: saldo > 0 ? 'var(--ambar)' : 'var(--verde-osc)', fontSize: 16 }}>
                                         Saldo: {saldo} empaques
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                </div>
+                </Tarjeta>
             )}
 
             {/* Historial */}
-            <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.08)', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
-                    <input value={filtro} onChange={e => setFiltro(e.target.value)} placeholder="Buscar por reciclador o conductor..." style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
+            <Tarjeta titulo="Historial de movimientos" icono="materiales" sinPadding>
+                <div style={{ padding: '12px 16px', borderBottom: '1.5px solid var(--borde)' }}>
+                    <Buscador value={filtro} onChange={setFiltro} placeholder="Buscar por reciclador o conductor..." style={{ maxWidth: 520 }} />
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead><tr style={{ background: '#f0faf0' }}>
-                        {['Fecha','Persona','Entregados','Devueltos','Saldo','Bodega'].map(h => (
-                            <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: '#1a5c2a', fontWeight: 600 }}>{h}</th>
-                        ))}
-                    </tr></thead>
-                    <tbody>
-                        {empFiltrados.map(e => (
-                            <tr key={e.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                <td style={{ padding: '8px 12px', color: '#888' }}>{e.fecha}</td>
-                                <td style={{ padding: '8px 12px', fontWeight: 600 }}>{e.reciclador?.nombre || e.conductor || '—'}</td>
-                                <td style={{ padding: '8px 12px' }}>
-                                    {e.cantidad_entregada > 0 && <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: tipoEntrega.bg, color: tipoEntrega.color }}>📤 {e.cantidad_entregada}</span>}
-                                </td>
-                                <td style={{ padding: '8px 12px' }}>
-                                    {e.cantidad_devuelta > 0 && <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: tipoDevol.bg, color: tipoDevol.color }}>📥 {e.cantidad_devuelta}</span>}
-                                </td>
-                                <td style={{ padding: '8px 12px', fontWeight: 700, color: e.saldo > 0 ? '#d97706' : '#059669' }}>{e.saldo}</td>
-                                <td style={{ padding: '8px 12px', color: '#888', fontSize: 12 }}>{e.bodega?.nombre}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {empFiltrados.length === 0 && <p style={{ color: '#999', textAlign: 'center', padding: 20, fontSize: 13 }}>Sin registros</p>}
-            </div>
+                {empFiltrados.length === 0 && <Vacio icono="empaques" texto="Sin registros" />}
+
+                {empFiltrados.length > 0 && (
+                    <div className="solo-pc">
+                        <ContenedorTabla>
+                            <table style={estiloTabla}>
+                                <thead>
+                                    <tr>
+                                        {['Fecha', 'Persona', 'Entregados', 'Devueltos', 'Saldo', 'Bodega'].map(h => (
+                                            <th key={h} style={h === 'Saldo' ? { ...estiloTh, textAlign: 'right' } : estiloTh}>{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {empFiltrados.map(e => (
+                                        <tr key={e.id}>
+                                            <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{e.fecha}</td>
+                                            <td style={{ ...estiloTd, fontWeight: 700 }}>{e.reciclador?.nombre || e.conductor || '—'}</td>
+                                            <td style={estiloTd}>{e.cantidad_entregada > 0 && <Chip tono="verde">Entrega: {e.cantidad_entregada}</Chip>}</td>
+                                            <td style={estiloTd}>{e.cantidad_devuelta > 0 && <Chip tono="rojo">Devolución: {e.cantidad_devuelta}</Chip>}</td>
+                                            <td className="cifra" style={{ ...estiloTdNum, color: e.saldo > 0 ? 'var(--ambar)' : 'var(--verde-osc)' }}>{e.saldo}</td>
+                                            <td style={{ ...estiloTd, color: 'var(--texto-2)' }}>{e.bodega?.nombre}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </ContenedorTabla>
+                    </div>
+                )}
+
+                <div className="solo-movil">
+                    {empFiltrados.map(e => (
+                        <div key={e.id} style={{ padding: '14px 16px', borderBottom: '1px solid var(--borde)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 14, overflowWrap: 'anywhere' }}>{e.reciclador?.nombre || e.conductor || '—'}</div>
+                                    <div style={{ fontSize: 13, color: 'var(--texto-2)', marginTop: 2 }}>{e.fecha}</div>
+                                </div>
+                                <div className="cifra" style={{ color: e.saldo > 0 ? 'var(--ambar)' : 'var(--verde-osc)', fontSize: 16, flexShrink: 0 }}>{e.saldo}</div>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                                {e.cantidad_entregada > 0 && <Chip tono="verde">Entrega: {e.cantidad_entregada}</Chip>}
+                                {e.cantidad_devuelta > 0 && <Chip tono="rojo">Devolución: {e.cantidad_devuelta}</Chip>}
+                                {e.bodega?.nombre && <Chip tono="gris">{e.bodega?.nombre}</Chip>}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Tarjeta>
         </div>
     );
 }
