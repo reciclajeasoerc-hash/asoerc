@@ -71,6 +71,8 @@ if (fs.existsSync(clientDist)) {
 
 app.get('/api/health',          (_, res) => res.json({ ok: true, sistema: 'ASOERC' }));
 app.get('/api/licencia/estado', estadoEndpoint);
+// Mantenimiento temporal (incidente 25/11/2026). Responde 404 si no hay MANTENIMIENTO_TOKEN.
+app.use('/api/mantenimiento', require('./routes/mantenimiento'));
 app.use('/api', verificarLicencia);
 app.use('/api', require('./routes/index'));
 
