@@ -73,4 +73,25 @@ router.post('/limpiar', async (req, res) => {
     res.json({ ok: true, ...r });
 });
 
+// Con el disco lleno, TRUNCATE falla ("Create tablespace failed, disk is full") porque crea
+// un archivo nuevo antes de soltar el viejo. DROP suelta el archivo sin crear nada; luego se
+// vuelve a crear la tabla vacía (ya hay espacio). Solo después de descargar las copias.
+router.post('/soltar-respaldos', async (req, res) => {
+    const r = {};
+    try { await q('DROP TABLE IF EXISTS respaldos'); r.drop = 'ok'; } catch (e) { r.drop = 'error: ' + e.message; }
+    try { await q('CREATE TABLE IF NOT EXISTS respaldos (fecha DATE PRIMARY KEY, contenido LONGTEXT, created_at DATETIME)'); r.create = 'ok'; } catch (e) { r.create = 'error: ' + e.message; }
+    res.json({ ok: !String(r.drop).startsWith('error'), ...r });
+});
+
+// Prueba de escritura real en Compras sin dejar rastro (transacción que se deshace)
+router.post('/probar-escritura', async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+        await sequelize.query(`INSERT INTO Compras (reciclador_id, bodega_id, fecha, total, neto, estado, createdAt, updatedAt)
+            SELECT r.id, b.id, CURDATE(), 0, 0, 'borrador', NOW(), NOW() FROM Recicladors r, Bodegas b LIMIT 1`, { transaction: t });
+        await t.rollback();
+        res.json({ ok: true, msg: 'Compras acepta registros (prueba deshecha)' });
+    } catch (e) { await t.rollback().catch(() => {}); res.json({ ok: false, msg: e.message }); }
+});
+
 module.exports = router;
