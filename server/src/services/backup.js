@@ -42,8 +42,7 @@ async function hacerRespaldo(origen = 'cron') {
 
 function initBackup() {
     console.log('  [Respaldo] Programado: diario + al arrancar');
-    // Durante el mantenimiento no se toca la tabla (primero se descargan todas las copias).
-    if (!process.env.MANTENIMIENTO_TOKEN) setTimeout(() => hacerRespaldo('arranque'), 20000); // uno poco después de cada arranque
+    setTimeout(() => hacerRespaldo('arranque'), 20000);       // uno poco después de cada arranque (no repite si ya hay de hoy)
     setInterval(() => hacerRespaldo('cron'), 24 * 60 * 60 * 1000); // y cada 24h
 }
 
